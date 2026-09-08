@@ -19,7 +19,7 @@ import { GAME_MODE_LABEL } from './gamesStore.js';
 const date = (iso) => (iso ? String(iso).slice(0, 10) : '');
 const round = (n) => (typeof n === 'number' ? Math.round(n) : '');
 
-function playerMasterSheet(players) {
+function playerMasterSheet(players, coachNotes) {
   return players.map((p) => ({
     'Player ID': p.playerId,
     Name: p.name,
@@ -48,7 +48,7 @@ function playerMasterSheet(players) {
     'Preferred Openings': (p.preferredOpenings || []).join(', '),
     Goal: p.goal,
     'Training Focus': p.trainingFocus,
-    'Coach Notes': p.coachNotes,
+    'Coach Notes': coachNotes?.[p.playerId] ?? p.coachNotes ?? '',
     'Has Account': p.userId ? 'Yes' : 'No',
   }));
 }
@@ -174,12 +174,12 @@ function addSheet(XLSX, book, name, rows, fallbackHeaders) {
  * megabyte, and only the coach ever exports, so nobody else should pay to
  * download it.
  */
-export async function exportWorkbook(players, games) {
+export async function exportWorkbook(players, games, { coachNotes } = {}) {
   const XLSX = await import('xlsx');
   const book = XLSX.utils.book_new();
 
   addSheet(XLSX, book, 'Club Summary', clubSummarySheet(players, games), ['Metric', 'Value']);
-  addSheet(XLSX, book, 'Player Master', playerMasterSheet(players), ['Player ID', 'Name']);
+  addSheet(XLSX, book, 'Player Master', playerMasterSheet(players, coachNotes), ['Player ID', 'Name']);
   addSheet(XLSX, book, 'Skill Assessments', skillAssessmentSheet(players), ['Player ID', 'Name', 'Date']);
   addSheet(XLSX, book, 'Ratings Log', ratingsLogSheet(players), ['Player ID', 'Name', 'Date']);
   addSheet(XLSX, book, 'Games', gamesSheet(games), ['Date', 'White', 'Black', 'Result']);

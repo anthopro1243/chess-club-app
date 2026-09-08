@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs"
+    "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs && node supabase/rls-test.mjs",
+    "test:rls": "node supabase/rls-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

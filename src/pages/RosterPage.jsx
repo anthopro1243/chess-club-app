@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
 import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
+import { useAccount } from '../data/accountStore.js';
+import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
 
@@ -21,6 +23,8 @@ const emptyForm = { name: '', grade: '', boardRole: '', commitment: 'Casual', us
 export default function RosterPage() {
   const players = usePlayers();
   const cloud = useCloudStatus();
+  const account = useAccount();
+  const coachNotes = useCoachNotes();
   const [selectedId, setSelectedId] = useState(players[0]?.playerId ?? null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -33,6 +37,11 @@ export default function RosterPage() {
     if (!selected && players.length) setSelectedId(players[0].playerId);
   }, [players, selected]);
 
+  // Notes written before they moved off the player row.
+  useEffect(() => {
+    if (players.length) seedCoachNotesFromPlayers(players);
+  }, [players]);
+
   const startEdit = () => {
     if (!selected) return;
     setDraft({
@@ -43,7 +52,7 @@ export default function RosterPage() {
       style: selected.style,
       goal: selected.goal,
       trainingFocus: selected.trainingFocus,
-      coachNotes: selected.coachNotes,
+      coachNotes: coachNotes[selected.playerId] || '',
       rubric: { ...selected.rubric },
     });
     setEditing(true);
@@ -51,9 +60,10 @@ export default function RosterPage() {
 
   const saveEdit = () => {
     if (!selected || !draft) return;
-    const { rubric, ...rest } = draft;
+    const { rubric, coachNotes: note, ...rest } = draft;
     updatePlayer(selected.playerId, rest);
     updateRubric(selected.playerId, rubric);
+    if (account.isCoach) setCoachNote(selected.playerId, note);
     setEditing(false);
     setDraft(null);
   };
@@ -277,12 +287,22 @@ export default function RosterPage() {
                 onChange={(e) => setDraft((d) => ({ ...d, trainingFocus: e.target.value }))}
               />
 
-              <h3>Coach notes</h3>
-              <textarea
-                className="text-area"
-                value={draft.coachNotes}
-                onChange={(e) => setDraft((d) => ({ ...d, coachNotes: e.target.value }))}
-              />
+              {account.isCoach && (
+                <>
+                  <h3>
+                    Coach notes
+                    <InfoTooltip>
+                      Only coaches can read these. They live in a separate table the players'
+                      accounts have no access to, not just a hidden panel.
+                    </InfoTooltip>
+                  </h3>
+                  <textarea
+                    className="text-area"
+                    value={draft.coachNotes}
+                    onChange={(e) => setDraft((d) => ({ ...d, coachNotes: e.target.value }))}
+                  />
+                </>
+              )}
 
               <div className="button-grid">
                 <button type="button" className="primary" onClick={saveEdit}>
@@ -345,8 +365,18 @@ export default function RosterPage() {
               <h3>Training focus</h3>
               <p>{selected.trainingFocus || '—'}</p>
 
-              <h3>Coach notes</h3>
-              <p className="notes">{selected.coachNotes || '—'}</p>
+              {account.isCoach && (
+                <>
+                  <h3>
+                    Coach notes
+                    <InfoTooltip>
+                      Only coaches can read these. They live in a separate table the players'
+                      accounts have no access to, not just a hidden panel.
+                    </InfoTooltip>
+                  </h3>
+                  <p className="notes">{coachNotes[selected.playerId] || '—'}</p>
+                </>
+              )}
 
               <h3>Puzzle training</h3>
               <p>

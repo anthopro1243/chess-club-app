@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.js';
 import ConnectionsModal from './ConnectionsModal.jsx';
+import { useAccount, redeemInvite } from '../data/accountStore.js';
 import {
   signInWithPassword,
   signUpWithPassword,
@@ -24,6 +25,7 @@ const MIN_PASSWORD_LENGTH = 8;
 export default function AccountControl() {
   const cloud = useCloudStatus();
   const profile = useMyProfile();
+  const account = useAccount();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot' | 'magiclink'
   const [showConnections, setShowConnections] = useState(false);
@@ -56,8 +58,9 @@ export default function AccountControl() {
           {!cloud.signedIn && mode === 'magiclink' && (
             <MagicLinkForm onSwitch={setMode} />
           )}
-          {cloud.signedIn && !profile && <ClaimProfileForm onDone={close} />}
-          {cloud.signedIn && profile && (
+          {cloud.signedIn && !account.loading && !account.isApproved && <AwaitingApproval />}
+          {cloud.signedIn && account.isApproved && !profile && <ClaimProfileForm onDone={close} />}
+          {cloud.signedIn && account.isApproved && profile && (
             <AccountSummary
               cloud={cloud}
               profile={profile}
@@ -314,6 +317,57 @@ function MagicLinkForm({ onSwitch }) {
       {status && status !== 'sending' && <span className="hint-text">{status}</span>}
       <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
         Back to sign in
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Shown to an account that has signed up but is not approved yet. Signing up
+ * no longer gets you in on its own: either a coach approves the account, or
+ * an invite code does it immediately. Until then the database returns
+ * nothing, so there is nothing useful to render here anyway.
+ */
+function AwaitingApproval() {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!code.trim()) return;
+    setError('');
+    setBusy(true);
+    try {
+      await redeemInvite(code);
+    } catch (err) {
+      setError(err.message || 'That code did not work.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="signin-form" onSubmit={submit}>
+      <p className="hint-text">
+        Your account is waiting for a coach to approve it. If you were given an invite code, enter
+        it here and you are in straight away.
+      </p>
+      <input
+        type="text"
+        placeholder="Invite code"
+        value={code}
+        onChange={(e) => {
+          setCode(e.target.value.toUpperCase());
+          setError('');
+        }}
+      />
+      {error && <span className="hint-text auth-error">{error}</span>}
+      <button type="submit" className="primary" disabled={busy}>
+        {busy ? 'Checking…' : 'Use code'}
+      </button>
+      <button type="button" className="link-button" onClick={() => signOut()}>
+        Sign out
       </button>
     </form>
   );

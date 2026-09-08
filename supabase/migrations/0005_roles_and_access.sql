@@ -192,6 +192,11 @@ create table if not exists public.coach_notes (
 
 create index if not exists coach_notes_player_idx on public.coach_notes (player_id);
 
+-- One current note per player, matching how the roster panel edits it. The
+-- table keeps an id and timestamps so a per-session note history can be
+-- added later without another migration.
+create unique index if not exists coach_notes_player_key on public.coach_notes (player_id);
+
 alter table public.coach_notes enable row level security;
 
 drop policy if exists "Only coaches touch coach notes" on public.coach_notes;

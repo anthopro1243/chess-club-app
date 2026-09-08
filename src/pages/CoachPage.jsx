@@ -4,6 +4,8 @@ import { usePlayers, recordAssessment, setAttendance } from '../data/rosterStore
 import { useGames } from '../data/gamesStore.js';
 import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
+import MemberApproval from '../components/MemberApproval.jsx';
+import { useCoachNotes } from '../data/coachNotesStore.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -51,6 +53,7 @@ function RatingTrend({ history }) {
 export default function CoachPage() {
   const players = usePlayers();
   const games = useGames();
+  const coachNotes = useCoachNotes();
   const [sessionDate, setSessionDate] = useState(today);
   const [assessingId, setAssessingId] = useState(null);
   const [draftRubric, setDraftRubric] = useState({});
@@ -96,6 +99,8 @@ export default function CoachPage() {
 
   return (
     <div className="dashboard">
+      <MemberApproval />
+
       <section className="panel">
         <div className="panel-header">
           <h2>
@@ -111,7 +116,7 @@ export default function CoachPage() {
             onClick={async () => {
               flash('Building spreadsheet…');
               try {
-                const name = await exportWorkbook(players, games);
+                const name = await exportWorkbook(players, games, { coachNotes });
                 flash(`Exported ${name}`);
               } catch (error) {
                 flash(`Export failed: ${error.message}`);

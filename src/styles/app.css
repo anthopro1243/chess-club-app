@@ -418,6 +418,13 @@ code {
   color: var(--good);
 }
 
+.badge.warn {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 .theme-toggle:hover {
   color: var(--text);
   border-color: var(--text-faint);
