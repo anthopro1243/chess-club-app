@@ -1,14 +1,23 @@
 /*
- * rosterStore.js — the roster, made real.
+ * rosterStore.js — the roster, made real, and now optionally shared.
  *
  * roster.js still holds the sample players and the rubric math; this module
- * seeds a persistent store from that sample the first time the app runs in a
- * browser, then owns all reads and writes from there on. Everything a club
- * does with the roster — add a player, edit their rubric, log a solved
- * puzzle — goes through the functions here so every page sees the same data.
+ * seeds a persistent local store from that sample the first time the app
+ * runs in a browser, then owns all reads and writes from there on. Every
+ * exported function keeps the same signature whether or not a backend is
+ * connected — add a player, edit their rubric, log a solved puzzle — so no
+ * page needs to know or care which mode it's running in.
+ *
+ * With no Supabase project configured (see supabaseClient.js), everything
+ * stays in this browser, same as before. Once one is configured and a
+ * signed-in session exists, this module fetches the shared table, mirrors
+ * every local write to it, and subscribes to Realtime so every open tab —
+ * on any device — sees changes as they land.
  */
 
+import { useEffect, useState } from 'react';
 import { createStore, useStore } from './store.js';
+import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
 
 const store = createStore('cc-roster-v1', SAMPLE_PLAYERS);
@@ -20,6 +29,125 @@ export function usePlayers() {
 export function getPlayers() {
   return store.get();
 }
+
+// -- cloud sync --------------------------------------------------------
+
+let cloudReady = false;
+let channel = null;
+
+function fromRow(row) {
+  return {
+    playerId: row.player_id,
+    name: row.name,
+    grade: row.grade || '',
+    joined: row.joined || '',
+    boardRole: row.board_role || '',
+    commitment: row.commitment || 'Casual',
+    ratings: row.ratings || {},
+    preferredOpenings: row.preferred_openings || [],
+    style: row.style || '',
+    rubric: row.rubric || {},
+    goal: row.goal || '',
+    trainingFocus: row.training_focus || '',
+    coachNotes: row.coach_notes || '',
+    puzzleStats: row.puzzle_stats || { solvedIds: [], attempts: 0, lastPlayed: null },
+  };
+}
+
+function toRow(player) {
+  return {
+    player_id: player.playerId,
+    name: player.name,
+    grade: player.grade,
+    joined: player.joined || null,
+    board_role: player.boardRole,
+    commitment: player.commitment,
+    ratings: player.ratings,
+    preferred_openings: player.preferredOpenings,
+    style: player.style,
+    rubric: player.rubric,
+    goal: player.goal,
+    training_focus: player.trainingFocus,
+    coach_notes: player.coachNotes,
+    puzzle_stats: player.puzzleStats,
+  };
+}
+
+async function syncFromCloud() {
+  const { data, error } = await supabase.from('players').select('*').order('player_id');
+  if (error) {
+    console.error('Roster fetch from Supabase failed:', error.message);
+    return;
+  }
+  cloudReady = true;
+  store.set(data.map(fromRow));
+}
+
+function subscribeRealtime() {
+  if (channel) return;
+  channel = supabase
+    .channel('players-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
+      syncFromCloud();
+    })
+    .subscribe();
+}
+
+function unsubscribeRealtime() {
+  if (!channel) return;
+  supabase.removeChannel(channel);
+  channel = null;
+}
+
+if (isSupabaseConfigured) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      syncFromCloud();
+      subscribeRealtime();
+    } else {
+      cloudReady = false;
+      unsubscribeRealtime();
+    }
+  });
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      syncFromCloud();
+      subscribeRealtime();
+    }
+  });
+}
+
+function cloudActive() {
+  return isSupabaseConfigured && cloudReady;
+}
+
+async function pushToCloud(player) {
+  if (!cloudActive() || !player) return;
+  const { error } = await supabase.from('players').upsert(toRow(player));
+  if (error) console.error('Roster sync to Supabase failed:', error.message);
+}
+
+async function deleteFromCloud(playerId) {
+  if (!cloudActive()) return;
+  const { error } = await supabase.from('players').delete().eq('player_id', playerId);
+  if (error) console.error('Roster delete from Supabase failed:', error.message);
+}
+
+/** Whether the roster is backed by a live, shared connection right now. */
+export function useCloudStatus() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  return { configured: isSupabaseConfigured, signedIn: !!session, email: session?.user?.email };
+}
+
+// -- reads and writes ----------------------------------------------------
 
 function nextPlayerId(players) {
   const numbers = players
@@ -34,11 +162,10 @@ const emptyRubric = () =>
 
 /** Add a player from a partial form object. Returns the new playerId. */
 export function addPlayer(partial) {
-  let createdId = null;
+  let created = null;
   store.set((players) => {
     const playerId = nextPlayerId(players);
-    createdId = playerId;
-    const player = {
+    created = {
       playerId,
       name: partial.name?.trim() || 'New player',
       grade: partial.grade?.trim() || '',
@@ -59,31 +186,44 @@ export function addPlayer(partial) {
       coachNotes: '',
       puzzleStats: { solvedIds: [], attempts: 0, lastPlayed: null },
     };
-    return [...players, player];
+    return [...players, created];
   });
-  return createdId;
+  pushToCloud(created);
+  return created.playerId;
 }
 
 export function updatePlayer(playerId, patch) {
+  let updated = null;
   store.set((players) =>
-    players.map((p) => (p.playerId === playerId ? { ...p, ...patch } : p)),
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      updated = { ...p, ...patch };
+      return updated;
+    }),
   );
+  pushToCloud(updated);
 }
 
 export function updateRubric(playerId, rubricPatch) {
+  let updated = null;
   store.set((players) =>
-    players.map((p) =>
-      p.playerId === playerId ? { ...p, rubric: { ...p.rubric, ...rubricPatch } } : p,
-    ),
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      updated = { ...p, rubric: { ...p.rubric, ...rubricPatch } };
+      return updated;
+    }),
   );
+  pushToCloud(updated);
 }
 
 export function removePlayer(playerId) {
   store.set((players) => players.filter((p) => p.playerId !== playerId));
+  deleteFromCloud(playerId);
 }
 
 /** Called when a trainee solves a puzzle — writes the result onto their row. */
 export function recordPuzzleSolved(playerId, puzzleId) {
+  let updated = null;
   store.set((players) =>
     players.map((p) => {
       if (p.playerId !== playerId) return p;
@@ -91,7 +231,7 @@ export function recordPuzzleSolved(playerId, puzzleId) {
       const solvedIds = stats.solvedIds.includes(puzzleId)
         ? stats.solvedIds
         : [...stats.solvedIds, puzzleId];
-      return {
+      updated = {
         ...p,
         puzzleStats: {
           solvedIds,
@@ -99,8 +239,10 @@ export function recordPuzzleSolved(playerId, puzzleId) {
           lastPlayed: new Date().toISOString(),
         },
       };
+      return updated;
     }),
   );
+  pushToCloud(updated);
 }
 
 export function resetRoster() {

@@ -1096,6 +1096,29 @@ button.primary:hover:not(:disabled) {
   color: var(--text);
 }
 
+/* ---------- cloud sync ---------------------------------------------------- */
+
+.cloud-panel {
+  grid-column: 1 / -1;
+}
+
+.badge.cloud-on {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.signin-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.signin-form input {
+  flex: 1;
+  min-width: 200px;
+}
+
 /* ---------- form controls ------------------------------------------------ */
 
 select,
