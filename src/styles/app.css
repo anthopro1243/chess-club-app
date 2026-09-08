@@ -999,6 +999,12 @@ button.primary:hover:not(:disabled) {
   margin-right: 8px;
 }
 
+.puzzle-rating {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  margin-left: 8px;
+}
+
 .puzzle-prompt {
   color: var(--text-muted);
   font-size: 0.86rem;
@@ -1134,6 +1140,23 @@ textarea:focus {
 
 .field-wide {
   grid-column: 1 / -1;
+}
+
+.field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.checkbox-field {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-field input[type='checkbox'] {
+  width: auto;
+  accent-color: var(--accent);
 }
 
 .panel-header-actions {

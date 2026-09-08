@@ -1,30 +1,70 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import Board from '../components/Board.jsx';
-import { MATE_IN_ONE } from '../data/puzzles.js';
+import PromotionDialog from '../components/PromotionDialog.jsx';
+import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
 import { usePlayers, recordPuzzleSolved } from '../data/rosterStore.js';
 
 const TRAINEE_KEY = 'cc-trainee';
 
+const prettyTheme = (theme) =>
+  theme
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+    .replace(/^./, (c) => c.toUpperCase())
+    .replace(/\b(In|Vs)\b/g, (w) => w.toLowerCase());
+
+const sameMove = (a, b) =>
+  !!a && !!b && a.from === b.from && a.to === b.to && (a.promotion || undefined) === (b.promotion || undefined);
+
 /**
- * TrainingPage — a working mate-in-one trainer plus the outline of the
- * training loop.
- *
- * Correctness is decided by the engine, not by a stored answer key: the move
- * is played and the position is asked whether it is checkmate. Any move that
- * mates is accepted.
+ * TrainingPage — a puzzle trainer over real tactics from Lichess's open
+ * puzzle database (src/data/puzzles.js). Each puzzle is a forced line, not
+ * just a single mating move: the trainee's move is checked against the
+ * recorded solution, the opponent's reply is played automatically, and the
+ * puzzle is solved once the whole line has been played out.
  */
 export default function TrainingPage() {
+  const [themeFilter, setThemeFilter] = useState('');
+  const filtered = useMemo(
+    () => (themeFilter ? PUZZLES.filter((p) => p.themes.includes(themeFilter)) : PUZZLES),
+    [themeFilter],
+  );
+
   const [index, setIndex] = useState(0);
-  const puzzle = MATE_IN_ONE[index];
+  useEffect(() => setIndex(0), [themeFilter]);
+  const puzzle = filtered[Math.min(index, filtered.length - 1)];
 
   const gameRef = useRef(new Chess(puzzle.fen));
   const [, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
+  const [solutionIndex, setSolutionIndex] = useState(0);
   const [result, setResult] = useState(null); // 'solved' | 'wrong' | null
   const [showHint, setShowHint] = useState(false);
+  const [pendingPromotion, setPendingPromotion] = useState(null);
   const [sessionSolved, setSessionSolved] = useState(() => new Set());
+
+  const resetBoard = useCallback(
+    (p) => {
+      gameRef.current = new Chess(p.fen);
+      setSolutionIndex(0);
+      setResult(null);
+      setShowHint(false);
+      setPendingPromotion(null);
+      bump();
+    },
+    [bump],
+  );
+
+  // Whenever the active puzzle actually changes — theme filter, next/prev,
+  // random — reset the board. Keyed on id rather than index so a filter
+  // change (which can leave `index` at 0 while pointing at a new puzzle)
+  // still resets correctly.
+  useEffect(() => {
+    resetBoard(puzzle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzle.id]);
 
   const players = usePlayers();
   const [traineeId, setTraineeId] = useState(() => {
@@ -47,55 +87,85 @@ export default function TrainingPage() {
     () => (trainee ? new Set(trainee.puzzleStats?.solvedIds || []) : sessionSolved),
     [trainee, sessionSolved],
   );
+  const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
 
   const loadPuzzle = useCallback(
     (nextIndex) => {
-      const wrapped = (nextIndex + MATE_IN_ONE.length) % MATE_IN_ONE.length;
-      setIndex(wrapped);
-      gameRef.current = new Chess(MATE_IN_ONE[wrapped].fen);
-      setResult(null);
-      setShowHint(false);
-      bump();
+      if (!filtered.length) return;
+      setIndex((nextIndex + filtered.length) % filtered.length);
     },
-    [bump],
+    [filtered.length],
   );
+
+  const randomPuzzle = () => loadPuzzle(Math.floor(Math.random() * filtered.length));
 
   const game = gameRef.current;
   const orientation = useMemo(() => new Chess(puzzle.fen).turn, [puzzle.fen]);
 
-  const handleMove = ({ from, to }) => {
-    if (result === 'solved') return;
-    const played = game.move({ from, to, promotion: 'q' });
+  const attemptMove = ({ from, to, promotion }) => {
+    const played = game.move({ from, to, promotion });
     if (!played) return;
 
-    if (game.isCheckmate()) {
+    const expected = puzzle.solution[solutionIndex];
+    if (!sameMove(played, expected)) {
+      setResult('wrong');
+      bump();
+      setTimeout(() => {
+        game.undo();
+        setResult(null);
+        bump();
+      }, 700);
+      return;
+    }
+
+    const nextIndex = solutionIndex + 1;
+    if (nextIndex >= puzzle.solution.length) {
+      setSolutionIndex(nextIndex);
       setResult('solved');
-      if (trainee) {
-        recordPuzzleSolved(trainee.playerId, puzzle.id);
-      } else {
-        setSessionSolved((prev) => new Set(prev).add(puzzle.id));
-      }
+      if (trainee) recordPuzzleSolved(trainee.playerId, puzzle.id);
+      else setSessionSolved((prev) => new Set(prev).add(puzzle.id));
       bump();
       return;
     }
 
-    // Not mate — put the piece back and let them try again.
-    setResult('wrong');
+    setSolutionIndex(nextIndex);
     bump();
+
+    // Auto-play the opponent's forced reply.
     setTimeout(() => {
-      game.undo();
-      setResult(null);
+      game.move(puzzle.solution[nextIndex]);
+      setSolutionIndex(nextIndex + 1);
       bump();
-    }, 700);
+    }, 500);
+  };
+
+  const handleMove = ({ from, to }) => {
+    if (result === 'solved') return;
+    const options = game.moves({ square: from, verbose: true }).filter((m) => m.to === to);
+    if (options.length === 0) return;
+    if (options[0].promotion) {
+      setPendingPromotion({ from, to, color: options[0].color });
+      return;
+    }
+    attemptMove({ from, to });
+  };
+
+  const completePromotion = (type) => {
+    const move = { ...pendingPromotion, promotion: type };
+    setPendingPromotion(null);
+    attemptMove(move);
   };
 
   const reveal = () => {
-    const mate = game.moves().find((san) => san.endsWith('#'));
-    if (!mate) return;
-    game.move(mate);
+    for (let i = solutionIndex; i < puzzle.solution.length; i += 1) {
+      game.move(puzzle.solution[i]);
+    }
+    setSolutionIndex(puzzle.solution.length);
     setResult('solved');
     bump();
   };
+
+  const waitingOnOpponent = result === null && solutionIndex > 0 && game.turn !== orientation && solutionIndex < puzzle.solution.length;
 
   return (
     <div className="training-layout">
@@ -103,16 +173,19 @@ export default function TrainingPage() {
         <div className={`puzzle-banner ${result || ''}`}>
           <div>
             <span className="puzzle-counter mono">
-              {index + 1} / {MATE_IN_ONE.length}
+              {index + 1} / {filtered.length}
             </span>
             <strong>{puzzle.name}</strong>
+            <span className="puzzle-rating mono">{puzzle.rating}</span>
           </div>
           <span className="puzzle-prompt">
             {result === 'solved'
-              ? 'Checkmate — solved'
+              ? 'Solved'
               : result === 'wrong'
-                ? 'Not mate. Try again.'
-                : `${orientation === 'w' ? 'White' : 'Black'} to play and mate in one`}
+                ? 'Not the move. Try again.'
+                : waitingOnOpponent
+                  ? 'Opponent is replying…'
+                  : `${orientation === 'w' ? 'White' : 'Black'} to play`}
           </span>
         </div>
 
@@ -120,15 +193,18 @@ export default function TrainingPage() {
           game={game}
           orientation={orientation}
           onMove={handleMove}
-          interactive={result !== 'solved'}
+          interactive={result !== 'solved' && !waitingOnOpponent}
         />
 
         <div className="puzzle-controls">
           <button type="button" onClick={() => loadPuzzle(index - 1)}>
             &lsaquo; Previous
           </button>
-          <button type="button" onClick={() => loadPuzzle(index)}>
+          <button type="button" onClick={() => resetBoard(puzzle)}>
             Reset
+          </button>
+          <button type="button" onClick={randomPuzzle}>
+            Random
           </button>
           <button type="button" onClick={() => setShowHint(true)} disabled={showHint}>
             Hint
@@ -167,27 +243,23 @@ export default function TrainingPage() {
         </div>
 
         <div className="panel-block">
+          <h2>Theme</h2>
+          <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)}>
+            <option value="">All themes ({PUZZLES.length} puzzles)</option>
+            {PUZZLE_THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {prettyTheme(theme)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="panel-block">
           <h2>{trainee ? `${trainee.name}'s progress` : 'Progress this session'}</h2>
           <p className="big-number">
-            {solvedIds.size}
-            <span> / {MATE_IN_ONE.length} solved</span>
+            {solvedInFilter}
+            <span> / {filtered.length} solved{themeFilter ? ` (${prettyTheme(themeFilter)})` : ''}</span>
           </p>
-          <ul className="puzzle-index">
-            {MATE_IN_ONE.map((item, itemIndex) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className={`puzzle-chip ${solvedIds.has(item.id) ? 'solved' : ''} ${
-                    itemIndex === index ? 'current' : ''
-                  }`}
-                  onClick={() => loadPuzzle(itemIndex)}
-                >
-                  {itemIndex + 1}
-                </button>
-                <span className="puzzle-theme">{item.theme}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
         <div className="panel-block">
@@ -212,6 +284,14 @@ export default function TrainingPage() {
           </ol>
         </div>
       </aside>
+
+      {pendingPromotion && (
+        <PromotionDialog
+          color={pendingPromotion.color}
+          onChoose={completePromotion}
+          onCancel={() => setPendingPromotion(null)}
+        />
+      )}
     </div>
   );
 }

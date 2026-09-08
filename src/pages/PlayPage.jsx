@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
-import { DIFFICULTIES } from '../engine/ai.js';
+import { createEngine } from '../engine/stockfishClient.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
@@ -8,7 +8,9 @@ import Piece from '../components/Piece.jsx';
 
 const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNTS = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
-const SAVE_KEY = 'cc-play-state-v1';
+const SAVE_KEY = 'cc-play-state-v2';
+const THINK_TIME_MS = { fast: 600, normal: 1200, deep: 3000 };
+const DEFAULT_ELO_RANGE = { min: 1320, max: 3190, default: 1500 };
 
 function loadSavedState() {
   try {
@@ -98,28 +100,25 @@ export default function PlayPage() {
 
   const [mode, setMode] = useState(saved?.mode === 'computer' ? 'computer' : 'human');
   const [computerColor, setComputerColor] = useState(saved?.computerColor === 'w' ? 'w' : 'b');
-  const [difficulty, setDifficulty] = useState(
-    DIFFICULTIES.includes(saved?.difficulty) ? saved.difficulty : 'medium',
+  const [elo, setElo] = useState(typeof saved?.elo === 'number' ? saved.elo : DEFAULT_ELO_RANGE.default);
+  const [maxStrength, setMaxStrength] = useState(saved?.maxStrength === true);
+  const [thinkTime, setThinkTime] = useState(
+    THINK_TIME_MS[saved?.thinkTime] ? saved.thinkTime : 'normal',
   );
+  const [eloRange, setEloRange] = useState(DEFAULT_ELO_RANGE);
   const [thinking, setThinking] = useState(false);
-  const workerRef = useRef(null);
+  const engineRef = useRef(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    const worker = new Worker(new URL('../engine/aiWorker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (event) => {
-      const { requestId, move } = event.data;
-      if (requestId !== requestIdRef.current) return; // a new game or undo overtook this reply
-      setThinking(false);
-      if (move) {
-        gameRef.current.move(move);
-        setViewPly(null);
-        bump();
-      }
-    };
-    workerRef.current = worker;
-    return () => worker.terminate();
-  }, [bump]);
+    const engine = createEngine();
+    engineRef.current = engine;
+    engine.eloRange().then((range) => {
+      setEloRange(range);
+      setElo((current) => Math.min(Math.max(current, range.min), range.max));
+    });
+    return () => engine.terminate();
+  }, []);
 
   // How this build can hand the viewer a file. Running from a local folder or
   // any normal web host that is an ordinary blob download. When the page is
@@ -163,9 +162,20 @@ export default function PlayPage() {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setThinking(true);
-    workerRef.current?.postMessage({ requestId, fen: live.fen(), difficulty });
+    const fen = live.fen();
+    engineRef.current
+      ?.bestMove(fen, { elo: maxStrength ? null : elo, movetimeMs: THINK_TIME_MS[thinkTime] })
+      .then((move) => {
+        if (requestId !== requestIdRef.current) return; // a new game or undo overtook this reply
+        setThinking(false);
+        if (move) {
+          gameRef.current.move(move);
+          setViewPly(null);
+          bump();
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, computerColor, difficulty, atLive, status.over, pendingPromotion, live.fen()]);
+  }, [mode, computerColor, maxStrength, elo, thinkTime, atLive, status.over, pendingPromotion, live.fen()]);
 
   useEffect(() => {
     try {
@@ -176,7 +186,9 @@ export default function PlayPage() {
           names,
           mode,
           computerColor,
-          difficulty,
+          elo,
+          maxStrength,
+          thinkTime,
           orientation,
         }),
       );
@@ -184,7 +196,7 @@ export default function PlayPage() {
       /* storage can be unavailable; the game still plays for this visit */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), names, mode, computerColor, difficulty, orientation]);
+  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation]);
 
   const flash = (message) => {
     setToast(message);
@@ -219,6 +231,7 @@ export default function PlayPage() {
       return;
     }
     requestIdRef.current += 1; // orphan any AI reply still in flight
+    engineRef.current?.abortCurrent();
     setThinking(false);
     gameRef.current = new Chess();
     setViewPly(null);
@@ -342,14 +355,35 @@ export default function PlayPage() {
                     <option value="b">Black</option>
                   </select>
                 </label>
+                <label className="field field-wide">
+                  <span>
+                    Strength{' '}
+                    {maxStrength ? '(maximum — no Elo limit)' : `(Stockfish Elo ${elo})`}
+                  </span>
+                  <input
+                    type="range"
+                    min={eloRange.min}
+                    max={eloRange.max}
+                    step={10}
+                    value={elo}
+                    disabled={maxStrength}
+                    onChange={(event) => setElo(Number(event.target.value))}
+                  />
+                </label>
+                <label className="field checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={maxStrength}
+                    onChange={(event) => setMaxStrength(event.target.checked)}
+                  />
+                  <span>Maximum strength (no Elo limit)</span>
+                </label>
                 <label className="field">
-                  <span>Difficulty</span>
-                  <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
-                    {DIFFICULTIES.map((level) => (
-                      <option key={level} value={level}>
-                        {level[0].toUpperCase() + level.slice(1)}
-                      </option>
-                    ))}
+                  <span>Thinking time</span>
+                  <select value={thinkTime} onChange={(event) => setThinkTime(event.target.value)}>
+                    <option value="fast">Fast (0.6s/move)</option>
+                    <option value="normal">Normal (1.2s/move)</option>
+                    <option value="deep">Deep (3s/move)</option>
                   </select>
                 </label>
               </>
