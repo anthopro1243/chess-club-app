@@ -4,6 +4,7 @@ import PlayPage from './pages/PlayPage.jsx';
 import RosterPage from './pages/RosterPage.jsx';
 import TrainingPage from './pages/TrainingPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
+import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
@@ -26,6 +27,38 @@ const routeFromHash = () => {
  */
 export default function App() {
   const [route, setRoute] = useState(routeFromHash);
+  const [authNotice, setAuthNotice] = useState(null);
+
+  // Supabase redirects auth outcomes back here via the URL hash — the same
+  // place our own routing looks. A successful sign-in's tokens are handled
+  // by the Supabase client itself; what we handle here is the failure case
+  // (an expired or already-used link), which Supabase also reports via the
+  // hash and which would otherwise be silently swallowed by routeFromHash
+  // falling back to "home" with no explanation.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.includes('error=')) return;
+    const params = new URLSearchParams(hash.replace(/^#\/?/, ''));
+    const description = (params.get('error_description') || 'That sign-in link no longer works.').replace(
+      /\+/g,
+      ' ',
+    );
+    setAuthNotice({ kind: 'error', message: `${description} Request a new one from Sign in.` });
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+
+  // A successful link click also lands here via the hash, but as tokens
+  // the Supabase client consumes itself — we only need to know it happened,
+  // to say so. Only for this landing (hadAuthHash), not every ordinary
+  // visit where a session is simply already cached.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !window.location.hash.includes('access_token')) return undefined;
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') setAuthNotice({ kind: 'success', message: "You're signed in." });
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   const [theme, setTheme] = useState(() => {
     // A saved choice wins; otherwise follow the host page, then the OS.
     try {
@@ -98,6 +131,15 @@ export default function App() {
           {theme === 'dark' ? 'Light' : 'Dark'}
         </button>
       </header>
+
+      {authNotice && (
+        <div className={`auth-banner ${authNotice.kind}`}>
+          <span>{authNotice.message}</span>
+          <button type="button" onClick={() => setAuthNotice(null)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
 
       <main className="content">
         {route === 'home' && <DashboardPage onNavigate={navigate} />}
