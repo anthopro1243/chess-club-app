@@ -259,6 +259,66 @@ code {
   margin: 0 0 6px;
 }
 
+.password-field {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-sunken);
+}
+
+.password-field input {
+  border: none;
+  background: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.password-field input:focus {
+  outline: none;
+}
+
+.password-toggle {
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.password-toggle:hover {
+  color: var(--text-muted);
+}
+
+.auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.auth-error {
+  color: var(--bad);
+}
+
+.auth-modal {
+  width: 300px;
+}
+
+.auth-modal .signin-form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.auth-modal .signin-form input {
+  width: 100%;
+}
+
 .theme-toggle:hover {
   color: var(--text);
   border-color: var(--text-faint);

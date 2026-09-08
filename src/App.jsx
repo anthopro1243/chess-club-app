@@ -6,6 +6,7 @@ import TrainingPage from './pages/TrainingPage.jsx';
 import GamesPage from './pages/GamesPage.jsx';
 import CoachPage from './pages/CoachPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
+import ResetPasswordModal from './components/ResetPasswordModal.jsx';
 import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 
 const ROUTES = [
@@ -32,6 +33,7 @@ const routeFromHash = () => {
 export default function App() {
   const [route, setRoute] = useState(routeFromHash);
   const [authNotice, setAuthNotice] = useState(null);
+  const [passwordResetActive, setPasswordResetActive] = useState(false);
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
   // place our own routing looks. A successful sign-in's tokens are handled
@@ -55,9 +57,16 @@ export default function App() {
   // A successful link click also lands here via the hash, but as tokens
   // the Supabase client consumes itself — we only need to know it happened,
   // to say so. Only for this landing (hadAuthHash), not every ordinary
-  // visit where a session is simply already cached.
+  // visit where a session is simply already cached. A password-reset link
+  // carries the same access_token shape but type=recovery — that's not a
+  // "you're signed in" moment, it's "now set a new password", so it's
+  // handled separately by opening the reset modal instead of the banner.
   useEffect(() => {
     if (!isSupabaseConfigured || !window.location.hash.includes('access_token')) return undefined;
+    if (window.location.hash.includes('type=recovery')) {
+      setPasswordResetActive(true);
+      return undefined;
+    }
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') setAuthNotice({ kind: 'success', message: "You're signed in." });
     });
@@ -159,6 +168,20 @@ export default function App() {
         <span>Chess Club app — v0.1</span>
         <span>Rules engine verified against standard perft counts.</span>
       </footer>
+
+      {passwordResetActive && (
+        <ResetPasswordModal
+          onDone={() => {
+            setPasswordResetActive(false);
+            setAuthNotice({ kind: 'success', message: 'Password updated — you are signed in.' });
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }}
+          onCancel={() => {
+            setPasswordResetActive(false);
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }}
+        />
+      )}
     </div>
   );
 }

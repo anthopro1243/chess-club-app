@@ -1,21 +1,37 @@
 import { useState } from 'react';
 import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.js';
-import { signInWithEmail, signOut } from '../data/auth.js';
+import {
+  signInWithPassword,
+  signUpWithPassword,
+  sendPasswordReset,
+  updatePassword,
+  signInWithEmail,
+  signOut,
+} from '../data/auth.js';
+
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * AccountControl — the sign-in / account button in the top bar.
  *
  * Renders nothing when no backend is configured (accounts are inherently a
- * shared-backend feature). Otherwise walks through three states: signed
- * out (email magic link), signed in with no player row yet (claim one),
- * and signed in with a profile (name, rating, sign out).
+ * shared-backend feature). Otherwise walks through: signed out (sign in /
+ * create account / forgot password / magic link, one at a time), signed in
+ * with no player row yet (claim one), and signed in with a profile (name,
+ * rating, change password, sign out).
  */
 export default function AccountControl() {
   const cloud = useCloudStatus();
   const profile = useMyProfile();
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot' | 'magiclink'
 
   if (!cloud.configured) return null;
+
+  const close = () => {
+    setOpen(false);
+    setMode('signin');
+  };
 
   return (
     <div className="account-control">
@@ -26,36 +42,225 @@ export default function AccountControl() {
 
       {open && (
         <div className="account-popover">
-          {!cloud.signedIn && <SignInForm onDone={() => setOpen(false)} />}
-          {cloud.signedIn && !profile && <ClaimProfileForm onDone={() => setOpen(false)} />}
-          {cloud.signedIn && profile && (
-            <div className="account-summary">
-              <p>
-                Signed in as <strong>{cloud.email}</strong>
-              </p>
-              <p className="hint-text">
-                Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
-                {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
-              </p>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => {
-                  signOut();
-                  setOpen(false);
-                }}
-              >
-                Sign out
-              </button>
-            </div>
+          {!cloud.signedIn && mode === 'signin' && (
+            <SignInForm onDone={close} onSwitch={setMode} />
           )}
+          {!cloud.signedIn && mode === 'signup' && (
+            <SignUpForm onDone={close} onSwitch={setMode} />
+          )}
+          {!cloud.signedIn && mode === 'forgot' && (
+            <ForgotPasswordForm onSwitch={setMode} />
+          )}
+          {!cloud.signedIn && mode === 'magiclink' && (
+            <MagicLinkForm onSwitch={setMode} />
+          )}
+          {cloud.signedIn && !profile && <ClaimProfileForm onDone={close} />}
+          {cloud.signedIn && profile && <AccountSummary cloud={cloud} profile={profile} onClose={close} />}
         </div>
       )}
     </div>
   );
 }
 
-function SignInForm({ onDone }) {
+function PasswordField({ value, onChange, placeholder, autoFocus }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="password-field">
+      <input
+        type={visible ? 'text' : 'password'}
+        required
+        autoFocus={autoFocus}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={placeholder.toLowerCase().includes('new') ? 'new-password' : 'current-password'}
+      />
+      <button type="button" className="password-toggle" onClick={() => setVisible((v) => !v)} tabIndex={-1}>
+        {visible ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+
+function SignInForm({ onDone, onSwitch }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await signInWithPassword(email.trim(), password);
+      onDone();
+    } catch (err) {
+      setError(err.message || 'Could not sign in.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="signin-form" onSubmit={submit}>
+      <p className="hint-text">Sign in</p>
+      <input
+        type="email"
+        required
+        autoFocus
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setError('');
+        }}
+      />
+      <PasswordField value={password} onChange={setPassword} placeholder="Password" />
+      {error && <span className="hint-text auth-error">{error}</span>}
+      <button type="submit" className="primary" disabled={busy}>
+        Sign in
+      </button>
+      <div className="auth-links">
+        <button type="button" className="link-button" onClick={() => onSwitch('signup')}>
+          Create an account
+        </button>
+        <button type="button" className="link-button" onClick={() => onSwitch('forgot')}>
+          Forgot password?
+        </button>
+      </div>
+      <button type="button" className="link-button" onClick={() => onSwitch('magiclink')}>
+        Or use a magic link instead
+      </button>
+    </form>
+  );
+}
+
+function SignUpForm({ onDone, onSwitch }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState(''); // '' | 'sending' | 'confirm-email'
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password needs to be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setStatus('sending');
+    try {
+      const { confirmedImmediately } = await signUpWithPassword(email.trim(), password);
+      if (confirmedImmediately) {
+        onDone();
+      } else {
+        setStatus('confirm-email');
+      }
+    } catch (err) {
+      setError(err.message || 'Could not create the account.');
+      setStatus('');
+    }
+  };
+
+  if (status === 'confirm-email') {
+    return (
+      <div className="signin-form">
+        <p className="hint-text">
+          Almost there — check your email for a confirmation link, then come back and sign in.
+        </p>
+        <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="signin-form" onSubmit={submit}>
+      <p className="hint-text">Create an account</p>
+      <input
+        type="email"
+        required
+        autoFocus
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setError('');
+        }}
+      />
+      <PasswordField value={password} onChange={setPassword} placeholder="Password (min 8 characters)" />
+      <PasswordField value={confirm} onChange={setConfirm} placeholder="Confirm password" />
+      {error && <span className="hint-text auth-error">{error}</span>}
+      <button type="submit" className="primary" disabled={status === 'sending'}>
+        Create account
+      </button>
+      <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
+        Already have an account? Sign in
+      </button>
+    </form>
+  );
+}
+
+function ForgotPasswordForm({ onSwitch }) {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState('');
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setStatus('sending');
+    try {
+      await sendPasswordReset(email.trim());
+      setStatus('sent');
+    } catch (err) {
+      setStatus(err.message || 'Could not send the reset link.');
+    }
+  };
+
+  if (status === 'sent') {
+    return (
+      <div className="signin-form">
+        <p className="hint-text">Check your email for a link to set a new password.</p>
+        <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="signin-form" onSubmit={submit}>
+      <p className="hint-text">Enter your email and we'll send a link to reset your password.</p>
+      <input
+        type="email"
+        required
+        autoFocus
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setStatus('');
+        }}
+      />
+      <button type="submit" className="primary" disabled={status === 'sending'}>
+        Send reset link
+      </button>
+      {status && status !== 'sending' && <span className="hint-text auth-error">{status}</span>}
+      <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
+        Back to sign in
+      </button>
+    </form>
+  );
+}
+
+function MagicLinkForm({ onSwitch }) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
 
@@ -66,8 +271,8 @@ function SignInForm({ onDone }) {
     try {
       await signInWithEmail(email.trim());
       setStatus('sent');
-    } catch (error) {
-      setStatus(error.message || 'Could not send the link');
+    } catch (err) {
+      setStatus(err.message || 'Could not send the link');
     }
   };
 
@@ -77,7 +282,7 @@ function SignInForm({ onDone }) {
 
   return (
     <form className="signin-form" onSubmit={submit}>
-      <p className="hint-text">Sign in or create an account — just an email, no password.</p>
+      <p className="hint-text">No password needed — we'll email you a one-time sign-in link.</p>
       <input
         type="email"
         required
@@ -93,8 +298,8 @@ function SignInForm({ onDone }) {
         Send magic link
       </button>
       {status && status !== 'sending' && <span className="hint-text">{status}</span>}
-      <button type="button" className="link-button" onClick={onDone}>
-        Close
+      <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
+        Back to sign in
       </button>
     </form>
   );
@@ -125,5 +330,86 @@ function ClaimProfileForm({ onDone }) {
         Join the roster
       </button>
     </form>
+  );
+}
+
+function AccountSummary({ cloud, profile, onClose }) {
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState(''); // '' | 'saving' | 'done'
+  const [busy, setBusy] = useState(false);
+
+  const submitPasswordChange = async (event) => {
+    event.preventDefault();
+    setError('');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password needs to be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await updatePassword(password);
+      setStatus('done');
+      setPassword('');
+      setConfirm('');
+    } catch (err) {
+      setError(err.message || 'Could not update the password.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="account-summary">
+      <p>
+        Signed in as <strong>{cloud.email}</strong>
+      </p>
+      <p className="hint-text">
+        Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
+        {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
+      </p>
+
+      {!changingPassword && (
+        <div className="auth-links">
+          <button type="button" className="link-button" onClick={() => setChangingPassword(true)}>
+            Change password
+          </button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              signOut();
+              onClose();
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+
+      {changingPassword && status !== 'done' && (
+        <form className="signin-form" onSubmit={submitPasswordChange}>
+          <PasswordField value={password} onChange={setPassword} placeholder="New password" autoFocus />
+          <PasswordField value={confirm} onChange={setConfirm} placeholder="Confirm new password" />
+          {error && <span className="hint-text auth-error">{error}</span>}
+          <button type="submit" className="primary" disabled={busy}>
+            Update password
+          </button>
+          <button type="button" className="link-button" onClick={() => setChangingPassword(false)}>
+            Cancel
+          </button>
+        </form>
+      )}
+
+      {changingPassword && status === 'done' && (
+        <p className="hint-text">Password updated.</p>
+      )}
+    </div>
   );
 }

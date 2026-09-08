@@ -61,7 +61,7 @@ src/
     rosterStore.js           the roster — local by default, cloud when configured
     store.js                 tiny localStorage-backed store used by rosterStore
     supabaseClient.js         reads VITE_SUPABASE_* env vars, or stays null
-    auth.js                  email-magic-link sign-in / account creation
+    auth.js                  email/password accounts (Supabase Auth) + magic link
     gamesStore.js            the game archive — local, or the shared table
     exportWorkbook.js        builds the .xlsx export (loaded on demand)
     glicko2.js / glicko2.test.mjs  the actual Glicko-2 algorithm, verified
@@ -197,17 +197,31 @@ thing as "your own account." Connecting a free
    `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`. Restart `npm run dev` (or
    rebuild) after adding them.
 5. In **Authentication → Providers**, make sure **Email** is enabled (it is
-   by default) — that's what powers the magic-link sign-in.
+   by default) — that's what powers sign-in.
 
-Once configured, a **Sign in** button appears in the top bar. Anyone signs in
-with just their email (a one-time link, no password — nobody types a
-password into this app); the first time, they're asked to name their player
-profile, which joins the roster and starts at the default Glicko-2 rating.
-From then on the roster reads and writes through the shared `players` table
-and updates live on every signed-in device via Supabase Realtime. Signed out,
-or with no project configured at all, it transparently falls back to the
-local behavior above — the app never requires an account to be usable, and a
-coach can still add players by hand on the Roster page without one.
+Once configured, a **Sign in** button appears in the top bar. Accounts are
+real email + password accounts — Supabase Auth owns the user table and does
+the password hashing and storage; nothing here ever stores or sees a
+password outside a call straight into `supabase.auth.*`:
+
+- **Create an account** — email + password (8-character minimum enforced in
+  the UI). If the project's "Confirm email" setting is on (the default),
+  they confirm via an emailed link before they can sign in.
+- **Sign in** — email + password.
+- **Forgot password?** — emails a reset link; clicking it opens a "set a new
+  password" prompt right in the app.
+- **Change password** — available once signed in, same flow without leaving
+  the app.
+- **Magic link** — still there as a no-password fallback, one click away
+  from the sign-in form. Same underlying account either way.
+
+The first time someone signs in, they're asked to name their player profile,
+which joins the roster and starts at the default Glicko-2 rating. From then
+on the roster reads and writes through the shared `players` table and
+updates live on every signed-in device via Supabase Realtime. Signed out, or
+with no project configured at all, it transparently falls back to the local
+behavior above — the app never requires an account to be usable, and a coach
+can still add players by hand on the Roster page without one.
 
 The anon key is meant to be public in a client bundle; access control is
 entirely Row Level Security (`supabase/schema.sql`), which requires a signed-
