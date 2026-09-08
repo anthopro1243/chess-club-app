@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
-import {
-  usePlayers,
-  useCloudStatus,
-  addPlayer,
-  updatePlayer,
-  updateRubric,
-  removePlayer,
-} from '../data/rosterStore.js';
-import { signInWithEmail, signOut } from '../data/auth.js';
+import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
+import InfoTooltip from '../components/InfoTooltip.jsx';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
 
@@ -16,10 +9,7 @@ const emptyForm = { name: '', grade: '', boardRole: '', commitment: 'Casual', us
 
 /**
  * RosterPage — one row per player, with a detail panel keyed to the same
- * rubric the coach workbook uses. Backed by src/data/rosterStore.js, which
- * persists to this browser (and, once signed in to a configured Supabase
- * project, to every other signed-in device) and is the same store the
- * training page writes solved puzzles into.
+ * rubric the coach workbook uses.
  */
 export default function RosterPage() {
   const players = usePlayers();
@@ -78,65 +68,8 @@ export default function RosterPage() {
     setEditing(false);
   };
 
-  const [email, setEmail] = useState('');
-  const [authStatus, setAuthStatus] = useState('');
-
-  const sendMagicLink = async (event) => {
-    event.preventDefault();
-    if (!email.trim()) return;
-    setAuthStatus('sending');
-    try {
-      await signInWithEmail(email.trim());
-      setAuthStatus('sent');
-    } catch (error) {
-      setAuthStatus(error.message || 'Could not send the link');
-    }
-  };
-
   return (
     <div className="roster-layout">
-      {cloud.configured && (
-        <section className="panel cloud-panel">
-          <div className="panel-header">
-            <h2>Cloud sync</h2>
-            <span className={`badge ${cloud.signedIn ? 'cloud-on' : ''}`}>
-              {cloud.signedIn ? 'Shared — live' : 'Signed out'}
-            </span>
-          </div>
-          {cloud.signedIn ? (
-            <p className="hint-text">
-              Signed in as <strong>{cloud.email}</strong>. The roster is shared and updates live on
-              every signed-in device.{' '}
-              <button type="button" className="link-button" onClick={signOut}>
-                Sign out
-              </button>
-            </p>
-          ) : (
-            <form className="signin-form" onSubmit={sendMagicLink}>
-              <input
-                type="email"
-                required
-                placeholder="you@club.org"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setAuthStatus('');
-                }}
-              />
-              <button type="submit" className="primary" disabled={authStatus === 'sending'}>
-                Send magic link
-              </button>
-              {authStatus === 'sent' && (
-                <span className="hint-text">Check your email for a sign-in link.</span>
-              )}
-              {authStatus && authStatus !== 'sending' && authStatus !== 'sent' && (
-                <span className="hint-text">{authStatus}</span>
-              )}
-            </form>
-          )}
-        </section>
-      )}
-
       <section className="panel">
         <div className="panel-header">
           <h2>Roster</h2>
@@ -241,8 +174,7 @@ export default function RosterPage() {
         </div>
 
         <p className="hint-text">
-          Saved to this browser. Players you add or edit here stick around after a refresh — see{' '}
-          <code>src/data/rosterStore.js</code> to point the roster at a real backend instead.
+          {cloud.signedIn ? 'Shared with everyone signed in.' : 'Saved to this browser.'}
         </p>
       </section>
 
@@ -411,7 +343,7 @@ export default function RosterPage() {
 
               <h3>Puzzle training</h3>
               <p>
-                {selected.puzzleStats?.solvedIds?.length || 0} mate-in-one puzzle
+                {selected.puzzleStats?.solvedIds?.length || 0} puzzle
                 {selected.puzzleStats?.solvedIds?.length === 1 ? '' : 's'} solved
                 {selected.puzzleStats?.lastPlayed
                   ? ` · last practiced ${new Date(selected.puzzleStats.lastPlayed).toLocaleDateString()}`

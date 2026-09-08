@@ -165,15 +165,15 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <span>Chess Club app — v0.1</span>
-        <span>Rules engine verified against standard perft counts.</span>
+        <span>Chess Club app, v0.1</span>
+        <span>Rules engine tested against standard reference positions.</span>
       </footer>
 
       {passwordResetActive && (
         <ResetPasswordModal
           onDone={() => {
             setPasswordResetActive(false);
-            setAuthNotice({ kind: 'success', message: 'Password updated — you are signed in.' });
+            setAuthNotice({ kind: 'success', message: 'Password updated. You are signed in.' });
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }}
           onCancel={() => {

@@ -172,7 +172,7 @@ function SignUpForm({ onDone, onSwitch }) {
     return (
       <div className="signin-form">
         <p className="hint-text">
-          Almost there — check your email for a confirmation link, then come back and sign in.
+          Almost there. Check your email for a confirmation link, then come back and sign in.
         </p>
         <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
           Back to sign in
@@ -282,7 +282,7 @@ function MagicLinkForm({ onSwitch }) {
 
   return (
     <form className="signin-form" onSubmit={submit}>
-      <p className="hint-text">No password needed — we'll email you a one-time sign-in link.</p>
+      <p className="hint-text">No password needed. We'll email you a one-time sign-in link.</p>
       <input
         type="email"
         required
@@ -323,7 +323,7 @@ function ClaimProfileForm({ onDone }) {
 
   return (
     <form className="signin-form" onSubmit={submit}>
-      <p className="hint-text">You're signed in — set up your player profile to join the roster.</p>
+      <p className="hint-text">You're signed in. Set up your player profile to join the roster.</p>
       <input type="text" required autoFocus placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
       <input type="text" placeholder="Grade (optional)" value={grade} onChange={(e) => setGrade(e.target.value)} />
       <button type="submit" className="primary" disabled={busy}>

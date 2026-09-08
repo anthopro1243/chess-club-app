@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import Board from '../components/Board.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
+import InfoTooltip from '../components/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
 import { usePlayers, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
 
@@ -269,24 +270,22 @@ export default function TrainingPage() {
 
       <aside className="side-panel">
         <div className="panel-block">
-          <h2>Trainee</h2>
+          <h2>
+            Trainee
+            <InfoTooltip>Pick a trainee and solved puzzles count toward their rating and record.</InfoTooltip>
+          </h2>
           <select
             className="trainee-select"
             value={traineeId}
             onChange={(event) => setTraineeId(event.target.value)}
           >
-            <option value="">Practice (not saved to a player)</option>
+            <option value="">Practice only</option>
             {players.map((p) => (
               <option key={p.playerId} value={p.playerId}>
                 {p.name}
               </option>
             ))}
           </select>
-          <p className="hint-text">
-            {trainee
-              ? `Solved puzzles are saved to ${trainee.name}'s record and update their club rating — see both on the Roster page.`
-              : 'Pick a trainee to save results to their record, or keep practicing without one.'}
-          </p>
         </div>
 
         <div className="panel-block">

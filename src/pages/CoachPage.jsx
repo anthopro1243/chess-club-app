@@ -3,6 +3,7 @@ import { RUBRIC_CATEGORIES } from '../data/roster.js';
 import { usePlayers, recordAssessment, setAttendance } from '../data/rosterStore.js';
 import { useGames } from '../data/gamesStore.js';
 import { exportWorkbook } from '../data/exportWorkbook.js';
+import InfoTooltip from '../components/InfoTooltip.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -97,7 +98,13 @@ export default function CoachPage() {
     <div className="dashboard">
       <section className="panel">
         <div className="panel-header">
-          <h2>Coach tools</h2>
+          <h2>
+            Coach tools
+            <InfoTooltip>
+              The spreadsheet includes a club summary, player details, skill assessments, the
+              ratings log, every archived game, and attendance, each on its own tab.
+            </InfoTooltip>
+          </h2>
           <button
             type="button"
             className="primary"
@@ -114,11 +121,6 @@ export default function CoachPage() {
             Export spreadsheet
           </button>
         </div>
-        <p className="hint-text">
-          The export is a real .xlsx workbook: club summary, player master, dated skill
-          assessments, the full ratings log, every archived game with its PGN, and an attendance
-          grid — one tab each.
-        </p>
       </section>
 
       <section className="panel">
@@ -168,7 +170,6 @@ export default function CoachPage() {
       <section className="panel">
         <div className="panel-header">
           <h2>Player progress</h2>
-          <span className="hint-text">Rating trend across every recorded result</span>
         </div>
 
         {sorted.length === 0 ? (
@@ -217,7 +218,13 @@ export default function CoachPage() {
       {assessingId && (
         <section className="panel">
           <div className="panel-header">
-            <h2>Assessment — {players.find((p) => p.playerId === assessingId)?.name}</h2>
+            <h2>
+              {players.find((p) => p.playerId === assessingId)?.name}'s assessment
+              <InfoTooltip>
+                Logging keeps a dated history. The roster's rubric bars always show the most
+                recent one, and every assessment lands in the spreadsheet export.
+              </InfoTooltip>
+            </h2>
             <span className="badge mono">{today()}</span>
           </div>
           <div className="rubric rubric-edit">
@@ -252,10 +259,6 @@ export default function CoachPage() {
               Cancel
             </button>
           </div>
-          <p className="hint-text">
-            Logging keeps the dated history — the roster's rubric bars always show the most recent
-            one, and every assessment lands in the spreadsheet export.
-          </p>
         </section>
       )}
 

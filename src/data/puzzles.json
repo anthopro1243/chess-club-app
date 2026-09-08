@@ -52,7 +52,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c2",
@@ -80,7 +80,7 @@
       "oneMove"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d1",
@@ -100,7 +100,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "g2",
@@ -264,7 +264,7 @@
       "oneMove"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e1",
@@ -284,7 +284,7 @@
       "oneMove"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c8",
@@ -326,7 +326,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e5",
@@ -451,7 +451,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d5",
@@ -480,7 +480,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c8",
@@ -653,7 +653,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d8",
@@ -703,7 +703,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d7",
@@ -1210,7 +1210,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c1",
@@ -1287,7 +1287,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "g8",
@@ -1351,7 +1351,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d8",
@@ -1468,7 +1468,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e3",
@@ -1583,7 +1583,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e6",
@@ -1640,7 +1640,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c2",
@@ -1969,7 +1969,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d6",
@@ -2127,7 +2127,7 @@
       "xRayAttack"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "g3",
@@ -2465,7 +2465,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "c3",
@@ -2699,7 +2699,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c2",
@@ -2764,7 +2764,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f7",
@@ -2856,7 +2856,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f7",
@@ -3272,7 +3272,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f1",
@@ -3454,7 +3454,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "h5",
@@ -3576,7 +3576,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "a6",
@@ -3843,7 +3843,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "e6",
@@ -3937,7 +3937,7 @@
       "middlegame"
     ],
     "name": "Mate in 3",
-    "hint": "A longer forced mate — calculate every check and capture.",
+    "hint": "A longer forced mate. Calculate every check and capture.",
     "solution": [
       {
         "from": "g6",
@@ -4011,7 +4011,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "g4",
@@ -4038,7 +4038,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "g8",
@@ -4237,7 +4237,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d2",
@@ -4414,7 +4414,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f6",
@@ -4560,7 +4560,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d6",
@@ -4716,7 +4716,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c3",
@@ -4832,7 +4832,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f4",
@@ -5308,7 +5308,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "e8",
@@ -5335,7 +5335,7 @@
       "skewer"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "h6",
@@ -5363,7 +5363,7 @@
       "oneMove"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d8",
@@ -5465,7 +5465,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d2",
@@ -5494,7 +5494,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f4",
@@ -5561,7 +5561,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f4",
@@ -5748,7 +5748,7 @@
       "promotion"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d7",
@@ -5822,7 +5822,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e2",
@@ -6023,7 +6023,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f7",
@@ -6172,7 +6172,7 @@
       "middlegame"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d4",
@@ -6279,7 +6279,7 @@
       "oneMove"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "a7",
@@ -6428,7 +6428,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f6",
@@ -6577,7 +6577,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e3",
@@ -6650,7 +6650,7 @@
       "middlegame"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e1",
@@ -6779,7 +6779,7 @@
       "sacrifice"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e4",
@@ -6868,7 +6868,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "c6",
@@ -7231,7 +7231,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "g6",
@@ -7348,7 +7348,7 @@
       "middlegame"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "h4",
@@ -7383,7 +7383,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "h6",
@@ -7530,7 +7530,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f3",
@@ -7851,7 +7851,7 @@
       "middlegame"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f2",
@@ -7926,7 +7926,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d7",
@@ -7957,7 +7957,7 @@
       "short"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "e2",
@@ -8042,7 +8042,7 @@
       "xRayAttack"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "c3",
@@ -8140,7 +8140,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f7",
@@ -8256,7 +8256,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "c3",
@@ -8313,7 +8313,7 @@
       "xRayAttack"
     ],
     "name": "Mate in 3",
-    "hint": "A longer forced mate — calculate every check and capture.",
+    "hint": "A longer forced mate. Calculate every check and capture.",
     "solution": [
       {
         "from": "e1",
@@ -9036,7 +9036,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d4",
@@ -9065,7 +9065,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "f5",
@@ -9317,7 +9317,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "c4",
@@ -9538,7 +9538,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f2",
@@ -9838,7 +9838,7 @@
       "middlegame"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f8",
@@ -10016,7 +10016,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "f8",
@@ -10516,7 +10516,7 @@
       "trappedPiece"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d6",
@@ -10581,7 +10581,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "d1",
@@ -11039,7 +11039,7 @@
       "xRayAttack"
     ],
     "name": "Back Rank Mate",
-    "hint": "The back rank is weak — look at the king’s escape squares.",
+    "hint": "The back rank is weak. Look at the king’s escape squares.",
     "solution": [
       {
         "from": "b4",
@@ -11065,7 +11065,7 @@
       "middlegame"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "e6",
@@ -11391,7 +11391,7 @@
       "middlegame"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "h5",
@@ -11510,7 +11510,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "e2",
@@ -11863,7 +11863,7 @@
       "short"
     ],
     "name": "Middlegame",
-    "hint": "Calculate carefully — the position is still complex.",
+    "hint": "Calculate carefully. The position is still complex.",
     "solution": [
       {
         "from": "d7",

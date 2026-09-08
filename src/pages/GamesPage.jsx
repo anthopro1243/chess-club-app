@@ -28,13 +28,7 @@ function downloadPgn(game) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * GamesPage — every finished game the club has played, newest first.
- *
- * The PGN of any game can be copied or downloaded straight into
- * `coach_report.py` for an engine-backed review, which is the whole point
- * of keeping the archive rather than letting games evaporate on refresh.
- */
+/** GamesPage — every finished game the club has played, newest first. */
 export default function GamesPage() {
   const games = useGames();
   const players = usePlayers();
@@ -171,10 +165,6 @@ export default function GamesPage() {
                 Delete game
               </button>
             </div>
-            <p className="hint-text">
-              This PGN is the format <code>coach_report.py</code> reads — copy it straight into an
-              engine-backed review.
-            </p>
           </section>
         );
       })()}

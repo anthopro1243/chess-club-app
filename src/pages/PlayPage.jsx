@@ -506,7 +506,7 @@ export default function PlayPage() {
                 <label className="field field-wide">
                   <span>
                     Strength{' '}
-                    {maxStrength ? '(maximum — no Elo limit)' : `(Stockfish Elo ${elo})`}
+                    {maxStrength ? '(maximum)' : `(Elo ${elo})`}
                   </span>
                   <input
                     type="range"
@@ -596,8 +596,7 @@ export default function PlayPage() {
             )}
           </div>
           <p className="hint-text">
-            Download or copy the PGN to run it through <code>coach_report.py</code> for an
-            engine-backed review of the game.
+            Save the game as a PGN file, or copy it to your clipboard.
           </p>
         </div>
       </aside>

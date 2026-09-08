@@ -1,5 +1,6 @@
 import { RUBRIC_CATEGORIES, clubAverages, weakestAreas } from '../data/roster.js';
 import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
+import InfoTooltip from '../components/InfoTooltip.jsx';
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */
 export default function DashboardPage({ onNavigate }) {
@@ -48,17 +49,19 @@ export default function DashboardPage({ onNavigate }) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Club leaderboard</h2>
-          <span className="hint-text">
-            Club rating — Glicko-2, the same rating system Chess.com uses, updated from puzzles
-            and games.
-          </span>
+          <h2>
+            Club leaderboard
+            <InfoTooltip>
+              Ratings use Glicko-2, the same system Chess.com runs on. They update after every
+              puzzle and game.
+            </InfoTooltip>
+          </h2>
         </div>
 
         {leaderboard.length === 0 ? (
           <p className="hint-text">
             {cloud.configured
-              ? 'No one has joined yet — sign in (top right) to create your player profile.'
+              ? 'No one has joined yet. Sign in up top to create a profile.'
               : 'Add players on the Roster page to start tracking ratings.'}
           </p>
         ) : (
@@ -125,12 +128,14 @@ export default function DashboardPage({ onNavigate }) {
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Where group time should go</h2>
+            <h2>
+              Where group time should go
+              <InfoTooltip>
+                The three lowest club-wide averages. Worth teaching to everyone at once, rather
+                than one-on-one.
+              </InfoTooltip>
+            </h2>
           </div>
-          <p className="hint-text">
-            The three lowest club-wide averages. These are the topics worth teaching to everyone
-            at once; anything above them is better handled one-on-one.
-          </p>
           <ol className="priority-list">
             {weakest.map((area, index) => (
               <li key={area.key}>
