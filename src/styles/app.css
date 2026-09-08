@@ -1211,6 +1211,144 @@ button.primary:hover:not(:disabled) {
   min-width: 200px;
 }
 
+/* ---------- games archive ------------------------------------------------ */
+
+.games-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.games-layout .opponent-controls {
+  margin-bottom: 14px;
+}
+
+.pgn-block {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0 0 12px;
+}
+
+/* ---------- coach tools --------------------------------------------------- */
+
+.attendance-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attendance-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.attendance-name {
+  flex: 1;
+}
+
+.attendance-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.attendance-buttons button {
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.attendance-buttons button.attend-on {
+  background: var(--good);
+  border-color: var(--good);
+  color: #0d1a10;
+  font-weight: 600;
+}
+
+.attendance-buttons button.attend-off {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #1a0d0d;
+  font-weight: 600;
+}
+
+.rating-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.rating-trend svg {
+  display: block;
+}
+
+.trend-up {
+  color: var(--good);
+}
+
+.trend-down {
+  color: var(--bad);
+}
+
+.activity-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.activity-list li {
+  display: grid;
+  grid-template-columns: 90px 130px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+
+.activity-date {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+}
+
+.activity-who {
+  font-weight: 600;
+}
+
+.activity-what {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- form controls ------------------------------------------------ */
 
 select,
@@ -1369,6 +1507,11 @@ textarea:focus {
   .facts-edit,
   .opponent-controls {
     grid-template-columns: 1fr;
+  }
+
+  .activity-list li {
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
   }
 }
 

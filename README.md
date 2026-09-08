@@ -53,13 +53,17 @@ src/
     DashboardPage.jsx       club overview and leaderboard
     PlayPage.jsx            the game screen, human or vs. Stockfish
     TrainingPage.jsx        puzzle trainer, saves to a trainee's record
+    GamesPage.jsx           the game archive, with PGN per game
     RosterPage.jsx          player list, detail, add / edit / remove, cloud sync
+    CoachPage.jsx           oversight: attendance, assessments, progress, export
   data/
     roster.js               rubric definition and the (empty) roster seed
     rosterStore.js           the roster — local by default, cloud when configured
     store.js                 tiny localStorage-backed store used by rosterStore
     supabaseClient.js         reads VITE_SUPABASE_* env vars, or stays null
     auth.js                  email-magic-link sign-in / account creation
+    gamesStore.js            the game archive — local, or the shared table
+    exportWorkbook.js        builds the .xlsx export (loaded on demand)
     glicko2.js / glicko2.test.mjs  the actual Glicko-2 algorithm, verified
     puzzles.js / puzzles.json  402 real puzzles from Lichess's open database
   styles/
@@ -183,9 +187,10 @@ thing as "your own account." Connecting a free
 
 1. Create a Supabase project (free tier is enough).
 2. In the Supabase dashboard's **SQL Editor**, run `supabase/schema.sql` once
-   (a fresh project) or `supabase/migration-2-accounts-and-ratings.sql`
-   (a project that already had `schema.sql` run on an earlier version of
-   this app).
+   for a fresh project. For a project set up against an earlier version of
+   this app, run the migrations it hasn't had yet instead, in order:
+   `migration-2-accounts-and-ratings.sql`, then
+   `migration-3-games-and-history.sql`.
 3. In **Project Settings → API**, copy the Project URL and the `anon` public
    key.
 4. Copy `.env.example` to `.env.local` and fill in
@@ -234,6 +239,53 @@ rather than batching a full rating period):
   each other's actual pre-game rating.
 
 The Dashboard's **Club leaderboard** ranks everyone by this rating.
+
+Every rating change is logged with its date, source, opponent and delta, so
+progress is a history rather than a single number — visible as a trend line
+on the Coach page and as a full log in the spreadsheet export.
+
+## Game archive
+
+Every finished game is saved automatically: who played, the result, how it
+ended, move count, and the full PGN. The **Games** page lists them newest
+first, filterable by player and by club-game vs. computer, and any game's
+PGN can be copied or downloaded straight into `coach_report.py` for an
+engine-backed review.
+
+## Coach tools
+
+The **Coach** page is the oversight screen — everything needed to run a
+session in one place:
+
+- **Attendance** — pick a session date, mark each player present or absent.
+- **Player progress** — every player's rating, a trend line across all their
+  recorded results, how many rated results and puzzles they have, and when
+  they were last assessed.
+- **Assessments** — score a player against the eight-category rubric with
+  notes. Each one is kept as a dated record, so you can see movement over
+  time; the roster's rubric bars always show the most recent.
+- **Recent activity** — the last dozen recorded results across the club.
+- **Export spreadsheet** — see below.
+
+## Spreadsheet export
+
+The Coach page's **Export spreadsheet** button produces a real `.xlsx`
+workbook of everything the club has recorded, one tab per kind of record,
+mirroring the structure of the original `chess_club_player_database`
+workbook:
+
+| Tab | Contents |
+| --- | --- |
+| Club Summary | Headline counts, averages, and rubric averages |
+| Player Master | One row per player — identity, ratings, goals, notes |
+| Skill Assessments | Every dated rubric assessment, one row each |
+| Ratings Log | Every rating change: date, source, opponent, delta |
+| Games | Every archived game, including its full PGN |
+| Attendance | Grid of players against session dates, with totals |
+
+It's generated in the browser — nothing is uploaded anywhere. The
+spreadsheet library is only downloaded when you actually click export, so
+it costs regular visitors nothing.
 
 ## Deploying
 

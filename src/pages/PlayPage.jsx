@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import { createEngine } from '../engine/stockfishClient.js';
 import { usePlayers, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
+import { recordGame } from '../data/gamesStore.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
@@ -23,6 +24,8 @@ function loadSavedState() {
     return null;
   }
 }
+
+const newGameId = () => `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 /** Rebuild a game from a saved move list, stopping early if storage is corrupt. */
 function buildGame(savedMoves) {
@@ -106,6 +109,14 @@ export default function PlayPage() {
   const [whitePlayerId, setWhitePlayerId] = useState(saved?.whitePlayerId || '');
   const [blackPlayerId, setBlackPlayerId] = useState(saved?.blackPlayerId || '');
   const gameOverHandledRef = useRef(false);
+
+  // A game gets an id when it starts, and the id of the game whose result
+  // has already been counted is persisted alongside it. Without that,
+  // leaving the Play page and coming back would restore the finished game
+  // from storage and record its result — and its rating change — all over
+  // again on every visit.
+  const [gameId, setGameId] = useState(() => saved?.gameId || newGameId());
+  const [recordedGameId, setRecordedGameId] = useState(saved?.recordedGameId || '');
 
   const [mode, setMode] = useState(saved?.mode === 'computer' ? 'computer' : 'human');
   const [computerColor, setComputerColor] = useState(saved?.computerColor === 'w' ? 'w' : 'b');
@@ -195,19 +206,24 @@ export default function PlayPage() {
       gameOverHandledRef.current = false;
       return;
     }
-    if (gameOverHandledRef.current) return;
+    // Already counted — either earlier in this visit, or in a previous one
+    // before the finished game was restored from storage.
+    if (gameOverHandledRef.current || recordedGameId === gameId) return;
     gameOverHandledRef.current = true;
+    setRecordedGameId(gameId);
 
     const whiteScore =
       liveStatus.result === '1-0' ? 1 : liveStatus.result === '0-1' ? 0 : liveStatus.result === '1/2-1/2' ? 0.5 : null;
     if (whiteScore === null) return;
+
+    const computerName = maxStrength ? 'Stockfish (max)' : `Stockfish ${elo}`;
+    const humanColor = computerColor === 'w' ? 'b' : 'w';
 
     if (mode === 'human') {
       if (whitePlayerId && blackPlayerId && whitePlayerId !== blackPlayerId) {
         recordGameResult(whitePlayerId, blackPlayerId, whiteScore);
       }
     } else if (mode === 'computer') {
-      const humanColor = computerColor === 'w' ? 'b' : 'w';
       const humanPlayerId = humanColor === 'w' ? whitePlayerId : blackPlayerId;
       if (humanPlayerId) {
         const humanScore = humanColor === 'w' ? whiteScore : 1 - whiteScore;
@@ -215,11 +231,35 @@ export default function PlayPage() {
           opponentRating: maxStrength ? 3200 : elo,
           opponentRd: COMPUTER_OPPONENT_RD,
           score: humanScore,
+          source: 'computer-game',
+          detail: `vs ${computerName}`,
         });
       }
     }
+
+    // Archive every finished game, rated or not — the club wants the record.
+    const displayName = (color) => {
+      if (mode === 'computer' && color !== humanColor) return computerName;
+      const typed = color === 'w' ? names.white.trim() : names.black.trim();
+      if (typed) return typed;
+      const id = color === 'w' ? whitePlayerId : blackPlayerId;
+      return players.find((p) => p.playerId === id)?.name || (color === 'w' ? 'White' : 'Black');
+    };
+
+    recordGame({
+      whitePlayerId: mode === 'computer' && humanColor !== 'w' ? '' : whitePlayerId,
+      blackPlayerId: mode === 'computer' && humanColor !== 'b' ? '' : blackPlayerId,
+      whiteName: displayName('w'),
+      blackName: displayName('b'),
+      result: liveStatus.result,
+      reason: liveStatus.reason || '',
+      moveCount: live.moveHistory().length,
+      mode,
+      computerElo: mode === 'computer' ? (maxStrength ? null : elo) : null,
+      pgn: live.pgn({ White: displayName('w'), Black: displayName('b') }),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo]);
+  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo, gameId, recordedGameId]);
 
   useEffect(() => {
     try {
@@ -236,13 +276,15 @@ export default function PlayPage() {
           orientation,
           whitePlayerId,
           blackPlayerId,
+          gameId,
+          recordedGameId,
         }),
       );
     } catch {
       /* storage can be unavailable; the game still plays for this visit */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId]);
+  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId, gameId, recordedGameId]);
 
   const flash = (message) => {
     setToast(message);
@@ -280,6 +322,7 @@ export default function PlayPage() {
     engineRef.current?.abortCurrent();
     setThinking(false);
     gameRef.current = new Chess();
+    setGameId(newGameId()); // a fresh game is eligible to be recorded again
     setViewPly(null);
     setPendingPromotion(null);
     bump();

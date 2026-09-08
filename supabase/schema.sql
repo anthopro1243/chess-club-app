@@ -22,8 +22,30 @@ create table if not exists public.players (
   coach_notes text default '',
   puzzle_stats jsonb default '{"solvedIds":[],"attempts":0,"lastPlayed":null}'::jsonb,
   club_rating jsonb default '{"rating":1500,"rd":350,"volatility":0.06,"count":0}'::jsonb,
+  rating_history jsonb default '[]'::jsonb,
+  assessments jsonb default '[]'::jsonb,
+  attendance jsonb default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- The club's game archive. A game belongs to two players at once, so it
+-- gets its own table rather than hanging off either player's row.
+create table if not exists public.games (
+  id text primary key,
+  played_at timestamptz not null default now(),
+  white_player_id text references public.players(player_id) on delete set null,
+  black_player_id text references public.players(player_id) on delete set null,
+  white_name text not null default 'White',
+  black_name text not null default 'Black',
+  result text not null,
+  reason text default '',
+  move_count integer default 0,
+  mode text default 'human',
+  computer_elo integer,
+  pgn text default ''
+);
+
+create index if not exists games_played_at_idx on public.games (played_at desc);
 
 -- Keep updated_at current on every write.
 create or replace function public.touch_updated_at()
@@ -66,5 +88,30 @@ create policy "Signed-in users can remove players"
   to authenticated
   using (true);
 
+-- Same access model for the game archive.
+alter table public.games enable row level security;
+
+create policy "Signed-in users can read games"
+  on public.games for select
+  to authenticated
+  using (true);
+
+create policy "Signed-in users can add games"
+  on public.games for insert
+  to authenticated
+  with check (true);
+
+create policy "Signed-in users can edit games"
+  on public.games for update
+  to authenticated
+  using (true)
+  with check (true);
+
+create policy "Signed-in users can remove games"
+  on public.games for delete
+  to authenticated
+  using (true);
+
 -- Every open tab sees changes as they happen.
 alter publication supabase_realtime add table public.players;
+alter publication supabase_realtime add table public.games;

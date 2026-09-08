@@ -3,6 +3,8 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import PlayPage from './pages/PlayPage.jsx';
 import RosterPage from './pages/RosterPage.jsx';
 import TrainingPage from './pages/TrainingPage.jsx';
+import GamesPage from './pages/GamesPage.jsx';
+import CoachPage from './pages/CoachPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
 import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 
@@ -10,7 +12,9 @@ const ROUTES = [
   { id: 'home', label: 'Club' },
   { id: 'play', label: 'Play' },
   { id: 'training', label: 'Training' },
+  { id: 'games', label: 'Games' },
   { id: 'roster', label: 'Roster' },
+  { id: 'coach', label: 'Coach' },
 ];
 
 const routeFromHash = () => {
@@ -146,7 +150,9 @@ export default function App() {
         {route === 'home' && <DashboardPage onNavigate={navigate} />}
         {route === 'play' && <PlayPage />}
         {route === 'training' && <TrainingPage />}
+        {route === 'games' && <GamesPage />}
         {route === 'roster' && <RosterPage />}
+        {route === 'coach' && <CoachPage />}
       </main>
 
       <footer className="footer">

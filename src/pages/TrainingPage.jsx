@@ -145,6 +145,8 @@ export default function TrainingPage() {
           opponentRating: puzzle.rating,
           opponentRd: PUZZLE_OPPONENT_RD,
           score: 1,
+          source: 'puzzle',
+          detail: `Solved ${puzzle.name} (${puzzle.rating})`,
         });
       } else {
         setSessionSolved((prev) => new Set(prev).add(puzzle.id));
@@ -192,6 +194,8 @@ export default function TrainingPage() {
         opponentRating: puzzle.rating,
         opponentRd: PUZZLE_OPPONENT_RD,
         score: 0,
+        source: 'puzzle',
+        detail: `Revealed ${puzzle.name} (${puzzle.rating})`,
       });
     }
     bump();
@@ -319,27 +323,6 @@ export default function TrainingPage() {
           </p>
         </div>
 
-        <div className="panel-block">
-          <h2>The training loop</h2>
-          <ol className="loop-list">
-            <li>
-              <strong>Baseline.</strong> A timed puzzle set and a questionnaire at intake, scored
-              on the eight-category rubric.
-            </li>
-            <li>
-              <strong>Group work.</strong> Teach to the club’s three weakest rubric averages —
-              the dashboard picks them out.
-            </li>
-            <li>
-              <strong>Individual work.</strong> Each player gets the theme their own scores flag,
-              not the club average.
-            </li>
-            <li>
-              <strong>Measure.</strong> Play games, export the PGN, run it through the analyzer,
-              and log the result back to the rubric.
-            </li>
-          </ol>
-        </div>
       </aside>
 
       {pendingPromotion && (

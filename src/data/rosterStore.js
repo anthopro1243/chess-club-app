@@ -59,6 +59,9 @@ function fromRow(row) {
     coachNotes: row.coach_notes || '',
     puzzleStats: row.puzzle_stats || { solvedIds: [], attempts: 0, lastPlayed: null },
     clubRating: row.club_rating || { ...DEFAULT_RATING, count: 0 },
+    ratingHistory: row.rating_history || [],
+    assessments: row.assessments || [],
+    attendance: row.attendance || [],
   };
 }
 
@@ -80,6 +83,9 @@ function toRow(player) {
     coach_notes: player.coachNotes,
     puzzle_stats: player.puzzleStats,
     club_rating: player.clubRating,
+    rating_history: player.ratingHistory || [],
+    assessments: player.assessments || [],
+    attendance: player.attendance || [],
   };
 }
 
@@ -201,6 +207,9 @@ function blankPlayer(playerId, overrides) {
     coachNotes: '',
     puzzleStats: { solvedIds: [], attempts: 0, lastPlayed: null },
     clubRating: { ...DEFAULT_RATING, count: 0 },
+    ratingHistory: [],
+    assessments: [],
+    attendance: [],
     ...overrides,
   };
 }
@@ -314,19 +323,39 @@ export function resetRoster() {
  * the computer, where there's no second player row to update in tandem.
  * `score` is 1 (win), 0.5 (draw), 0 (loss) from this player's side.
  */
-export function recordRatingResult(playerId, { opponentRating, opponentRd, score }) {
+export function recordRatingResult(playerId, { opponentRating, opponentRd, score, source = 'game', detail = '' }) {
   let updated = null;
   store.set((players) =>
     players.map((p) => {
       if (p.playerId !== playerId) return p;
       const current = p.clubRating || { ...DEFAULT_RATING, count: 0 };
       const next = updateRating(current, [{ opponentRating, opponentRd, score }]);
-      updated = { ...p, clubRating: { ...next, count: (current.count || 0) + 1 } };
+      updated = {
+        ...p,
+        clubRating: { ...next, count: (current.count || 0) + 1 },
+        ratingHistory: appendHistory(p, {
+          rating: next.rating,
+          rd: next.rd,
+          change: next.rating - current.rating,
+          opponentRating,
+          score,
+          source,
+          detail,
+        }),
+      };
       return updated;
     }),
   );
   pushToCloud(updated);
   return updated?.clubRating ?? null;
+}
+
+/** Rating history is capped so a very active player's row can't grow without bound. */
+const HISTORY_LIMIT = 500;
+
+function appendHistory(player, entry) {
+  const history = player.ratingHistory || [];
+  return [...history, { at: new Date().toISOString(), ...entry }].slice(-HISTORY_LIMIT);
 }
 
 /**
@@ -353,11 +382,35 @@ export function recordGameResult(whitePlayerId, blackPlayerId, whiteScore) {
 
     return players.map((p) => {
       if (p.playerId === whitePlayerId) {
-        whiteUpdated = { ...p, clubRating: { ...newWhite, count: (whiteRating.count || 0) + 1 } };
+        whiteUpdated = {
+          ...p,
+          clubRating: { ...newWhite, count: (whiteRating.count || 0) + 1 },
+          ratingHistory: appendHistory(p, {
+            rating: newWhite.rating,
+            rd: newWhite.rd,
+            change: newWhite.rating - whiteRating.rating,
+            opponentRating: blackRating.rating,
+            score: whiteScore,
+            source: 'club-game',
+            detail: `vs ${black.name} (White)`,
+          }),
+        };
         return whiteUpdated;
       }
       if (p.playerId === blackPlayerId) {
-        blackUpdated = { ...p, clubRating: { ...newBlack, count: (blackRating.count || 0) + 1 } };
+        blackUpdated = {
+          ...p,
+          clubRating: { ...newBlack, count: (blackRating.count || 0) + 1 },
+          ratingHistory: appendHistory(p, {
+            rating: newBlack.rating,
+            rd: newBlack.rd,
+            change: newBlack.rating - blackRating.rating,
+            opponentRating: whiteRating.rating,
+            score: 1 - whiteScore,
+            source: 'club-game',
+            detail: `vs ${white.name} (Black)`,
+          }),
+        };
         return blackUpdated;
       }
       return p;
@@ -365,4 +418,38 @@ export function recordGameResult(whitePlayerId, blackPlayerId, whiteScore) {
   });
   pushToCloud(whiteUpdated);
   pushToCloud(blackUpdated);
+}
+
+// -- coach records --------------------------------------------------------
+
+/** Log a dated skill assessment against the 8-category rubric, keeping history. */
+export function recordAssessment(playerId, rubric, notes = '') {
+  let updated = null;
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      const entry = { at: new Date().toISOString(), rubric: { ...rubric }, notes };
+      updated = {
+        ...p,
+        rubric: { ...p.rubric, ...rubric }, // the current rubric is the latest assessment
+        assessments: [...(p.assessments || []), entry],
+      };
+      return updated;
+    }),
+  );
+  pushToCloud(updated);
+}
+
+/** Mark a player present or absent for a given club date (YYYY-MM-DD). */
+export function setAttendance(playerId, date, present) {
+  let updated = null;
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      const rest = (p.attendance || []).filter((a) => a.date !== date);
+      updated = { ...p, attendance: [...rest, { date, present }].sort((a, b) => a.date.localeCompare(b.date)) };
+      return updated;
+    }),
+  );
+  pushToCloud(updated);
 }
