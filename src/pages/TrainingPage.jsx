@@ -5,6 +5,12 @@ import PromotionDialog from '../components/PromotionDialog.jsx';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
 import { usePlayers, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
+import {
+  recordAttempt,
+  useAttempts,
+  useThemeAccuracy,
+  attemptSummary,
+} from '../data/puzzleAttemptsStore.js';
 
 const TRAINEE_KEY = 'cc-trainee';
 const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
@@ -24,6 +30,9 @@ const prettyTheme = (theme) =>
     .replace(/([a-zA-Z])(\d)/g, '$1 $2')
     .replace(/^./, (c) => c.toUpperCase())
     .replace(/\b(In|Vs)\b/g, (w) => w.toLowerCase());
+
+/** Which difficulty band a puzzle rating falls in, for the attempt record. */
+const bandFor = (rating) => DIFFICULTIES.find((d) => d.key && d.test(rating))?.key || '';
 
 const sameMove = (a, b) =>
   !!a && !!b && a.from === b.from && a.to === b.to && (a.promotion || undefined) === (b.promotion || undefined);
@@ -63,6 +72,10 @@ export default function TrainingPage() {
   const [pendingPromotion, setPendingPromotion] = useState(null);
   const [sessionSolved, setSessionSolved] = useState(() => new Set());
 
+  // When the current attempt began. A wrong move ends one attempt and starts
+  // another, so this is reset there too, not only when the puzzle changes.
+  const attemptStartRef = useRef(Date.now());
+
   const resetBoard = useCallback(
     (p) => {
       gameRef.current = new Chess(p.fen);
@@ -70,6 +83,7 @@ export default function TrainingPage() {
       setResult(null);
       setShowHint(false);
       setPendingPromotion(null);
+      attemptStartRef.current = Date.now();
       bump();
     },
     [bump],
@@ -107,6 +121,34 @@ export default function TrainingPage() {
   );
   const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
 
+  const attempts = useAttempts();
+  const summary = attemptSummary(attempts, traineeId);
+  const weakestThemes = useThemeAccuracy(traineeId).slice(0, 3);
+
+  /*
+   * Write down what just happened. Called for every outcome, including the
+   * wrong ones — a failed attempt is the more useful record of the two, and
+   * the old code threw it away.
+   *
+   * Nothing is logged in practice mode, because an attempt with no player
+   * attached cannot tell anyone anything later.
+   */
+  const logAttempt = ({ correct, usedSolution = false }) => {
+    if (!trainee) return;
+    recordAttempt({
+      playerId: trainee.playerId,
+      puzzleId: puzzle.id,
+      themes: puzzle.themes || [],
+      difficulty: bandFor(puzzle.rating),
+      puzzleRating: puzzle.rating,
+      correct,
+      usedHint: showHint,
+      usedSolution,
+      secondsTaken: Math.max(0, Math.round((Date.now() - attemptStartRef.current) / 1000)),
+    });
+    attemptStartRef.current = Date.now();
+  };
+
   const loadPuzzle = useCallback(
     (nextIndex) => {
       if (!filtered.length) return;
@@ -126,6 +168,7 @@ export default function TrainingPage() {
 
     const expected = puzzle.solution[solutionIndex];
     if (!sameMove(played, expected)) {
+      logAttempt({ correct: false });
       setResult('wrong');
       bump();
       setTimeout(() => {
@@ -140,6 +183,7 @@ export default function TrainingPage() {
     if (nextIndex >= puzzle.solution.length) {
       setSolutionIndex(nextIndex);
       setResult('solved');
+      logAttempt({ correct: true });
       if (trainee) {
         recordPuzzleSolved(trainee.playerId, puzzle.id);
         recordRatingResult(trainee.playerId, {
@@ -190,6 +234,7 @@ export default function TrainingPage() {
     }
     setSolutionIndex(puzzle.solution.length);
     setResult('solved');
+    logAttempt({ correct: false, usedSolution: true });
     if (trainee) {
       recordRatingResult(trainee.playerId, {
         opponentRating: puzzle.rating,
@@ -320,7 +365,46 @@ export default function TrainingPage() {
             {solvedInFilter}
             <span> / {filtered.length} solved{themeFilter ? ` (${prettyTheme(themeFilter)})` : ''}</span>
           </p>
+
+          {trainee && summary.attempts > 0 && (
+            <p className="hint-text">
+              {summary.attempts} attempt{summary.attempts === 1 ? '' : 's'} ·{' '}
+              {Math.round(summary.accuracy * 100)}% right
+              {summary.medianSeconds != null ? ` · ${summary.medianSeconds}s typical` : ''}
+            </p>
+          )}
         </div>
+
+        {trainee && weakestThemes.length > 0 && (
+          <div className="panel-block">
+            <h2>
+              Weakest themes
+              <InfoTooltip>
+                Measured from actual attempts, worst first. Themes with fewer than three
+                attempts are left out, since one guess proves nothing.
+              </InfoTooltip>
+            </h2>
+            <ol className="priority-list">
+              {weakestThemes.map((row, index) => (
+                <li key={row.theme}>
+                  <span className="priority-rank">{index + 1}</span>
+                  <span className="priority-label">
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => setThemeFilter(row.theme)}
+                    >
+                      {prettyTheme(row.theme)}
+                    </button>
+                  </span>
+                  <span className="mono">
+                    {Math.round(row.accuracy * 100)}% of {row.attempts}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
       </aside>
 
