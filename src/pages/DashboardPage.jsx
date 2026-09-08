@@ -1,15 +1,20 @@
 import { RUBRIC_CATEGORIES, clubAverages, weakestAreas } from '../data/roster.js';
-import { usePlayers } from '../data/rosterStore.js';
+import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
 
-/** DashboardPage — the club at a glance. */
+/** DashboardPage — the club at a glance: who's here, and how they rank. */
 export default function DashboardPage({ onNavigate }) {
   const players = usePlayers();
+  const cloud = useCloudStatus();
   const averages = clubAverages(players);
   const weakest = weakestAreas(players);
   const rated = players.filter((p) => p.ratings.uscf != null);
   const averageRating = rated.length
     ? Math.round(rated.reduce((sum, p) => sum + p.ratings.uscf, 0) / rated.length)
     : null;
+
+  const leaderboard = [...players].sort(
+    (a, b) => (b.clubRating?.rating ?? 1500) - (a.clubRating?.rating ?? 1500),
+  );
 
   return (
     <div className="dashboard">
@@ -39,6 +44,59 @@ export default function DashboardPage({ onNavigate }) {
           label="Competitive track"
           value={players.filter((p) => p.commitment === 'Competitive').length}
         />
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Club leaderboard</h2>
+          <span className="hint-text">
+            Club rating — Glicko-2, the same rating system Chess.com uses, updated from puzzles
+            and games.
+          </span>
+        </div>
+
+        {leaderboard.length === 0 ? (
+          <p className="hint-text">
+            {cloud.configured
+              ? 'No one has joined yet — sign in (top right) to create your player profile.'
+              : 'Add players on the Roster page to start tracking ratings.'}
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table className="roster-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Name</th>
+                  <th>Rating</th>
+                  <th>Puzzles solved</th>
+                  <th>Track</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((player, index) => {
+                  const rating = player.clubRating ?? { rating: 1500, count: 0 };
+                  return (
+                    <tr key={player.playerId}>
+                      <td className="mono">{index + 1}</td>
+                      <td>{player.name}</td>
+                      <td className="mono">
+                        {Math.round(rating.rating)}
+                        {rating.count < 10 && <span className="hint-text"> (provisional)</span>}
+                      </td>
+                      <td className="mono">{player.puzzleStats?.solvedIds?.length || 0}</td>
+                      <td>
+                        <span className={`track ${player.commitment.toLowerCase()}`}>
+                          {player.commitment}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <div className="two-column">

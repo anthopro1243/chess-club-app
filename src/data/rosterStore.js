@@ -1,24 +1,30 @@
 /*
  * rosterStore.js — the roster, made real, and now optionally shared.
  *
- * roster.js still holds the sample players and the rubric math; this module
- * seeds a persistent local store from that sample the first time the app
+ * roster.js still holds the rubric definition; this module seeds a
+ * persistent local store (empty, until people join) the first time the app
  * runs in a browser, then owns all reads and writes from there on. Every
  * exported function keeps the same signature whether or not a backend is
  * connected — add a player, edit their rubric, log a solved puzzle — so no
  * page needs to know or care which mode it's running in.
  *
  * With no Supabase project configured (see supabaseClient.js), everything
- * stays in this browser, same as before. Once one is configured and a
- * signed-in session exists, this module fetches the shared table, mirrors
- * every local write to it, and subscribes to Realtime so every open tab —
- * on any device — sees changes as they land.
+ * stays in this browser, same as before. Once one is configured, anyone can
+ * sign in (email magic link, see auth.js) and claim their own player row —
+ * this module fetches the shared table, mirrors every local write to it,
+ * and subscribes to Realtime so every open tab, on any device, sees changes
+ * as they land.
+ *
+ * Club ratings (see glicko2.js) live on each player row as `clubRating` —
+ * updated here, not on the pages that trigger a result, so Play and
+ * Training don't need to know the rating math.
  */
 
 import { useEffect, useState } from 'react';
 import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
+import { updateRating, DEFAULT_RATING } from './glicko2.js';
 
 const store = createStore('cc-roster-v1', SAMPLE_PLAYERS);
 
@@ -38,6 +44,7 @@ let channel = null;
 function fromRow(row) {
   return {
     playerId: row.player_id,
+    userId: row.user_id || null,
     name: row.name,
     grade: row.grade || '',
     joined: row.joined || '',
@@ -51,12 +58,14 @@ function fromRow(row) {
     trainingFocus: row.training_focus || '',
     coachNotes: row.coach_notes || '',
     puzzleStats: row.puzzle_stats || { solvedIds: [], attempts: 0, lastPlayed: null },
+    clubRating: row.club_rating || { ...DEFAULT_RATING, count: 0 },
   };
 }
 
 function toRow(player) {
   return {
     player_id: player.playerId,
+    user_id: player.userId || null,
     name: player.name,
     grade: player.grade,
     joined: player.joined || null,
@@ -70,6 +79,7 @@ function toRow(player) {
     training_focus: player.trainingFocus,
     coach_notes: player.coachNotes,
     puzzle_stats: player.puzzleStats,
+    club_rating: player.clubRating,
   };
 }
 
@@ -144,7 +154,20 @@ export function useCloudStatus() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  return { configured: isSupabaseConfigured, signedIn: !!session, email: session?.user?.email };
+  return {
+    configured: isSupabaseConfigured,
+    signedIn: !!session,
+    email: session?.user?.email,
+    userId: session?.user?.id,
+  };
+}
+
+/** The signed-in user's own player row, or null if they haven't claimed one yet. */
+export function useMyProfile() {
+  const players = usePlayers();
+  const cloud = useCloudStatus();
+  if (!cloud.signedIn) return null;
+  return players.find((p) => p.userId === cloud.userId) || null;
 }
 
 // -- reads and writes ----------------------------------------------------
@@ -160,36 +183,71 @@ function nextPlayerId(players) {
 const emptyRubric = () =>
   Object.fromEntries(['opening', 'tactics', 'positional', 'endgame', 'timeManagement', 'boardVision', 'resilience', 'notation'].map((k) => [k, 5]));
 
-/** Add a player from a partial form object. Returns the new playerId. */
+function blankPlayer(playerId, overrides) {
+  return {
+    playerId,
+    userId: null,
+    name: 'New player',
+    grade: '',
+    joined: new Date().toISOString().slice(0, 10),
+    boardRole: '',
+    commitment: 'Casual',
+    ratings: { uscf: null, chesscomRapid: null, chesscomBlitz: null, lichessPuzzles: null },
+    preferredOpenings: [],
+    style: '',
+    rubric: emptyRubric(),
+    goal: '',
+    trainingFocus: '',
+    coachNotes: '',
+    puzzleStats: { solvedIds: [], attempts: 0, lastPlayed: null },
+    clubRating: { ...DEFAULT_RATING, count: 0 },
+    ...overrides,
+  };
+}
+
+/** Add a player from a partial form object (coach-entered, no account). Returns the new playerId. */
 export function addPlayer(partial) {
   let created = null;
   store.set((players) => {
-    const playerId = nextPlayerId(players);
-    created = {
-      playerId,
+    created = blankPlayer(nextPlayerId(players), {
       name: partial.name?.trim() || 'New player',
       grade: partial.grade?.trim() || '',
-      joined: new Date().toISOString().slice(0, 10),
       boardRole: partial.boardRole?.trim() || '',
       commitment: partial.commitment || 'Casual',
-      ratings: {
-        uscf: partial.uscf ? Number(partial.uscf) : null,
-        chesscomRapid: null,
-        chesscomBlitz: null,
-        lichessPuzzles: null,
-      },
-      preferredOpenings: [],
+      ratings: { uscf: partial.uscf ? Number(partial.uscf) : null, chesscomRapid: null, chesscomBlitz: null, lichessPuzzles: null },
       style: partial.style?.trim() || '',
-      rubric: emptyRubric(),
       goal: partial.goal?.trim() || '',
-      trainingFocus: '',
-      coachNotes: '',
-      puzzleStats: { solvedIds: [], attempts: 0, lastPlayed: null },
-    };
+    });
     return [...players, created];
   });
   pushToCloud(created);
   return created.playerId;
+}
+
+/**
+ * Create the signed-in user's own player row. Returns the new player, or
+ * the existing one if they'd already claimed a profile.
+ */
+export async function claimProfile({ name, grade }) {
+  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) throw new Error('Sign in first.');
+
+  const existing = store.get().find((p) => p.userId === session.user.id);
+  if (existing) return existing;
+
+  let created = null;
+  store.set((players) => {
+    created = blankPlayer(nextPlayerId(players), {
+      userId: session.user.id,
+      name: name?.trim() || session.user.email,
+      grade: grade?.trim() || '',
+    });
+    return [...players, created];
+  });
+  await pushToCloud(created);
+  return created;
 }
 
 export function updatePlayer(playerId, patch) {
@@ -247,4 +305,64 @@ export function recordPuzzleSolved(playerId, puzzleId) {
 
 export function resetRoster() {
   store.set(SAMPLE_PLAYERS);
+}
+
+// -- club rating (Glicko-2, see glicko2.js) -------------------------------
+
+/**
+ * Apply one rating result to a single player — a puzzle, or a game against
+ * the computer, where there's no second player row to update in tandem.
+ * `score` is 1 (win), 0.5 (draw), 0 (loss) from this player's side.
+ */
+export function recordRatingResult(playerId, { opponentRating, opponentRd, score }) {
+  let updated = null;
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      const current = p.clubRating || { ...DEFAULT_RATING, count: 0 };
+      const next = updateRating(current, [{ opponentRating, opponentRd, score }]);
+      updated = { ...p, clubRating: { ...next, count: (current.count || 0) + 1 } };
+      return updated;
+    }),
+  );
+  pushToCloud(updated);
+  return updated?.clubRating ?? null;
+}
+
+/**
+ * Apply a game result to both players at once, from each other's pre-game
+ * rating — the correct way to do it, rather than updating one and then
+ * using its already-changed rating as the other's opponent.
+ */
+export function recordGameResult(whitePlayerId, blackPlayerId, whiteScore) {
+  let whiteUpdated = null;
+  let blackUpdated = null;
+  store.set((players) => {
+    const white = players.find((p) => p.playerId === whitePlayerId);
+    const black = players.find((p) => p.playerId === blackPlayerId);
+    if (!white || !black) return players;
+
+    const whiteRating = white.clubRating || { ...DEFAULT_RATING, count: 0 };
+    const blackRating = black.clubRating || { ...DEFAULT_RATING, count: 0 };
+    const newWhite = updateRating(whiteRating, [
+      { opponentRating: blackRating.rating, opponentRd: blackRating.rd, score: whiteScore },
+    ]);
+    const newBlack = updateRating(blackRating, [
+      { opponentRating: whiteRating.rating, opponentRd: whiteRating.rd, score: 1 - whiteScore },
+    ]);
+
+    return players.map((p) => {
+      if (p.playerId === whitePlayerId) {
+        whiteUpdated = { ...p, clubRating: { ...newWhite, count: (whiteRating.count || 0) + 1 } };
+        return whiteUpdated;
+      }
+      if (p.playerId === blackPlayerId) {
+        blackUpdated = { ...p, clubRating: { ...newBlack, count: (blackRating.count || 0) + 1 } };
+        return blackUpdated;
+      }
+      return p;
+    });
+  });
+  pushToCloud(whiteUpdated);
+  pushToCloud(blackUpdated);
 }

@@ -7,6 +7,7 @@
 
 create table if not exists public.players (
   player_id text primary key,
+  user_id uuid unique references auth.users(id) on delete set null,
   name text not null,
   grade text default '',
   joined date,
@@ -20,6 +21,7 @@ create table if not exists public.players (
   training_focus text default '',
   coach_notes text default '',
   puzzle_stats jsonb default '{"solvedIds":[],"attempts":0,"lastPlayed":null}'::jsonb,
+  club_rating jsonb default '{"rating":1500,"rd":350,"volatility":0.06,"count":0}'::jsonb,
   updated_at timestamptz not null default now()
 );
 

@@ -3,6 +3,7 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import PlayPage from './pages/PlayPage.jsx';
 import RosterPage from './pages/RosterPage.jsx';
 import TrainingPage from './pages/TrainingPage.jsx';
+import AccountControl from './components/AccountControl.jsx';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
@@ -85,6 +86,8 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <AccountControl />
 
         <button
           type="button"

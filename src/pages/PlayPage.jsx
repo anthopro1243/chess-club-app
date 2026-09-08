@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import { createEngine } from '../engine/stockfishClient.js';
+import { usePlayers, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
 import Piece from '../components/Piece.jsx';
+
+const COMPUTER_OPPONENT_RD = 40; // Stockfish at a set Elo is very consistent — low uncertainty
 
 const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNTS = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
@@ -97,6 +100,12 @@ export default function PlayPage() {
   const [pendingPromotion, setPendingPromotion] = useState(null);
   const [toast, setToast] = useState('');
   const [names, setNames] = useState(saved?.names || { white: '', black: '' });
+  const players = usePlayers();
+  // Which registered player (if any) is on each side — separate from the
+  // free-text display names above, and what actually feeds the club rating.
+  const [whitePlayerId, setWhitePlayerId] = useState(saved?.whitePlayerId || '');
+  const [blackPlayerId, setBlackPlayerId] = useState(saved?.blackPlayerId || '');
+  const gameOverHandledRef = useRef(false);
 
   const [mode, setMode] = useState(saved?.mode === 'computer' ? 'computer' : 'human');
   const [computerColor, setComputerColor] = useState(saved?.computerColor === 'w' ? 'w' : 'b');
@@ -177,6 +186,41 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, computerColor, maxStrength, elo, thinkTime, atLive, status.over, pendingPromotion, live.fen()]);
 
+  // Feed a finished game into the club rating (see rosterStore.js /
+  // glicko2.js). Fires once per game — `gameOverHandledRef` resets whenever
+  // the live game isn't over, so the next game can trigger it again.
+  useEffect(() => {
+    const liveStatus = live.status();
+    if (!liveStatus.over) {
+      gameOverHandledRef.current = false;
+      return;
+    }
+    if (gameOverHandledRef.current) return;
+    gameOverHandledRef.current = true;
+
+    const whiteScore =
+      liveStatus.result === '1-0' ? 1 : liveStatus.result === '0-1' ? 0 : liveStatus.result === '1/2-1/2' ? 0.5 : null;
+    if (whiteScore === null) return;
+
+    if (mode === 'human') {
+      if (whitePlayerId && blackPlayerId && whitePlayerId !== blackPlayerId) {
+        recordGameResult(whitePlayerId, blackPlayerId, whiteScore);
+      }
+    } else if (mode === 'computer') {
+      const humanColor = computerColor === 'w' ? 'b' : 'w';
+      const humanPlayerId = humanColor === 'w' ? whitePlayerId : blackPlayerId;
+      if (humanPlayerId) {
+        const humanScore = humanColor === 'w' ? whiteScore : 1 - whiteScore;
+        recordRatingResult(humanPlayerId, {
+          opponentRating: maxStrength ? 3200 : elo,
+          opponentRd: COMPUTER_OPPONENT_RD,
+          score: humanScore,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo]);
+
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -190,13 +234,15 @@ export default function PlayPage() {
           maxStrength,
           thinkTime,
           orientation,
+          whitePlayerId,
+          blackPlayerId,
         }),
       );
     } catch {
       /* storage can be unavailable; the game still plays for this visit */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation]);
+  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId]);
 
   const flash = (message) => {
     setToast(message);
@@ -287,6 +333,23 @@ export default function PlayPage() {
     setViewPly(next === moves.length ? null : next);
   };
 
+  // Picking a registered player also fills in their display name, but the
+  // two stay independently editable — the id is what the rating cares
+  // about, the name is just what's shown on the board and in the PGN.
+  const selectWhitePlayer = (id) => {
+    setWhitePlayerId(id);
+    const p = players.find((pl) => pl.playerId === id);
+    if (p) setNames((n) => ({ ...n, white: p.name }));
+  };
+  const selectBlackPlayer = (id) => {
+    setBlackPlayerId(id);
+    const p = players.find((pl) => pl.playerId === id);
+    if (p) setNames((n) => ({ ...n, black: p.name }));
+  };
+  const humanColor = computerColor === 'w' ? 'b' : 'w';
+  const humanPlayerId = humanColor === 'w' ? whitePlayerId : blackPlayerId;
+  const selectHumanPlayer = (id) => (humanColor === 'w' ? selectWhitePlayer(id) : selectBlackPlayer(id));
+
   return (
     <div className="play-layout">
       <section className="board-column">
@@ -339,6 +402,37 @@ export default function PlayPage() {
                 <option value="computer">Play vs computer</option>
               </select>
             </label>
+            {mode === 'human' && (
+              <>
+                <label className="field">
+                  <span>White player</span>
+                  <select value={whitePlayerId} onChange={(event) => selectWhitePlayer(event.target.value)}>
+                    <option value="">Guest (not rated)</option>
+                    {players.map((p) => (
+                      <option key={p.playerId} value={p.playerId}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Black player</span>
+                  <select value={blackPlayerId} onChange={(event) => selectBlackPlayer(event.target.value)}>
+                    <option value="">Guest (not rated)</option>
+                    {players.map((p) => (
+                      <option key={p.playerId} value={p.playerId}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {whitePlayerId && blackPlayerId && whitePlayerId === blackPlayerId && (
+                  <p className="hint-text field-wide">
+                    Pick two different players for the result to count toward ratings.
+                  </p>
+                )}
+              </>
+            )}
             {mode === 'computer' && (
               <>
                 <label className="field">
@@ -353,6 +447,17 @@ export default function PlayPage() {
                   >
                     <option value="w">White</option>
                     <option value="b">Black</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Playing as</span>
+                  <select value={humanPlayerId} onChange={(event) => selectHumanPlayer(event.target.value)}>
+                    <option value="">Guest (not rated)</option>
+                    {players.map((p) => (
+                      <option key={p.playerId} value={p.playerId}>
+                        {p.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="field field-wide">

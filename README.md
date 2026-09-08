@@ -2,9 +2,11 @@
 
 The club website: a full-rules chessboard you can play on — against another
 person or the real Stockfish engine at a chosen Elo — a tactics trainer over
-hundreds of real, rated puzzles that saves results to a player's record, a
-roster you can edit from the browser (and optionally share live across
-devices), and a dashboard that points at what the club should be working on.
+hundreds of real, rated puzzles filterable by theme and difficulty, player
+accounts with a club rating computed by actual Glicko-2 (the system
+Chess.com's ratings are built on) fed by every game and puzzle, a live
+leaderboard, and a roster you can edit from the browser and optionally share
+live across devices.
 
 React + Vite. The chess rules, the board, the routing, and the piece artwork
 are all in this repository. The two things that aren't ours: the actual
@@ -46,24 +48,27 @@ src/
     Piece.jsx               the SVG piece set
     MoveList.jsx            game score, click a move to rewind
     PromotionDialog.jsx     queen / rook / bishop / knight picker
+    AccountControl.jsx      sign-in / account button in the top bar
   pages/
-    DashboardPage.jsx       club overview
+    DashboardPage.jsx       club overview and leaderboard
     PlayPage.jsx            the game screen, human or vs. Stockfish
     TrainingPage.jsx        puzzle trainer, saves to a trainee's record
     RosterPage.jsx          player list, detail, add / edit / remove, cloud sync
   data/
-    roster.js               sample players and the rubric math
+    roster.js               rubric definition and the (empty) roster seed
     rosterStore.js           the roster — local by default, cloud when configured
     store.js                 tiny localStorage-backed store used by rosterStore
     supabaseClient.js         reads VITE_SUPABASE_* env vars, or stays null
-    auth.js                  email-magic-link sign-in for the shared roster
+    auth.js                  email-magic-link sign-in / account creation
+    glicko2.js / glicko2.test.mjs  the actual Glicko-2 algorithm, verified
     puzzles.js / puzzles.json  402 real puzzles from Lichess's open database
   styles/
     app.css                 all styling, light and dark themes
 scripts/
   import-puzzles.mjs        rebuilds puzzles.json from Lichess's puzzle dump
 supabase/
-  schema.sql                run once in a new Supabase project for cloud sync
+  schema.sql                 run once in a new Supabase project for cloud sync
+  migration-2-accounts-and-ratings.sql  run once in a project from before accounts existed
 ```
 
 ## The engine
@@ -146,8 +151,9 @@ just a single mating move: play the trainee's move, the opponent's reply is
 played automatically, and the puzzle is solved once the whole line is played
 out. Underpromotion is handled properly where a puzzle calls for it.
 
-Pick a **Theme** to filter, or a **Trainee** to save results to their roster
-record — with no trainee picked, progress only lasts the session.
+Pick a **Theme** and a **Difficulty** band to filter, or a **Trainee** to save
+results to their roster record and their club rating — with no trainee
+picked, progress only lasts the session.
 
 **Refreshing the puzzle set:** `node scripts/import-puzzles.mjs` re-fetches a
 fresh slice of the Lichess dump and rebuilds `src/data/puzzles.json`. Every
@@ -168,15 +174,18 @@ guessed at.
 That covers "refreshing starts over" for a single browser. For a roster
 shared live across every coach's device, see the next section.
 
-## Shared roster (optional backend)
+## Shared roster and accounts (optional backend)
 
 By default the roster is local to each browser — fine for one coach, but two
-coaches on two computers see two different rosters. Connecting a free
-[Supabase](https://supabase.com) project makes it shared and live, with no
-code changes:
+coaches on two computers see two different rosters, and there's no such
+thing as "your own account." Connecting a free
+[Supabase](https://supabase.com) project turns on both, with no code changes:
 
 1. Create a Supabase project (free tier is enough).
-2. In the Supabase dashboard's **SQL Editor**, run `supabase/schema.sql` once.
+2. In the Supabase dashboard's **SQL Editor**, run `supabase/schema.sql` once
+   (a fresh project) or `supabase/migration-2-accounts-and-ratings.sql`
+   (a project that already had `schema.sql` run on an earlier version of
+   this app).
 3. In **Project Settings → API**, copy the Project URL and the `anon` public
    key.
 4. Copy `.env.example` to `.env.local` and fill in
@@ -185,17 +194,46 @@ code changes:
 5. In **Authentication → Providers**, make sure **Email** is enabled (it is
    by default) — that's what powers the magic-link sign-in.
 
-Once configured, the Roster page shows a **Cloud sync** panel. Anyone signs
-in with just their email (a one-time link, no password — nobody types a
-password into this app), and from then on the roster reads and writes
-through the shared `players` table and updates live on every signed-in
-device via Supabase Realtime. Signed out, or with no project configured at
-all, it transparently falls back to the local behavior above — the app never
-requires an account to be usable.
+Once configured, a **Sign in** button appears in the top bar. Anyone signs in
+with just their email (a one-time link, no password — nobody types a
+password into this app); the first time, they're asked to name their player
+profile, which joins the roster and starts at the default Glicko-2 rating.
+From then on the roster reads and writes through the shared `players` table
+and updates live on every signed-in device via Supabase Realtime. Signed out,
+or with no project configured at all, it transparently falls back to the
+local behavior above — the app never requires an account to be usable, and a
+coach can still add players by hand on the Roster page without one.
 
 The anon key is meant to be public in a client bundle; access control is
 entirely Row Level Security (`supabase/schema.sql`), which requires a signed-
 in session for every read and write.
+
+## Club ratings
+
+Every player has a club rating computed by **Glicko-2** — implemented from
+[Mark Glickman's own published paper](http://www.glicko.net/glicko/glicko2.pdf)
+in `src/data/glicko2.js`, and checked against the worked example in that
+paper (`src/data/glicko2.test.mjs`, part of `npm test`). This is the same
+rating system Chess.com's ratings are built on. New players start at the
+paper's own defaults — rating 1500, RD 350, volatility 0.06 — shown as
+"provisional" until they've played enough to bring the deviation down.
+
+Three things feed it, each applied as its own single-game rating period
+(the standard way Lichess and Chess.com apply Glicko-2 to "live" ratings,
+rather than batching a full rating period):
+
+- **Puzzles** (Training page) — solving one is a win against an opponent
+  rated at that puzzle's own Lichess rating; clicking "Show answer" is a
+  loss. Retrying after a wrong guess doesn't affect the rating either way.
+- **Games vs. the computer** (Play page) — a win, loss, or draw against an
+  opponent rated at the Elo Stockfish was set to (or 3200 at maximum
+  strength).
+- **Games vs. another person** (Play page, human-vs-human mode) — pick both
+  sides from the roster in the Opponent panel (not required — games between
+  guests just aren't rated) and a finished game updates both players against
+  each other's actual pre-game rating.
+
+The Dashboard's **Club leaderboard** ranks everyone by this rating.
 
 ## Deploying
 

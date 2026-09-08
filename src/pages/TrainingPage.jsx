@@ -3,9 +3,19 @@ import { Chess } from '../engine/chess.js';
 import Board from '../components/Board.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
-import { usePlayers, recordPuzzleSolved } from '../data/rosterStore.js';
+import { usePlayers, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
 
 const TRAINEE_KEY = 'cc-trainee';
+const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
+
+const DIFFICULTIES = [
+  { key: '', label: 'All difficulties', test: () => true },
+  { key: 'beginner', label: 'Beginner (< 1000)', test: (r) => r < 1000 },
+  { key: 'easy', label: 'Easy (1000–1400)', test: (r) => r >= 1000 && r < 1400 },
+  { key: 'intermediate', label: 'Intermediate (1400–1800)', test: (r) => r >= 1400 && r < 1800 },
+  { key: 'hard', label: 'Hard (1800–2200)', test: (r) => r >= 1800 && r < 2200 },
+  { key: 'expert', label: 'Expert (2200+)', test: (r) => r >= 2200 },
+];
 
 const prettyTheme = (theme) =>
   theme
@@ -26,14 +36,21 @@ const sameMove = (a, b) =>
  */
 export default function TrainingPage() {
   const [themeFilter, setThemeFilter] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('');
+  const difficultyTest = DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
   const filtered = useMemo(
-    () => (themeFilter ? PUZZLES.filter((p) => p.themes.includes(themeFilter)) : PUZZLES),
-    [themeFilter],
+    () =>
+      PUZZLES.filter((p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [themeFilter, difficultyFilter],
   );
 
   const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [themeFilter]);
-  const puzzle = filtered[Math.min(index, filtered.length - 1)];
+  useEffect(() => setIndex(0), [themeFilter, difficultyFilter]);
+  // Some theme + difficulty combinations have no puzzles at all — fall back
+  // to a harmless placeholder so every hook below still has a real puzzle
+  // to work with; the empty case is handled in the render instead.
+  const puzzle = filtered.length ? filtered[Math.min(index, filtered.length - 1)] : PUZZLES[0];
 
   const gameRef = useRef(new Chess(puzzle.fen));
   const [, setVersion] = useState(0);
@@ -122,8 +139,16 @@ export default function TrainingPage() {
     if (nextIndex >= puzzle.solution.length) {
       setSolutionIndex(nextIndex);
       setResult('solved');
-      if (trainee) recordPuzzleSolved(trainee.playerId, puzzle.id);
-      else setSessionSolved((prev) => new Set(prev).add(puzzle.id));
+      if (trainee) {
+        recordPuzzleSolved(trainee.playerId, puzzle.id);
+        recordRatingResult(trainee.playerId, {
+          opponentRating: puzzle.rating,
+          opponentRd: PUZZLE_OPPONENT_RD,
+          score: 1,
+        });
+      } else {
+        setSessionSolved((prev) => new Set(prev).add(puzzle.id));
+      }
       bump();
       return;
     }
@@ -162,6 +187,13 @@ export default function TrainingPage() {
     }
     setSolutionIndex(puzzle.solution.length);
     setResult('solved');
+    if (trainee) {
+      recordRatingResult(trainee.playerId, {
+        opponentRating: puzzle.rating,
+        opponentRd: PUZZLE_OPPONENT_RD,
+        score: 0,
+      });
+    }
     bump();
   };
 
@@ -170,54 +202,65 @@ export default function TrainingPage() {
   return (
     <div className="training-layout">
       <section className="board-column">
-        <div className={`puzzle-banner ${result || ''}`}>
-          <div>
-            <span className="puzzle-counter mono">
-              {index + 1} / {filtered.length}
-            </span>
-            <strong>{puzzle.name}</strong>
-            <span className="puzzle-rating mono">{puzzle.rating}</span>
+        {filtered.length === 0 ? (
+          <div className="panel-block">
+            <h2>No puzzles match</h2>
+            <p className="hint-text">
+              No puzzles fit both that theme and that difficulty. Try a different combination.
+            </p>
           </div>
-          <span className="puzzle-prompt">
-            {result === 'solved'
-              ? 'Solved'
-              : result === 'wrong'
-                ? 'Not the move. Try again.'
-                : waitingOnOpponent
-                  ? 'Opponent is replying…'
-                  : `${orientation === 'w' ? 'White' : 'Black'} to play`}
-          </span>
-        </div>
+        ) : (
+          <>
+            <div className={`puzzle-banner ${result || ''}`}>
+              <div>
+                <span className="puzzle-counter mono">
+                  {index + 1} / {filtered.length}
+                </span>
+                <strong>{puzzle.name}</strong>
+                <span className="puzzle-rating mono">{puzzle.rating}</span>
+              </div>
+              <span className="puzzle-prompt">
+                {result === 'solved'
+                  ? 'Solved'
+                  : result === 'wrong'
+                    ? 'Not the move. Try again.'
+                    : waitingOnOpponent
+                      ? 'Opponent is replying…'
+                      : `${orientation === 'w' ? 'White' : 'Black'} to play`}
+              </span>
+            </div>
 
-        <Board
-          game={game}
-          orientation={orientation}
-          onMove={handleMove}
-          interactive={result !== 'solved' && !waitingOnOpponent}
-        />
+            <Board
+              game={game}
+              orientation={orientation}
+              onMove={handleMove}
+              interactive={result !== 'solved' && !waitingOnOpponent}
+            />
 
-        <div className="puzzle-controls">
-          <button type="button" onClick={() => loadPuzzle(index - 1)}>
-            &lsaquo; Previous
-          </button>
-          <button type="button" onClick={() => resetBoard(puzzle)}>
-            Reset
-          </button>
-          <button type="button" onClick={randomPuzzle}>
-            Random
-          </button>
-          <button type="button" onClick={() => setShowHint(true)} disabled={showHint}>
-            Hint
-          </button>
-          <button type="button" onClick={reveal} disabled={result === 'solved'}>
-            Show answer
-          </button>
-          <button type="button" className="primary" onClick={() => loadPuzzle(index + 1)}>
-            Next &rsaquo;
-          </button>
-        </div>
+            <div className="puzzle-controls">
+              <button type="button" onClick={() => loadPuzzle(index - 1)}>
+                &lsaquo; Previous
+              </button>
+              <button type="button" onClick={() => resetBoard(puzzle)}>
+                Reset
+              </button>
+              <button type="button" onClick={randomPuzzle}>
+                Random
+              </button>
+              <button type="button" onClick={() => setShowHint(true)} disabled={showHint}>
+                Hint
+              </button>
+              <button type="button" onClick={reveal} disabled={result === 'solved'}>
+                Show answer
+              </button>
+              <button type="button" className="primary" onClick={() => loadPuzzle(index + 1)}>
+                Next &rsaquo;
+              </button>
+            </div>
 
-        {showHint && <p className="hint-box">{puzzle.hint}</p>}
+            {showHint && <p className="hint-box">{puzzle.hint}</p>}
+          </>
+        )}
       </section>
 
       <aside className="side-panel">
@@ -237,21 +280,35 @@ export default function TrainingPage() {
           </select>
           <p className="hint-text">
             {trainee
-              ? `Solved puzzles are saved to ${trainee.name}'s record — see it on the Roster page.`
+              ? `Solved puzzles are saved to ${trainee.name}'s record and update their club rating — see both on the Roster page.`
               : 'Pick a trainee to save results to their record, or keep practicing without one.'}
           </p>
         </div>
 
         <div className="panel-block">
-          <h2>Theme</h2>
-          <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)}>
-            <option value="">All themes ({PUZZLES.length} puzzles)</option>
-            {PUZZLE_THEMES.map((theme) => (
-              <option key={theme} value={theme}>
-                {prettyTheme(theme)}
-              </option>
-            ))}
-          </select>
+          <h2>Puzzle type</h2>
+          <label className="field">
+            <span>Theme</span>
+            <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)}>
+              <option value="">All themes</option>
+              {PUZZLE_THEMES.map((theme) => (
+                <option key={theme} value={theme}>
+                  {prettyTheme(theme)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Difficulty</span>
+            <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value)}>
+              {DIFFICULTIES.map((d) => (
+                <option key={d.key} value={d.key}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint-text">{filtered.length} puzzles match.</p>
         </div>
 
         <div className="panel-block">
