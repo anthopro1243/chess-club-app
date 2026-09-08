@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.js';
+import ConnectionsModal from './ConnectionsModal.jsx';
 import {
   signInWithPassword,
   signUpWithPassword,
@@ -25,6 +26,7 @@ export default function AccountControl() {
   const profile = useMyProfile();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot' | 'magiclink'
+  const [showConnections, setShowConnections] = useState(false);
 
   if (!cloud.configured) return null;
 
@@ -55,9 +57,21 @@ export default function AccountControl() {
             <MagicLinkForm onSwitch={setMode} />
           )}
           {cloud.signedIn && !profile && <ClaimProfileForm onDone={close} />}
-          {cloud.signedIn && profile && <AccountSummary cloud={cloud} profile={profile} onClose={close} />}
+          {cloud.signedIn && profile && (
+            <AccountSummary
+              cloud={cloud}
+              profile={profile}
+              onClose={close}
+              onOpenConnections={() => {
+                close();
+                setShowConnections(true);
+              }}
+            />
+          )}
         </div>
       )}
+
+      {showConnections && <ConnectionsModal onClose={() => setShowConnections(false)} />}
     </div>
   );
 }
@@ -333,7 +347,7 @@ function ClaimProfileForm({ onDone }) {
   );
 }
 
-function AccountSummary({ cloud, profile, onClose }) {
+function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -374,6 +388,13 @@ function AccountSummary({ cloud, profile, onClose }) {
         Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
         {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
       </p>
+
+      {!changingPassword && (
+        <button type="button" className="connections-button" onClick={onOpenConnections}>
+          Connected accounts
+          <span className="badge">{Object.keys(profile.connections || {}).length || 'none'}</span>
+        </button>
+      )}
 
       {!changingPassword && (
         <div className="auth-links">

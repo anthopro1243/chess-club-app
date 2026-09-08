@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGames, removeGame } from '../data/gamesStore.js';
+import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { usePlayers } from '../data/rosterStore.js';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
@@ -74,6 +74,8 @@ export default function GamesPage() {
               <option value="">All games</option>
               <option value="human">Club games</option>
               <option value="computer">vs Computer</option>
+              <option value="chesscom">Chess.com</option>
+              <option value="lichess">Lichess</option>
             </select>
           </label>
         </div>
@@ -109,7 +111,7 @@ export default function GamesPage() {
                     <td className="mono">{g.moveCount}</td>
                     <td>
                       <span className={`track ${g.mode === 'human' ? 'competitive' : ''}`}>
-                        {g.mode === 'human' ? 'Club' : 'Computer'}
+                        {GAME_MODE_LABEL[g.mode] || g.mode}
                       </span>
                     </td>
                     <td>

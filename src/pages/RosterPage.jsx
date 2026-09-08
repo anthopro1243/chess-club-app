@@ -5,6 +5,13 @@ import InfoTooltip from '../components/InfoTooltip.jsx';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
 
+const ONLINE_RATINGS = [
+  ['rapid', 'Rapid'],
+  ['blitz', 'Blitz'],
+  ['bullet', 'Bullet'],
+  ['puzzles', 'Puzzles'],
+];
+
 const emptyForm = { name: '', grade: '', boardRole: '', commitment: 'Casual', uscf: '', goal: '' };
 
 /**
@@ -349,6 +356,35 @@ export default function RosterPage() {
                   ? ` · last practiced ${new Date(selected.puzzleStats.lastPlayed).toLocaleDateString()}`
                   : ''}
               </p>
+
+              {Object.keys(selected.connections || {}).length > 0 && (
+                <>
+                  <h3>
+                    Online play
+                    <InfoTooltip>
+                      Rated games from these accounts count toward the club rating, same as club
+                      games and puzzles.
+                    </InfoTooltip>
+                  </h3>
+                  {Object.entries(selected.connections).map(([platform, connection]) => (
+                    <p key={platform}>
+                      <strong>{platform === 'chesscom' ? 'Chess.com' : 'Lichess'}</strong>{' '}
+                      <a href={connection.url} target="_blank" rel="noreferrer">
+                        {connection.username}
+                      </a>
+                      {ONLINE_RATINGS.map(([key, label]) => {
+                        const value = connection.ratings?.[key];
+                        return value == null ? null : (
+                          <span key={key} className="hint-text">
+                            {' · '}
+                            {label} <span className="mono">{value}</span>
+                          </span>
+                        );
+                      })}
+                    </p>
+                  ))}
+                </>
+              )}
             </>
           )}
         </section>

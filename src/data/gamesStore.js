@@ -16,6 +16,14 @@ import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 
 const store = createStore('cc-games-v1', []);
 
+/** Where a game came from. 'human' and 'computer' are played in the app; the other two are imported. */
+export const GAME_MODE_LABEL = {
+  human: 'Club',
+  computer: 'vs Computer',
+  chesscom: 'Chess.com',
+  lichess: 'Lichess',
+};
+
 export function useGames() {
   return useStore(store);
 }
@@ -124,6 +132,37 @@ export function recordGame(game) {
       });
   }
   return record;
+}
+
+/*
+ * Archive games imported from Chess.com or Lichess.
+ *
+ * These carry the platform's own game id, so re-importing is a no-op and
+ * two club members who played each other online produce one archive row,
+ * not two — even though each of them rates the game from their own side.
+ */
+export function recordExternalGames(games) {
+  if (!games.length) return [];
+
+  let added = [];
+  store.set((existing) => {
+    const known = new Set(existing.map((g) => g.id));
+    added = games.filter((g) => !known.has(g.id));
+    if (!added.length) return existing;
+    return [...added, ...existing]
+      .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)))
+      .slice(0, 500);
+  });
+
+  if (added.length && isSupabaseConfigured && cloudReady) {
+    supabase
+      .from('games')
+      .upsert(added.map(toRow))
+      .then(({ error }) => {
+        if (error) console.error('Imported game save to Supabase failed:', error.message);
+      });
+  }
+  return added;
 }
 
 export function removeGame(id) {

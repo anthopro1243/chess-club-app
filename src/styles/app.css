@@ -319,6 +319,105 @@ code {
   width: 100%;
 }
 
+/* ---------- connected accounts ------------------------------------------ */
+
+.connections-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.connections-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.connections-modal h3 {
+  display: flex;
+  align-items: center;
+}
+
+.connection-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.connection-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--bg-sunken);
+}
+
+.connection-card.connected {
+  border-color: var(--border-strong);
+}
+
+.connection-card h4 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.connection-card .signin-form {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.connection-card .signin-form input {
+  width: 100%;
+  min-width: 0;
+}
+
+.connection-user {
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-user:hover {
+  text-decoration: underline;
+}
+
+.connection-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.rating-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.rating-chip-label {
+  color: var(--text-faint);
+}
+
+.sync-result {
+  color: var(--good);
+}
+
 .theme-toggle:hover {
   color: var(--text);
   border-color: var(--text-faint);

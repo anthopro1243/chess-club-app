@@ -14,6 +14,7 @@
  */
 
 import { RUBRIC_CATEGORIES } from './roster.js';
+import { GAME_MODE_LABEL } from './gamesStore.js';
 
 const date = (iso) => (iso ? String(iso).slice(0, 10) : '');
 const round = (n) => (typeof n === 'number' ? Math.round(n) : '');
@@ -33,8 +34,15 @@ function playerMasterSheet(players) {
     'Puzzles Solved': p.puzzleStats?.solvedIds?.length ?? 0,
     'Last Practiced': date(p.puzzleStats?.lastPlayed),
     USCF: p.ratings?.uscf ?? '',
+    'Chess.com Username': p.connections?.chesscom?.username ?? '',
     'Chess.com Rapid': p.ratings?.chesscomRapid ?? '',
     'Chess.com Blitz': p.ratings?.chesscomBlitz ?? '',
+    'Chess.com Bullet': p.ratings?.chesscomBullet ?? '',
+    'Chess.com Puzzles': p.ratings?.chesscomPuzzles ?? '',
+    'Lichess Username': p.connections?.lichess?.username ?? '',
+    'Lichess Rapid': p.ratings?.lichessRapid ?? '',
+    'Lichess Blitz': p.ratings?.lichessBlitz ?? '',
+    'Lichess Bullet': p.ratings?.lichessBullet ?? '',
     'Lichess Puzzles': p.ratings?.lichessPuzzles ?? '',
     Style: p.style,
     'Preferred Openings': (p.preferredOpenings || []).join(', '),
@@ -96,7 +104,7 @@ function gamesSheet(games) {
     Result: g.result,
     'Ended By': g.reason,
     Moves: g.moveCount,
-    Type: g.mode === 'computer' ? 'vs Computer' : 'Club game',
+    Type: GAME_MODE_LABEL[g.mode] || g.mode,
     'Computer Elo': g.computerElo ?? '',
     PGN: g.pgn,
   }));
@@ -140,6 +148,8 @@ function clubSummarySheet(players, games) {
     { Metric: 'Games archived', Value: games.length },
     { Metric: 'Club games (person vs person)', Value: games.filter((g) => g.mode === 'human').length },
     { Metric: 'Games vs computer', Value: games.filter((g) => g.mode === 'computer').length },
+    { Metric: 'Imported from Chess.com', Value: games.filter((g) => g.mode === 'chesscom').length },
+    { Metric: 'Imported from Lichess', Value: games.filter((g) => g.mode === 'lichess').length },
     ...rubricAverages,
   ];
 }

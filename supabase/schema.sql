@@ -25,6 +25,10 @@ create table if not exists public.players (
   rating_history jsonb default '[]'::jsonb,
   assessments jsonb default '[]'::jsonb,
   attendance jsonb default '[]'::jsonb,
+  -- Linked Chess.com / Lichess accounts, and the platform game ids already
+  -- folded into this player's rating (see src/data/externalSync.js).
+  connections jsonb default '{}'::jsonb,
+  imported_game_ids jsonb default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -46,6 +50,7 @@ create table if not exists public.games (
 );
 
 create index if not exists games_played_at_idx on public.games (played_at desc);
+create index if not exists games_mode_idx on public.games (mode);
 
 -- Keep updated_at current on every write.
 create or replace function public.touch_updated_at()

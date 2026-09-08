@@ -62,6 +62,8 @@ function fromRow(row) {
     ratingHistory: row.rating_history || [],
     assessments: row.assessments || [],
     attendance: row.attendance || [],
+    connections: row.connections || {},
+    importedGameIds: row.imported_game_ids || [],
   };
 }
 
@@ -86,6 +88,8 @@ function toRow(player) {
     rating_history: player.ratingHistory || [],
     assessments: player.assessments || [],
     attendance: player.attendance || [],
+    connections: player.connections || {},
+    imported_game_ids: player.importedGameIds || [],
   };
 }
 
@@ -210,6 +214,8 @@ function blankPlayer(playerId, overrides) {
     ratingHistory: [],
     assessments: [],
     attendance: [],
+    connections: {},
+    importedGameIds: [],
     ...overrides,
   };
 }
@@ -418,6 +424,142 @@ export function recordGameResult(whitePlayerId, blackPlayerId, whiteScore) {
   });
   pushToCloud(whiteUpdated);
   pushToCloud(blackUpdated);
+}
+
+// -- linked Chess.com / Lichess accounts ----------------------------------
+
+/*
+ * A player row remembers which online accounts belong to them, and which
+ * games it has already counted. That second list is what stops a second
+ * sync from rating the same game twice: the check and the rating update
+ * happen inside one store update, so two syncs racing each other still
+ * cannot both claim the same game.
+ */
+
+const IMPORTED_ID_LIMIT = 2000;
+
+/** Link (or relink) an online account to a player. */
+export function setConnection(playerId, platform, connection) {
+  let updated = null;
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      updated = {
+        ...p,
+        connections: {
+          ...(p.connections || {}),
+          [platform]: { ...(p.connections?.[platform] || {}), ...connection },
+        },
+      };
+      return updated;
+    }),
+  );
+  pushToCloud(updated);
+  return updated;
+}
+
+/** Unlink an account. Games already counted stay counted. */
+export function removeConnection(playerId, platform) {
+  let updated = null;
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+      const rest = { ...(p.connections || {}) };
+      delete rest[platform];
+      updated = { ...p, connections: rest };
+      return updated;
+    }),
+  );
+  pushToCloud(updated);
+}
+
+/** Merge freshly-read platform ratings into the row's `ratings` block. */
+function mergePlatformRatings(existing, platform, ratings) {
+  const prefix = platform === 'chesscom' ? 'chesscom' : 'lichess';
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(ratings || {})) {
+    merged[`${prefix}${key[0].toUpperCase()}${key.slice(1)}`] = value ?? null;
+  }
+  return merged;
+}
+
+/**
+ * Apply a batch of already-rated online games to one player, oldest first,
+ * in a single write.
+ *
+ * Each game must arrive carrying the opponent rating already converted to
+ * the club's scale (see externalSync.js) — the same division of labour the
+ * Play and Training pages use, where the caller decides what the opponent
+ * was worth and this module only does the maths.
+ *
+ * Returns which games were actually new, so the caller knows what to
+ * archive and what to report.
+ */
+export function recordExternalResults(playerId, platform, games, { ratings, ...connectionPatch } = {}) {
+  let updated = null;
+  let accepted = [];
+  let before = null;
+
+  store.set((players) =>
+    players.map((p) => {
+      if (p.playerId !== playerId) return p;
+
+      const already = new Set(p.importedGameIds || []);
+      accepted = games.filter((g) => !already.has(g.externalId));
+
+      const startRating = p.clubRating || { ...DEFAULT_RATING, count: 0 };
+      before = startRating;
+
+      let rating = startRating;
+      const history = [];
+      for (const game of accepted) {
+        const next = updateRating(rating, [
+          { opponentRating: game.clubOpponentRating, opponentRd: game.opponentRd, score: game.score },
+        ]);
+        history.push({
+          at: game.playedAt,
+          rating: next.rating,
+          rd: next.rd,
+          change: next.rating - rating.rating,
+          opponentRating: game.clubOpponentRating,
+          score: game.score,
+          source: platform,
+          detail: `${game.timeClass} vs ${game.opponentName} (${game.opponentRating ?? '?'})`,
+        });
+        rating = next;
+      }
+
+      const mergedHistory = [...(p.ratingHistory || []), ...history]
+        .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+        .slice(-HISTORY_LIMIT);
+
+      updated = {
+        ...p,
+        clubRating: { ...rating, count: (startRating.count || 0) + accepted.length },
+        ratingHistory: mergedHistory,
+        ratings: ratings ? mergePlatformRatings(p.ratings || {}, platform, ratings) : p.ratings,
+        importedGameIds: [...(p.importedGameIds || []), ...accepted.map((g) => g.externalId)].slice(
+          -IMPORTED_ID_LIMIT,
+        ),
+        connections: {
+          ...(p.connections || {}),
+          [platform]: {
+            ...(p.connections?.[platform] || {}),
+            ...connectionPatch,
+            ratings: ratings ?? p.connections?.[platform]?.ratings ?? null,
+          },
+        },
+      };
+      return updated;
+    }),
+  );
+
+  pushToCloud(updated);
+  return {
+    imported: accepted,
+    ratingBefore: before?.rating ?? null,
+    ratingAfter: updated?.clubRating?.rating ?? null,
+  };
 }
 
 // -- coach records --------------------------------------------------------
