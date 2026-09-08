@@ -191,6 +191,15 @@ Moves appear in the list on the right in chess notation (`e4`, `Nf3`, …), and
 That PGN is the exact format `coach_report.py` reads, so a game played here can
 go straight into the analyzer.
 
+**Try the computer opponent:** in the **Opponent** panel, switch to "Play vs
+computer" and pick an Elo. That's the real Stockfish engine — the first move
+it makes may take an extra second while the browser loads the engine file
+(a few MB), after which it's instant.
+
+**Try the puzzle trainer:** click **Training** in the top nav. Solve a
+puzzle's forced line move by move; picking a name under **Trainee** saves
+your results to that player's row on the Roster page.
+
 ---
 
 ## Everyday use, once it is working

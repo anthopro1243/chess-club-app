@@ -1,13 +1,16 @@
 # Chess Club app
 
 The club website: a full-rules chessboard you can play on — against another
-person or a computer opponent — a mate-in-one trainer that saves results to a
-player's record, a roster you can edit from the browser, and a dashboard that
-points at what the club should be working on.
+person or the real Stockfish engine at a chosen Elo — a tactics trainer over
+hundreds of real, rated puzzles that saves results to a player's record, a
+roster you can edit from the browser (and optionally share live across
+devices), and a dashboard that points at what the club should be working on.
 
-React + Vite. The only runtime dependencies are `react` and `react-dom` — the
-chess rules, the search, the board, the routing and the piece artwork are all
-in this repository, so there is nothing that can break on a version bump.
+React + Vite. The chess rules, the board, the routing, and the piece artwork
+are all in this repository. The two things that aren't ours: the actual
+Stockfish 18 engine (vendored, see `public/stockfish/README.md`) and a
+curated slice of Lichess's open puzzle database (`src/data/puzzles.json`,
+see `scripts/import-puzzles.mjs`).
 
 ---
 
@@ -29,14 +32,15 @@ npm test        # chess engine test suite
 ```
 index.html                  page shell
 vite.config.js              build config
+public/
+  stockfish/                 the real Stockfish 18 engine (WASM, vendored)
 src/
   main.jsx                  entry point
   App.jsx                   nav, routing, light/dark theme
   engine/
     chess.js                the chess rules engine (no dependencies)
     chess.test.mjs          engine test suite
-    ai.js                   the computer opponent (negamax, alpha-beta, PST eval)
-    aiWorker.js              runs ai.js off the main thread
+    stockfishClient.js       promise wrapper around the Stockfish worker
   components/
     Board.jsx               interactive board — click or drag
     Piece.jsx               the SVG piece set
@@ -44,16 +48,22 @@ src/
     PromotionDialog.jsx     queen / rook / bishop / knight picker
   pages/
     DashboardPage.jsx       club overview
-    PlayPage.jsx            the game screen, human or vs. computer
-    TrainingPage.jsx        mate-in-one trainer, saves to a trainee's record
-    RosterPage.jsx          player list, detail, add / edit / remove
+    PlayPage.jsx            the game screen, human or vs. Stockfish
+    TrainingPage.jsx        puzzle trainer, saves to a trainee's record
+    RosterPage.jsx          player list, detail, add / edit / remove, cloud sync
   data/
     roster.js               sample players and the rubric math
-    rosterStore.js           the roster made persistent — reads/writes go here
+    rosterStore.js           the roster — local by default, cloud when configured
     store.js                 tiny localStorage-backed store used by rosterStore
-    puzzles.js              mate-in-one positions
+    supabaseClient.js         reads VITE_SUPABASE_* env vars, or stays null
+    auth.js                  email-magic-link sign-in for the shared roster
+    puzzles.js / puzzles.json  402 real puzzles from Lichess's open database
   styles/
     app.css                 all styling, light and dark themes
+scripts/
+  import-puzzles.mjs        rebuilds puzzles.json from Lichess's puzzle dump
+supabase/
+  schema.sql                run once in a new Supabase project for cloud sync
 ```
 
 ## The engine
@@ -100,55 +110,111 @@ game.undo();
   point, then **Live** to come back.
 - **Copy PGN** / **Download PGN** produce a file that `coach_report.py` reads
   directly, which is how a club game becomes an engine-backed review.
-- The game in progress, the roster, and puzzle results are all saved to the
-  browser automatically — see **Persistence** below.
+- The game in progress and its opponent settings are saved to the browser
+  automatically — see **Persistence** below.
 
 ## Playing the computer
 
-The **Opponent** panel on the Play page switches from human-vs-human to
-human-vs-computer, and lets you pick which side you play and a difficulty:
+This is real Stockfish, not an approximation — every move it plays and every
+strength setting comes from the actual engine, nothing is hand-tuned or
+guessed. The **Opponent** panel on the Play page switches from human-vs-human
+to human-vs-computer and lets you pick:
 
-- **Easy** — searches 2 ply and picks loosely among its best options, so it
-  makes real mistakes.
-- **Medium** — searches 3 ply with a little randomness among near-equal moves.
-- **Hard** — iterative deepening up to 5 ply with a ~1.8s time budget; it
-  plays close to its true best move every time.
+- **Elo** — a slider bounded to whatever range the loaded engine build
+  reports for `UCI_Elo` (read live from the engine at startup, not
+  hard-coded), so it's always accurate to the exact build in
+  `public/stockfish/`.
+- **Maximum strength** — turns off the Elo limiter entirely; the engine plays
+  its true best move.
+- **Thinking time** — Fast / Normal / Deep, i.e. how long it searches per move.
 
-The engine lives in `src/engine/ai.js`: negamax with alpha-beta pruning,
-MVV-LVA move ordering, a capture-only quiescence search at the leaves so it
-doesn't hang pieces one ply past the horizon, and the standard piece-square
-tables for evaluation. It runs inside a Web Worker (`src/engine/aiWorker.js`)
-so a "Hard" search never freezes the board.
+`src/engine/stockfishClient.js` talks UCI to the engine over a Web Worker
+(`public/stockfish/stockfish-18-lite-single.js`, the single-threaded build —
+no special server headers required, so it runs on any static host) and
+serializes requests so a "New Game" or "Undo" mid-search can't race a stale
+reply. While the computer is thinking, the board stops accepting moves for
+its side — the status banner says so — and **Undo** takes back both its
+reply and the move it answered, landing you back on your own turn.
 
-While the computer is thinking the board stops accepting moves for its side —
-the status banner says so — and **Undo** takes back both its reply and the
-move it answered, so you land back on your own turn.
+## Training
+
+402 real tactics puzzles pulled from
+[Lichess's open, CC0-licensed puzzle database](https://database.lichess.org/#puzzles),
+spanning 23 themes (forks, pins, back-rank mates, sacrifices, endgames, and
+more) and the full Lichess rating range. Every puzzle is a forced line, not
+just a single mating move: play the trainee's move, the opponent's reply is
+played automatically, and the puzzle is solved once the whole line is played
+out. Underpromotion is handled properly where a puzzle calls for it.
+
+Pick a **Theme** to filter, or a **Trainee** to save results to their roster
+record — with no trainee picked, progress only lasts the session.
+
+**Refreshing the puzzle set:** `node scripts/import-puzzles.mjs` re-fetches a
+fresh slice of the Lichess dump and rebuilds `src/data/puzzles.json`. Every
+candidate is replayed end-to-end through `src/engine/chess.js` before being
+accepted — anything that doesn't parse as a legal line is dropped rather than
+guessed at.
 
 ## Persistence
 
-There is no backend or database — everything is saved to `localStorage`, in
-this browser, on this device:
+- **The live game** (Play page) and **puzzle theme/trainee choice** always
+  save to `localStorage`, per browser — refreshing resumes where you left off.
+- **The roster** is local by default too (`src/data/rosterStore.js`), seeded
+  once from the sample data in `src/data/roster.js`. Adding, editing, or
+  removing a player sticks after a refresh.
+- **Puzzle results** write onto the selected trainee's roster row (visible on
+  the Roster page as puzzles solved and last-practiced date).
 
-- **The live game** (Play page) — refreshing the page resumes exactly where
-  you left off, opponent settings included.
-- **The roster** (`src/data/rosterStore.js`) — adding, editing, or removing a
-  player sticks. The sample data in `src/data/roster.js` is only the seed used
-  the first time the app runs in a browser that has never saved a roster.
-- **Puzzle results** — pick a trainee on the Training page and solved puzzles
-  are written onto their roster row (visible on the Roster page as puzzles
-  solved and last-practiced date); with no trainee selected, results only
-  last the session.
+That covers "refreshing starts over" for a single browser. For a roster
+shared live across every coach's device, see the next section.
 
-This solves "refreshing starts over," but it is per-browser, not a shared
-club database — two coaches on two computers see two separate rosters. Point
-`rosterStore.js` at a real API (swap `createStore`'s localStorage calls for
-`fetch`) to make the roster shared and multi-device.
+## Shared roster (optional backend)
+
+By default the roster is local to each browser — fine for one coach, but two
+coaches on two computers see two different rosters. Connecting a free
+[Supabase](https://supabase.com) project makes it shared and live, with no
+code changes:
+
+1. Create a Supabase project (free tier is enough).
+2. In the Supabase dashboard's **SQL Editor**, run `supabase/schema.sql` once.
+3. In **Project Settings → API**, copy the Project URL and the `anon` public
+   key.
+4. Copy `.env.example` to `.env.local` and fill in
+   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`. Restart `npm run dev` (or
+   rebuild) after adding them.
+5. In **Authentication → Providers**, make sure **Email** is enabled (it is
+   by default) — that's what powers the magic-link sign-in.
+
+Once configured, the Roster page shows a **Cloud sync** panel. Anyone signs
+in with just their email (a one-time link, no password — nobody types a
+password into this app), and from then on the roster reads and writes
+through the shared `players` table and updates live on every signed-in
+device via Supabase Realtime. Signed out, or with no project configured at
+all, it transparently falls back to the local behavior above — the app never
+requires an account to be usable.
+
+The anon key is meant to be public in a client bundle; access control is
+entirely Row Level Security (`supabase/schema.sql`), which requires a signed-
+in session for every read and write.
+
+## Deploying
+
+This is a static site — `npm run build` produces `dist/`, which is every
+file the app needs, no server required. Any static host works:
+**Vercel**, **Netlify**, and **Cloudflare Pages** all auto-detect a Vite
+project (build command `npm run build`, output directory `dist`) and
+redeploy automatically on every push once connected to the GitHub repo; add
+your `VITE_SUPABASE_*` values in that host's dashboard as environment
+variables if you're using the shared roster. **GitHub Pages** works too —
+push `dist/` to a `gh-pages` branch (or use the official
+`actions/deploy-pages` workflow) — since `vite.config.js` already uses a
+relative `base: './'`, it works from a project subpath without extra config.
 
 ## Connecting it to the rest of the club setup
 
-- `src/data/rosterStore.js` is where player data lives at runtime. Swapping
-  its storage for a real API, without touching any page, is the seam left
-  open for a real backend.
+- `src/data/rosterStore.js` is where player data lives at runtime, whether
+  that's local storage or the shared Supabase table above — no page needs to
+  know which.
 - The PGN produced on the Play page is the input format `game_analyzer.py`
   already accepts. Games played here can go straight into the existing
   analysis pipeline.
