@@ -39,10 +39,11 @@ export default function App() {
     const hash = window.location.hash;
     if (!hash.includes('error=')) return;
     const params = new URLSearchParams(hash.replace(/^#\/?/, ''));
-    const description = (params.get('error_description') || 'That sign-in link no longer works.').replace(
+    let description = (params.get('error_description') || 'That sign-in link no longer works').replace(
       /\+/g,
       ' ',
     );
+    if (!/[.!?]$/.test(description)) description += '.';
     setAuthNotice({ kind: 'error', message: `${description} Request a new one from Sign in.` });
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);
