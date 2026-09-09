@@ -12,6 +12,27 @@
 -- complete by hand or you will lock yourself out of your own coach tools.
 
 -- ---------------------------------------------------------------------------
+-- 0. Preflight.
+--
+-- The helper functions below join players to auth users, so migration 2 has
+-- to have run first. Postgres validates a SQL function body when it is
+-- created, so without this check the failure surfaces 80 lines further down
+-- as "column user_id does not exist", which says nothing about the cause.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'players' and column_name = 'user_id')
+  then
+    raise exception
+      'public.players has no user_id column. Run migration-2-accounts-and-ratings.sql first, then this file.';
+  end if;
+end
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 1. Profiles: one per auth user, carrying role and approval status.
 -- ---------------------------------------------------------------------------
 
@@ -230,6 +251,14 @@ drop policy if exists "Signed-in users can add players"    on public.players;
 drop policy if exists "Signed-in users can edit players"   on public.players;
 drop policy if exists "Signed-in users can remove players" on public.players;
 
+-- Also dropped by their new names, so this file can be re-run after a
+-- partial failure. The Supabase SQL editor commits statement by statement
+-- rather than rolling the whole script back, so a re-run is a real scenario.
+drop policy if exists "Approved members read the roster"          on public.players;
+drop policy if exists "Members claim a row, coaches add any"      on public.players;
+drop policy if exists "Members edit their own row, coaches edit any" on public.players;
+drop policy if exists "Only coaches remove players"               on public.players;
+
 create policy "Approved members read the roster"
   on public.players for select to authenticated
   using (public.is_approved());
@@ -251,6 +280,11 @@ drop policy if exists "Signed-in users can read games"   on public.games;
 drop policy if exists "Signed-in users can add games"    on public.games;
 drop policy if exists "Signed-in users can edit games"   on public.games;
 drop policy if exists "Signed-in users can remove games" on public.games;
+
+drop policy if exists "Approved members read games"                  on public.games;
+drop policy if exists "Approved members add games"                   on public.games;
+drop policy if exists "Players edit their own games, coaches edit any" on public.games;
+drop policy if exists "Only coaches remove games"                    on public.games;
 
 create policy "Approved members read games"
   on public.games for select to authenticated
