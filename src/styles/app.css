@@ -734,6 +734,28 @@ button.primary:hover:not(:disabled) {
   pointer-events: none;
 }
 
+/*
+ * Colour alone is not enough to carry these three states: red-green colour
+ * blindness runs near one boy in twelve, so in a club of twenty, assume
+ * someone. Each state gets a distinct shape as well as its tint — a solid
+ * edge for the last move, a dashed one for the selected square, a double
+ * ring for check — so they stay tellable apart in greyscale.
+ */
+.square.last-move {
+  box-shadow: inset 0 0 0 3px var(--text-faint);
+}
+
+.square.selected {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+}
+
+.square.in-check {
+  box-shadow:
+    inset 0 0 0 3px var(--bad),
+    inset 0 0 0 6px var(--bg-raised);
+}
+
 .square .piece {
   position: relative;
   z-index: 2;

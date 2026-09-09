@@ -154,6 +154,13 @@ export default function PlayPage() {
   if (clockRef.current === null) clockRef.current = createClock(timeControl, gameRef.current.turn);
   const [, setClockTick] = useState(0);
   const [flagged, setFlagged] = useState(saved?.flagged || null);
+
+  /*
+   * A game can also end by agreement or resignation, neither of which the
+   * rules engine knows about. Same treatment as a flag: recorded here and
+   * folded into the status below.
+   */
+  const [agreedEnd, setAgreedEnd] = useState(saved?.agreedEnd || null);
   const engineRef = useRef(null);
   const requestIdRef = useRef(0);
 
@@ -210,7 +217,7 @@ export default function PlayPage() {
         reason: 'Forfeit on time',
         text: `${flagged === 'w' ? 'Black' : 'White'} wins on time`,
       }
-    : live.status();
+    : agreedEnd || live.status();
   const status = atLive ? liveStatus : displayGame.status();
   const { captured, score } = materialSummary(displayGame);
 
@@ -307,7 +314,7 @@ export default function PlayPage() {
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo, gameId, recordedGameId, flagged]);
+  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo, gameId, recordedGameId, flagged, agreedEnd]);
 
   useEffect(() => {
     try {
@@ -328,13 +335,14 @@ export default function PlayPage() {
           recordedGameId,
           timeControlId,
           flagged,
+          agreedEnd,
         }),
       );
     } catch {
       /* storage can be unavailable; the game still plays for this visit */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId, gameId, recordedGameId, timeControlId, flagged]);
+  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId, gameId, recordedGameId, timeControlId, flagged, agreedEnd]);
 
   const flash = (message) => {
     setToast(message);
@@ -414,6 +422,7 @@ export default function PlayPage() {
     gameRef.current = new Chess();
     setGameId(newGameId()); // a fresh game is eligible to be recorded again
     resetClock(timeControl);
+    setAgreedEnd(null);
     setViewPly(null);
     setPendingPromotion(null);
     bump();
@@ -706,6 +715,37 @@ export default function PlayPage() {
             </button>
             <button type="button" onClick={() => setOrientation((o) => (o === 'w' ? 'b' : 'w'))}>
               Flip board
+            </button>
+            <button
+              type="button"
+              disabled={liveStatus.over || !moves.length}
+              onClick={() => {
+                const side = live.turn === 'w' ? 'White' : 'Black';
+                if (!window.confirm(`${side} resigns?`)) return;
+                setAgreedEnd({
+                  over: true,
+                  result: live.turn === 'w' ? '0-1' : '1-0',
+                  reason: 'Resignation',
+                  text: `${live.turn === 'w' ? 'Black' : 'White'} wins by resignation`,
+                });
+              }}
+            >
+              Resign
+            </button>
+            <button
+              type="button"
+              disabled={liveStatus.over || !moves.length}
+              onClick={() => {
+                if (!window.confirm('Agree to a draw?')) return;
+                setAgreedEnd({
+                  over: true,
+                  result: '1/2-1/2',
+                  reason: 'Agreement',
+                  text: 'Draw by agreement',
+                });
+              }}
+            >
+              Offer draw
             </button>
             <button
               type="button"

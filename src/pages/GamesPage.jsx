@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { usePlayers } from '../data/rosterStore.js';
+import LogGameForm from '../components/LogGameForm.jsx';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
 
@@ -35,6 +36,7 @@ export default function GamesPage() {
   const [playerFilter, setPlayerFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [openId, setOpenId] = useState(null);
+  const [logging, setLogging] = useState(false);
   const [toast, setToast] = useState('');
 
   const flash = (message) => {
@@ -53,8 +55,15 @@ export default function GamesPage() {
       <section className="panel">
         <div className="panel-header">
           <h2>Game archive</h2>
-          <span className="badge">{filtered.length} games</span>
+          <div className="panel-header-actions">
+            <span className="badge">{filtered.length} games</span>
+            <button type="button" className="link-button" onClick={() => setLogging((v) => !v)}>
+              {logging ? 'Cancel' : '+ Log a game'}
+            </button>
+          </div>
         </div>
+
+        {logging && <LogGameForm />}
 
         <div className="opponent-controls">
           <label className="field">
