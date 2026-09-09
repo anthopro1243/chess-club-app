@@ -7,6 +7,18 @@ import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
 import Piece from '../components/Piece.jsx';
+import {
+  TIME_CONTROLS,
+  findControl,
+  createClock,
+  startClock,
+  pressClock,
+  remainingFor,
+  hasFlagged,
+  formatClock,
+  annotatePgnWithClocks,
+  pgnTimeControlTag,
+} from '../data/chessClock.js';
 
 const COMPUTER_OPPONENT_RD = 40; // Stockfish at a set Elo is very consistent — low uncertainty
 
@@ -127,6 +139,21 @@ export default function PlayPage() {
   );
   const [eloRange, setEloRange] = useState(DEFAULT_ELO_RANGE);
   const [thinking, setThinking] = useState(false);
+
+  /*
+   * The clock. Kept in a ref rather than state because it is read on every
+   * animation tick and written on every move; `clockTick` is what actually
+   * triggers a re-render, once every 100ms while it is running.
+   *
+   * A flag is not something the rules engine knows about, so running out of
+   * time is tracked separately and folded into the game status below.
+   */
+  const [timeControlId, setTimeControlId] = useState(saved?.timeControlId || 'none');
+  const timeControl = findControl(timeControlId);
+  const clockRef = useRef(null);
+  if (clockRef.current === null) clockRef.current = createClock(timeControl, gameRef.current.turn);
+  const [, setClockTick] = useState(0);
+  const [flagged, setFlagged] = useState(saved?.flagged || null);
   const engineRef = useRef(null);
   const requestIdRef = useRef(0);
 
@@ -173,7 +200,18 @@ export default function PlayPage() {
   );
 
   const shownMove = atLive ? moves[moves.length - 1] : moves[viewPly - 1];
-  const status = displayGame.status();
+
+  // The rules engine has no concept of a clock, so a forfeit on time is
+  // merged in here instead of being pushed down into it.
+  const liveStatus = flagged
+    ? {
+        over: true,
+        result: flagged === 'w' ? '0-1' : '1-0',
+        reason: 'Forfeit on time',
+        text: `${flagged === 'w' ? 'Black' : 'White'} wins on time`,
+      }
+    : live.status();
+  const status = atLive ? liveStatus : displayGame.status();
   const { captured, score } = materialSummary(displayGame);
 
   useEffect(() => {
@@ -190,6 +228,7 @@ export default function PlayPage() {
         setThinking(false);
         if (move) {
           gameRef.current.move(move);
+          pressAfterMove();
           setViewPly(null);
           bump();
         }
@@ -201,7 +240,6 @@ export default function PlayPage() {
   // glicko2.js). Fires once per game — `gameOverHandledRef` resets whenever
   // the live game isn't over, so the next game can trigger it again.
   useEffect(() => {
-    const liveStatus = live.status();
     if (!liveStatus.over) {
       gameOverHandledRef.current = false;
       return;
@@ -256,10 +294,20 @@ export default function PlayPage() {
       moveCount: live.moveHistory().length,
       mode,
       computerElo: mode === 'computer' ? (maxStrength ? null : elo) : null,
-      pgn: live.pgn({ White: displayName('w'), Black: displayName('b') }),
+      // Clock readings ride along inside the PGN as [%clk] comments, which is
+      // both the standard form and what game_analyzer.py already parses, so
+      // per-move times need no column of their own.
+      pgn: annotatePgnWithClocks(
+        live.pgn({
+          White: displayName('w'),
+          Black: displayName('b'),
+          ...(timeControl.baseMs ? { TimeControl: pgnTimeControlTag(timeControl) } : {}),
+        }),
+        clockRef.current.moveTimes,
+      ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo, gameId, recordedGameId]);
+  }, [live.fen(), mode, whitePlayerId, blackPlayerId, computerColor, maxStrength, elo, gameId, recordedGameId, flagged]);
 
   useEffect(() => {
     try {
@@ -278,18 +326,58 @@ export default function PlayPage() {
           blackPlayerId,
           gameId,
           recordedGameId,
+          timeControlId,
+          flagged,
         }),
       );
     } catch {
       /* storage can be unavailable; the game still plays for this visit */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId, gameId, recordedGameId]);
+  }, [live.fen(), names, mode, computerColor, elo, maxStrength, thinkTime, orientation, whitePlayerId, blackPlayerId, gameId, recordedGameId, timeControlId, flagged]);
 
   const flash = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 2200);
   };
+
+  /*
+   * Tick while the clock runs, and stop the game the moment someone flags.
+   * 100ms is fast enough for the tenths shown under ten seconds without
+   * re-rendering the board pointlessly.
+   */
+  useEffect(() => {
+    if (timeControl.baseMs === 0 || flagged || liveStatus.over) return undefined;
+    const timer = setInterval(() => {
+      const clock = clockRef.current;
+      if (clock.running && hasFlagged(clock)) {
+        clockRef.current = { ...clock, running: false };
+        setFlagged(clock.turn);
+      }
+      setClockTick((t) => t + 1);
+    }, 100);
+    return () => clearInterval(timer);
+  }, [timeControl.baseMs, flagged, liveStatus.over]);
+
+  /** Hand the move over on the clock, starting it if this is the first move. */
+  const pressAfterMove = useCallback(() => {
+    if (timeControl.baseMs === 0) return;
+    const started = clockRef.current.running
+      ? clockRef.current
+      : startClock(clockRef.current);
+    clockRef.current = pressClock(started);
+    setClockTick((t) => t + 1);
+  }, [timeControl.baseMs]);
+
+  /** Put the clock back to the start of a fresh game under the chosen control. */
+  const resetClock = useCallback(
+    (control, turn = 'w') => {
+      clockRef.current = createClock(control, turn);
+      setFlagged(null);
+      setClockTick((t) => t + 1);
+    },
+    [],
+  );
 
   const handleMove = useCallback(
     ({ from, to }) => {
@@ -301,14 +389,16 @@ export default function PlayPage() {
         return;
       }
       live.move({ from, to });
+      pressAfterMove();
       setViewPly(null);
       bump();
     },
-    [atLive, live, bump],
+    [atLive, live, bump, pressAfterMove],
   );
 
   const completePromotion = (type) => {
     live.move({ ...pendingPromotion, promotion: type });
+    pressAfterMove();
     setPendingPromotion(null);
     setViewPly(null);
     bump();
@@ -323,6 +413,7 @@ export default function PlayPage() {
     setThinking(false);
     gameRef.current = new Chess();
     setGameId(newGameId()); // a fresh game is eligible to be recorded again
+    resetClock(timeControl);
     setViewPly(null);
     setPendingPromotion(null);
     bump();
@@ -338,11 +429,17 @@ export default function PlayPage() {
     bump();
   };
 
+  // Copy and Download hand over the same annotated PGN the archive stores,
+  // so a game pasted into an analyzer carries its clock readings either way.
   const pgn = () =>
-    live.pgn({
-      White: names.white.trim() || 'White',
-      Black: names.black.trim() || 'Black',
-    });
+    annotatePgnWithClocks(
+      live.pgn({
+        White: names.white.trim() || 'White',
+        Black: names.black.trim() || 'Black',
+        ...(timeControl.baseMs ? { TimeControl: pgnTimeControlTag(timeControl) } : {}),
+      }),
+      clockRef.current.moveTimes,
+    );
 
   const downloadPgn = async () => {
     const stamp = new Date().toISOString().slice(0, 10);
@@ -406,6 +503,8 @@ export default function PlayPage() {
           captured={captured[orientation === 'w' ? 'b' : 'w']}
           advantage={orientation === 'w' ? -score : score}
           toMove={displayGame.turn === (orientation === 'w' ? 'b' : 'w')}
+          clockMs={timeControl.baseMs ? remainingFor(clockRef.current, orientation === 'w' ? 'b' : 'w') : null}
+          clockRunning={clockRef.current.running && clockRef.current.turn === (orientation === 'w' ? 'b' : 'w')}
         />
 
         <Board
@@ -426,6 +525,8 @@ export default function PlayPage() {
           captured={captured[orientation]}
           advantage={orientation === 'w' ? score : -score}
           toMove={displayGame.turn === orientation}
+          clockMs={timeControl.baseMs ? remainingFor(clockRef.current, orientation) : null}
+          clockRunning={clockRef.current.running && clockRef.current.turn === orientation}
         />
       </section>
 
@@ -540,6 +641,38 @@ export default function PlayPage() {
         </div>
 
         <div className="panel-block">
+          <h2>Clock</h2>
+          <label className="field">
+            <span>Time control</span>
+            <select
+              value={timeControlId}
+              onChange={(event) => {
+                const next = findControl(event.target.value);
+                setTimeControlId(next.id);
+                // Changing the control mid-game would leave both sides on
+                // times that never applied, so it always starts a fresh clock.
+                resetClock(next, live.turn);
+              }}
+            >
+              {TIME_CONTROLS.map((control) => (
+                <option key={control.id} value={control.id}>
+                  {control.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {timeControl.baseMs > 0 && (
+            <p className="hint-text">
+              {clockRef.current.running
+                ? 'Running. It starts on the first move and stops when someone flags.'
+                : moves.length
+                  ? 'Paused.'
+                  : 'Starts on the first move.'}
+            </p>
+          )}
+        </div>
+
+        <div className="panel-block">
           <h2>Moves</h2>
           <MoveList
             moves={sans}
@@ -614,9 +747,10 @@ export default function PlayPage() {
   );
 }
 
-function PlayerBar({ label, color, name, onName, captured, advantage, toMove }) {
+function PlayerBar({ label, color, name, onName, captured, advantage, toMove, clockMs, clockRunning }) {
   const order = { q: 0, r: 1, b: 2, n: 3, p: 4 };
   const sorted = [...captured].sort((a, b) => order[a] - order[b]);
+  const low = clockMs != null && clockMs <= 30000;
   return (
     <div className={`player-bar ${toMove ? 'to-move' : ''}`}>
       <span className={`turn-dot ${color === 'w' ? 'white' : 'black'}`} />
@@ -633,6 +767,14 @@ function PlayerBar({ label, color, name, onName, captured, advantage, toMove }) 
         ))}
         {advantage > 0 && <span className="advantage">+{advantage}</span>}
       </div>
+      {clockMs != null && (
+        <span
+          className={`clock mono ${clockRunning ? 'running' : ''} ${low ? 'low' : ''}`}
+          aria-label={`${label} time remaining`}
+        >
+          {formatClock(clockMs)}
+        </span>
+      )}
     </div>
   );
 }

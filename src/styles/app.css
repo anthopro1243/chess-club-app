@@ -418,6 +418,32 @@ code {
   color: var(--good);
 }
 
+/* ---------- clock ------------------------------------------------------- */
+
+.player-bar .clock {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 5.2ch;
+  text-align: right;
+}
+
+.player-bar .clock.running {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.player-bar .clock.low {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
 .badge.warn {
   color: var(--accent-text);
   background: var(--accent);
