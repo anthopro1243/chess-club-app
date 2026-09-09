@@ -13,6 +13,7 @@
 
 import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
+import { reportSyncError } from './syncStatus.js';
 
 const store = createStore('cc-games-v1', []);
 
@@ -76,7 +77,7 @@ async function syncFromCloud() {
     .order('played_at', { ascending: false })
     .limit(500);
   if (error) {
-    console.error('Game archive fetch from Supabase failed:', error.message);
+    reportSyncError('the game archive', error.message);
     return;
   }
   cloudReady = true;
@@ -128,7 +129,7 @@ export function recordGame(game) {
       .from('games')
       .insert(toRow(record))
       .then(({ error }) => {
-        if (error) console.error('Game save to Supabase failed:', error.message);
+        if (error) reportSyncError('that game', error.message);
       });
   }
   return record;
@@ -159,7 +160,7 @@ export function recordExternalGames(games) {
       .from('games')
       .upsert(added.map(toRow))
       .then(({ error }) => {
-        if (error) console.error('Imported game save to Supabase failed:', error.message);
+        if (error) reportSyncError('the imported games', error.message);
       });
   }
   return added;
@@ -173,7 +174,7 @@ export function removeGame(id) {
       .delete()
       .eq('id', id)
       .then(({ error }) => {
-        if (error) console.error('Game delete from Supabase failed:', error.message);
+        if (error) reportSyncError('removing that game', error.message);
       });
   }
 }

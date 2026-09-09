@@ -25,6 +25,7 @@ import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
 import { updateRating, DEFAULT_RATING } from './glicko2.js';
+import { reportSyncError } from './syncStatus.js';
 
 const store = createStore('cc-roster-v1', SAMPLE_PLAYERS);
 
@@ -96,7 +97,7 @@ function toRow(player) {
 async function syncFromCloud() {
   const { data, error } = await supabase.from('players').select('*').order('player_id');
   if (error) {
-    console.error('Roster fetch from Supabase failed:', error.message);
+    reportSyncError('the roster', error.message);
     return;
   }
   cloudReady = true;
@@ -144,13 +145,13 @@ function cloudActive() {
 async function pushToCloud(player) {
   if (!cloudActive() || !player) return;
   const { error } = await supabase.from('players').upsert(toRow(player));
-  if (error) console.error('Roster sync to Supabase failed:', error.message);
+  if (error) reportSyncError('the roster', error.message);
 }
 
 async function deleteFromCloud(playerId) {
   if (!cloudActive()) return;
   const { error } = await supabase.from('players').delete().eq('player_id', playerId);
-  if (error) console.error('Roster delete from Supabase failed:', error.message);
+  if (error) reportSyncError('removing that player', error.message);
 }
 
 /** Whether the roster is backed by a live, shared connection right now. */

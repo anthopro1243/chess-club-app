@@ -10,6 +10,7 @@ import ResetPasswordModal from './components/ResetPasswordModal.jsx';
 import AccessGate from './components/AccessGate.jsx';
 import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 import { useAccount } from './data/accountStore.js';
+import { useSyncError, clearSyncError } from './data/syncStatus.js';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
@@ -41,6 +42,7 @@ export default function App() {
   // only. Without one, the app is running on somebody's own machine against
   // their own storage and there is nothing to gate.
   const account = useAccount();
+  const syncError = useSyncError();
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
@@ -158,6 +160,18 @@ export default function App() {
         <div className={`auth-banner ${authNotice.kind}`}>
           <span>{authNotice.message}</span>
           <button type="button" onClick={() => setAuthNotice(null)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
+
+      {syncError && (
+        <div className="auth-banner error">
+          <span>
+            Could not save {syncError.what} to the server, so this change only exists in this
+            browser. {syncError.message}
+          </span>
+          <button type="button" onClick={clearSyncError} aria-label="Dismiss">
             ×
           </button>
         </div>

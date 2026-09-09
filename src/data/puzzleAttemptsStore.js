@@ -16,6 +16,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
+import { reportSyncError } from './syncStatus.js';
 
 /** Attempts pile up faster than any other record, so the local copy is capped. */
 const LOCAL_LIMIT = 2000;
@@ -71,7 +72,7 @@ async function syncFromCloud() {
     .order('attempted_at', { ascending: false })
     .limit(LOCAL_LIMIT);
   if (error) {
-    console.error('Puzzle attempt fetch from Supabase failed:', error.message);
+    reportSyncError('your puzzle history', error.message);
     return;
   }
   cloudReady = true;
@@ -137,7 +138,7 @@ export function recordAttempt(attempt) {
       .from('puzzle_attempts')
       .insert(toRow(record))
       .then(({ error }) => {
-        if (error) console.error('Puzzle attempt save to Supabase failed:', error.message);
+        if (error) reportSyncError('that puzzle attempt', error.message);
       });
   }
   return record;

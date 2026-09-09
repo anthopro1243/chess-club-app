@@ -13,6 +13,7 @@
 
 import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
+import { reportSyncError } from './syncStatus.js';
 
 const store = createStore('cc-coach-notes-v1', {});
 
@@ -77,7 +78,7 @@ export function setCoachNote(playerId, note) {
       .from('coach_notes')
       .upsert({ player_id: playerId, note, updated_at: new Date().toISOString() }, { onConflict: 'player_id' })
       .then(({ error }) => {
-        if (error) console.error('Coach note save failed:', error.message);
+        if (error) reportSyncError('that coach note', error.message);
       });
   }
 }
