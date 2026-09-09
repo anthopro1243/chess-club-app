@@ -7,7 +7,9 @@ import GamesPage from './pages/GamesPage.jsx';
 import CoachPage from './pages/CoachPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
 import ResetPasswordModal from './components/ResetPasswordModal.jsx';
+import AccessGate from './components/AccessGate.jsx';
 import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
+import { useAccount } from './data/accountStore.js';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
@@ -34,6 +36,12 @@ export default function App() {
   const [route, setRoute] = useState(routeFromHash);
   const [authNotice, setAuthNotice] = useState(null);
   const [passwordResetActive, setPasswordResetActive] = useState(false);
+
+  // With a backend configured, the club's pages are for approved members
+  // only. Without one, the app is running on somebody's own machine against
+  // their own storage and there is nothing to gate.
+  const account = useAccount();
+  const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
   // place our own routing looks. A successful sign-in's tokens are handled
@@ -122,7 +130,7 @@ export default function App() {
         </button>
 
         <nav className="nav">
-          {ROUTES.map((item) => (
+          {(locked ? [] : ROUTES).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -156,12 +164,18 @@ export default function App() {
       )}
 
       <main className="content">
-        {route === 'home' && <DashboardPage onNavigate={navigate} />}
-        {route === 'play' && <PlayPage />}
-        {route === 'training' && <TrainingPage />}
-        {route === 'games' && <GamesPage />}
-        {route === 'roster' && <RosterPage />}
-        {route === 'coach' && <CoachPage />}
+        {isSupabaseConfigured && account.loading ? null : locked ? (
+          <AccessGate signedIn={account.signedIn} status={account.status} />
+        ) : (
+          <>
+            {route === 'home' && <DashboardPage onNavigate={navigate} />}
+            {route === 'play' && <PlayPage />}
+            {route === 'training' && <TrainingPage />}
+            {route === 'games' && <GamesPage />}
+            {route === 'roster' && <RosterPage />}
+            {route === 'coach' && <CoachPage />}
+          </>
+        )}
       </main>
 
       <footer className="footer">

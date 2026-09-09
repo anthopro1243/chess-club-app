@@ -67,11 +67,11 @@ export function useAccount() {
 
     const load = async (session) => {
       if (!session) {
-        // Signed out with a backend configured means the app has fallen back
-        // to this browser's own storage. There is no one to keep anything
-        // from here, and the cloud rows are unreachable without a session, so
-        // local-only use keeps working the way it did before roles existed.
-        if (live) setAccount({ ...LOCAL_ADMIN, loading: false });
+        // Signed out on a deployment that has a backend is a stranger, not a
+        // coach working offline. The cloud rows are unreachable to them
+        // either way, but the club's tools should not be sitting open on a
+        // public URL for anyone who finds the link.
+        if (live) setAccount({ ...PENDING, signedIn: false, loading: false });
         return;
       }
       const { data, error } = await supabase

@@ -418,6 +418,20 @@ code {
   color: var(--good);
 }
 
+.access-gate {
+  max-width: 30rem;
+  margin: 48px auto;
+  text-align: center;
+}
+
+.access-gate h2 {
+  margin-top: 0;
+}
+
+.access-gate p {
+  color: var(--text-muted);
+}
+
 /* ---------- clock ------------------------------------------------------- */
 
 .player-bar .clock {
