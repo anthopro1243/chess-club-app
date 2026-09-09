@@ -119,7 +119,15 @@ create trigger on_auth_user_created
 create or replace function public.protect_profile_privileges()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not public.is_coach() then
+  -- auth.uid() is null when there is no signed-in user behind the statement:
+  -- the SQL editor, a migration, the service role. Those connections are
+  -- already privileged, and one of them has to be able to appoint the first
+  -- coach, or the club has no way to bootstrap one.
+  --
+  -- This is not a hole for anonymous API callers: the policies on this table
+  -- are granted `to authenticated` only, so an anon request is refused by RLS
+  -- long before any trigger runs.
+  if auth.uid() is not null and not public.is_coach() then
     new.role   := old.role;
     new.status := old.status;
   end if;
@@ -331,10 +339,14 @@ on conflict (user_id) do nothing;
 --   update public.profiles set role = 'admin'
 --    where user_id = (select id from auth.users where email = 'you@example.com');
 --
--- Then confirm it took:
+-- Then confirm it took. Do not skip this: an earlier version of the trigger
+-- above silently reverted the change and still reported a row updated.
 --
 --   select u.email, p.role, p.status
 --     from public.profiles p join auth.users u on u.id = p.user_id
 --    order by p.created_at;
+--
+-- If your row still says 'player', the trigger is the old version. Re-run
+-- this file to replace it, then run the update again.
 --
 -- ===========================================================================
