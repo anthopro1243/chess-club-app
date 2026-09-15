@@ -143,9 +143,30 @@ self-verification tests that stand in for a human reviewing each step.
       already stands there, so asking it what a pawn attacks returned the
       forward push and nothing else, making every pawn fork invisible. Pawn
       attacks are now computed geometrically.
-- [ ] **Step 6 — player view, then coach view**
-- [ ] **Step 7 — the loop** (own-blunder puzzles, Training pre-filter,
-      suggested rubric scores)
+- [~] **Step 6 — player and coach views.** The *rules* are done and tested:
+      `src/analysis/presentation.js` (20 assertions) holds the permission
+      boundary and the wording constraints, deliberately outside the JSX —
+      "no player ever sees another player's analysis" has to be testable
+      without a browser. `GameAnalysisPanel.jsx` renders it and is wired into
+      the Games page. **Not visually verified:** the whole UI sits behind
+      `AccessGate`, and Claude cannot sign in.
+- [~] **Step 7 — the loop.** Own-blunder puzzles are produced
+      (`criticalMomentsAsPuzzles`, `puzzlesFrom`) but **not yet written into
+      the puzzle pool or the spaced-repetition scheduler**. Suggested rubric
+      scores are computed and tested (`suggestedRubric`, engine-only, never
+      overwriting a coach score) but **not yet rendered in the Roster panel**.
+      The Training pre-filter mapping is done and tested but **the navigation
+      is not wired**.
+
+      **Second contract error found here, flagged not improvised:** the spec
+      says `improvementPlan().practice.trainingTheme` "matches the Training
+      page's existing theme list". It does not. The plan emits display names
+      ("Back Rank Mate", "Hanging Piece"); `puzzles.json` uses Lichess keys
+      (`backRankMate`, `hangingPiece`). Unmapped, the pre-filter would show a
+      player an empty Training page instead of the drill they were just told
+      to do. `PUZZLE_THEME_BY_TRAINING_THEME` fixes it, and its test checks
+      every mapping against the shipped puzzle data rather than a hand-written
+      list, so a re-import with different tags fails the suite.
 
 ### Blocked
 

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
+import { useAccount } from '../data/accountStore.js';
 import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { usePlayers } from '../data/rosterStore.js';
 import LogGameForm from '../components/LogGameForm.jsx';
@@ -31,6 +33,8 @@ function downloadPgn(game) {
 
 /** GamesPage — every finished game the club has played, newest first. */
 export default function GamesPage() {
+  const account = useAccount();
+  const viewer = { role: account?.role, playerId: account?.playerId ?? null };
   const games = useGames();
   const players = usePlayers();
   const [playerFilter, setPlayerFilter] = useState('');
@@ -176,6 +180,7 @@ export default function GamesPage() {
                 Delete game
               </button>
             </div>
+            <GameAnalysisPanel game={game} viewer={viewer} />
           </section>
         );
       })()}
