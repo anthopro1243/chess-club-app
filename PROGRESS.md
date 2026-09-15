@@ -101,6 +101,50 @@ had to exist before any new table did.
 
 ---
 
+## Analyzer buildout
+
+Following `docs/ANALYZER-SPEC.md` and the autopilot brief. Gates are the
+self-verification tests that stand in for a human reviewing each step.
+
+- [x] **Step 1 — `evaluate()` on stockfishClient** plus a Node transport so the
+      engine can be driven from `node --test`. **Gate 1 green: 10 assertions.**
+      Found and fixed a real latent bug on the way: every wait registered its
+      listener *after* sending the command. A Web Worker delivers messages
+      asynchronously so the browser survived it by luck; under Node the engine
+      emits synchronously, `uciok` fired before anything was listening, and
+      `ready` never resolved. Gate 1 now runs in 594ms rather than hanging.
+- [x] **Step 2 — `parsePgn()` / `parseAndValidate()`. Gates 2 and 3 green: 21
+      assertions.** Nested recursive variations, multi-game files, both
+      castling spellings, over-disambiguated SAN, and the rule that the first
+      move of each side reports `null` seconds rather than `0`.
+- [x] **SEE (`src/analysis/see.js`) — 12 assertions.** Two expectations in the
+      original test were wrong, not the implementation: SEE on d5 in that
+      fixture is 320, not 220. The test stopped a ply early and forgot the d1
+      rook recaptures after `exd5`. Arithmetic is recorded in the test.
+- [ ] **Step 3 — `buildPlyRecords()`**
+- [ ] **Step 4 — `analyzeGame.js` end to end, Gate 4**
+- [ ] **Step 5 — `motifs.js` v1** (hangingPiece, fork, backRank)
+- [ ] **Step 6 — player view, then coach view**
+- [ ] **Step 7 — the loop** (own-blunder puzzles, Training pre-filter,
+      suggested rubric scores)
+
+### Blocked
+
+- **Gate 5 (permissions)** needs two real signed-in accounts. Claude cannot
+  create accounts or enter passwords, so this one cannot be run here and is
+  left for you. Everything it would check is RLS policy already shipped in
+  `0009_game_analysis.sql`.
+
+### Corrections to this file
+
+Two claims elsewhere in this document were already out of date and have been
+verified false against the live database:
+
+- "Migrations are written, not run" — **all** of `migration-4`, `0005`-`0008`
+  are applied in production, and `0009_game_analysis.sql` was applied by hand.
+- "Nothing is pushed or deployed yet. Four commits are waiting locally." —
+  everything is pushed; the app is live.
+
 ## Decisions
 
 Made without asking, so they can be reversed knowingly.
