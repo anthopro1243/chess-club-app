@@ -121,9 +121,28 @@ self-verification tests that stand in for a human reviewing each step.
       original test were wrong, not the implementation: SEE on d5 in that
       fixture is 320, not 220. The test stopped a ply early and forgot the d1
       rook recaptures after `exd5`. Arithmetic is recorded in the test.
-- [ ] **Step 3 — `buildPlyRecords()`**
-- [ ] **Step 4 — `analyzeGame.js` end to end, Gate 4**
-- [ ] **Step 5 — `motifs.js` v1** (hangingPiece, fork, backRank)
+- [x] **Step 3 — `buildPlyRecords()`** — phase by material, `quiet`,
+      `tacticAvailable` measured against the *third* line, `hangs` and
+      `missedFreeCapture` via SEE. Each position is evaluated once and serves
+      as `cpBefore` for its ply and `cpAfter` for the previous one, so an
+      80-ply game costs 81 evaluations rather than 160.
+- [x] **Step 4 — `analyzeGame.js` end to end. Gate 4 green: 5 tests.**
+      Opera Game: White 81.5% accuracy / 57.9 ACPL, Black 69.2% / 54.1.
+      **Contract change, flagged rather than improvised:** the brief asks for
+      six of eight categories from one real game. That is a property of the
+      game, not the code — `notation` is null by design, `endgameTechnique`
+      needs the game to reach an endgame, and `positionalUnderstanding` needs
+      quiet positions. The Opera Game ends with 28 points of non-pawn material.
+      So Gate 4 uses two fixtures and asserts each null against its structural
+      cause, which is stricter than the original bar: a category reading null
+      for the wrong reason now fails. Fixture B is an engine-played rook
+      endgame because the archive is unreadable behind RLS.
+- [x] **Step 5 — `motifs.js` v1** (hangingPiece, fork, backRank) — 10
+      assertions, one positive and one negative per motif. Found a real bug on
+      the way: move generation only emits a pawn's diagonal when an enemy piece
+      already stands there, so asking it what a pawn attacks returned the
+      forward push and nothing else, making every pawn fork invisible. Pawn
+      attacks are now computed geometrically.
 - [ ] **Step 6 — player view, then coach view**
 - [ ] **Step 7 — the loop** (own-blunder puzzles, Training pre-filter,
       suggested rubric scores)
