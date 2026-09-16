@@ -196,6 +196,22 @@ export function useAnalysisForGame(gameId) {
   return useMemo(() => all.filter((a) => a.gameId === gameId), [all, gameId]);
 }
 
+/** One player's tracked scores, keyed by category, outside React. */
+export function getSkillsForPlayer(playerId) {
+  const out = {};
+  for (const row of skills.get()) {
+    if (row.playerId !== playerId) continue;
+    out[row.category] = {
+      score: row.score,
+      games: row.games,
+      trend: row.trend,
+      confidence: row.confidence,
+      n: row.observations,
+    };
+  }
+  return out;
+}
+
 /** One player's tracked scores, keyed by category. */
 export function useSkillsForPlayer(playerId) {
   const all = useSkillScores();
@@ -204,4 +220,18 @@ export function useSkillsForPlayer(playerId) {
     for (const row of all) if (row.playerId === playerId) out[row.category] = row;
     return out;
   }, [all, playerId]);
+}
+
+/*
+ * Pull on sign-in, the same way gamesStore and rosterStore do. Without this
+ * the analyses only exist in whichever browser produced them, and a coach's
+ * work would be invisible to the player it was about.
+ */
+if (isSupabaseConfigured) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) syncFromCloud();
+  });
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) syncFromCloud();
+  });
 }

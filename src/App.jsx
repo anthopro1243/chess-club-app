@@ -22,8 +22,18 @@ const ROUTES = [
 ];
 
 const routeFromHash = () => {
-  const id = window.location.hash.replace('#/', '').replace('#', '') || 'home';
+  // A route may carry parameters, e.g. #/training?theme=fork, which is how the
+  // improvement plan hands a player straight to the drill it just recommended.
+  const raw = window.location.hash.replace('#/', '').replace('#', '') || 'home';
+  const id = raw.split('?')[0] || 'home';
   return ROUTES.some((r) => r.id === id) ? id : 'home';
+};
+
+/** Parameters on the current hash route, as a plain object. */
+export const routeParams = () => {
+  const raw = window.location.hash.replace('#/', '').replace('#', '');
+  const query = raw.split('?')[1];
+  return query ? Object.fromEntries(new URLSearchParams(query)) : {};
 };
 
 /**
@@ -111,8 +121,9 @@ export default function App() {
     }
   }, [theme]);
 
-  const navigate = (id) => {
-    window.location.hash = `#/${id}`;
+  const navigate = (id, params = null) => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+    window.location.hash = `#/${id}${query}`;
     setRoute(id);
   };
 

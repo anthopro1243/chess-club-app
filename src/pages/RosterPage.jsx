@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
+import { useSkillsForPlayer } from '../data/analysisStore.js';
+import { suggestedRubric } from '../analysis/presentation.js';
 import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { useAccount } from '../data/accountStore.js';
@@ -32,6 +34,28 @@ export default function RosterPage() {
   const [draft, setDraft] = useState(null);
 
   const selected = players.find((p) => p.playerId === selectedId) || null;
+
+  // The engine's tracked scores for this player, mapped onto the roster's
+  // 0-10 rubric. Withheld entirely where the evidence is thin - see
+  // suggestedRubric, which drops anything below medium confidence.
+  const skills = useSkillsForPlayer(selectedId);
+  const suggestions = useMemo(
+    () =>
+      suggestedRubric(
+        Object.fromEntries(
+          Object.entries(skills).map(([key, row]) => [
+            key,
+            {
+              score: row.score,
+              confidence: row.confidence,
+              measured: row.score != null,
+              n: row.observations ?? 0,
+            },
+          ]),
+        ),
+      ),
+    [skills],
+  );
 
   useEffect(() => {
     if (!selected && players.length) setSelectedId(players[0].playerId);
@@ -253,25 +277,55 @@ export default function RosterPage() {
 
               <h3>Skill assessment</h3>
               <div className="rubric rubric-edit">
-                {RUBRIC_CATEGORIES.map((category) => (
-                  <div className="rubric-row" key={category.key}>
-                    <span className="rubric-label">{category.label}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={draft.rubric[category.key] ?? 0}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          rubric: { ...d.rubric, [category.key]: Number(e.target.value) },
-                        }))
-                      }
-                    />
-                    <span className="rubric-score mono">{draft.rubric[category.key] ?? 0}</span>
-                  </div>
-                ))}
+                {RUBRIC_CATEGORIES.map((category) => {
+                  const hint = suggestions[category.key];
+                  return (
+                    <div className="rubric-row" key={category.key}>
+                      <span className="rubric-label">
+                        {category.label}
+                        {hint ? (
+                          <button
+                            type="button"
+                            className="rubric-suggestion link-button"
+                            title={`From ${hint.observations} analysed observations (${hint.confidence} confidence). Click to adopt.`}
+                            onClick={() =>
+                              setDraft((d) => ({
+                                ...d,
+                                rubric: { ...d.rubric, [category.key]: hint.suggestion },
+                              }))
+                            }
+                          >
+                            suggested {hint.suggestion}
+                          </button>
+                        ) : null}
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={draft.rubric[category.key] ?? 0}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            rubric: { ...d.rubric, [category.key]: Number(e.target.value) },
+                          }))
+                        }
+                      />
+                      {/*
+                        The engine's opinion sits BESIDE the coach's, never in
+                        place of it. Clicking copies it into the slider, which
+                        is a deliberate act by the coach - nothing here ever
+                        writes a score on its own.
+                      */}
+                      <span className="rubric-score mono">{draft.rubric[category.key] ?? 0}</span>
+                    </div>
+                  );
+                })}
               </div>
+              <p className="muted small">
+                &ldquo;Suggested&rdquo; is what the engine derived from analysed games. It never
+                overwrites your score; click one to adopt it.
+              </p>
 
               <h3>Current goal</h3>
               <textarea
@@ -346,7 +400,17 @@ export default function RosterPage() {
                   const score = selected.rubric[category.key] ?? 0;
                   return (
                     <div className="rubric-row" key={category.key}>
-                      <span className="rubric-label">{category.label}</span>
+                      <span className="rubric-label">
+                        {category.label}
+                        {suggestions[category.key] ? (
+                          <em
+                            className="rubric-suggestion"
+                            title={`Engine suggestion from ${suggestions[category.key].observations} observations (${suggestions[category.key].confidence} confidence)`}
+                          >
+                            suggested {suggestions[category.key].suggestion}
+                          </em>
+                        ) : null}
+                      </span>
                       <span className="rubric-bar">
                         <span
                           className={`rubric-fill ${score <= 3 ? 'low' : score <= 6 ? 'mid' : 'high'}`}

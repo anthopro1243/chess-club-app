@@ -126,7 +126,11 @@ export function toAnalysisRow(sideResult, { depth, multiPV, gameId, playerId, pl
  * been played — which is the definition of a puzzle. This is the cheap half of
  * "the loop": a player re-solving the position they dropped a rook in.
  */
-export function criticalMomentsAsPuzzles(analysis, side, { playerId = null, playedAt = null } = {}) {
+export function criticalMomentsAsPuzzles(
+  analysis,
+  side,
+  { playerId = null, playedAt = null, gameId = null } = {},
+) {
   const sideResult = side === 'w' ? analysis.white : analysis.black;
   const byPly = new Map(analysis.plies.map((p) => [p.ply, p]));
   return (sideResult.report.critical ?? [])
@@ -138,10 +142,12 @@ export function criticalMomentsAsPuzzles(analysis, side, { playerId = null, play
         solution: c.better,
         played: c.played,
         san: c.san,
+        fullmove: c.fullmove ?? ply?.fullmove ?? null,
         themes: c.motifs?.length ? c.motifs : ['ownGame'],
         source: 'own-game',
         playerId,
         playedAt,
+        gameId,
         winPercentLost: c.winPercentLost,
         label: c.label,
       };

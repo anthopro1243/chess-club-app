@@ -45,7 +45,17 @@ const sameMove = (a, b) =>
  * puzzle is solved once the whole line has been played out.
  */
 export default function TrainingPage() {
-  const [themeFilter, setThemeFilter] = useState('');
+  // A player arriving from their improvement plan lands pre-filtered to the
+  // theme it named, rather than on all 402 puzzles with advice to remember.
+  const [themeFilter, setThemeFilter] = useState(() => {
+    try {
+      const query = window.location.hash.split('?')[1];
+      const wanted = query ? new URLSearchParams(query).get('theme') : null;
+      return wanted && PUZZLE_THEMES.includes(wanted) ? wanted : '';
+    } catch {
+      return '';
+    }
+  });
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const difficultyTest = DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
   const filtered = useMemo(

@@ -12,7 +12,10 @@
 
 import { createEngine } from '../engine/stockfishClient.js';
 import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from './analyzeGame.js';
-import { saveAnalysis, saveSkillScores, dequeueGame } from '../data/analysisStore.js';
+import {
+  saveAnalysis, saveSkillScores, dequeueGame, getAnalyses, getSkillsForPlayer,
+} from '../data/analysisStore.js';
+import { addOwnGamePuzzles } from '../data/ownPuzzleStore.js';
 import { aggregateRaw, rubricScores, updatePlayerScores } from './scoring.js';
 
 let engine = null;
@@ -54,7 +57,21 @@ export async function analyzeArchivedGame(game, opts = {}) {
     const saved = await saveAnalysis(analysis.rows);
     if (!saved.ok) return { ok: false, error: saved.error };
 
-    return { ok: true, analysis, puzzles: puzzlesFrom(analysis, game) };
+    // The loop, part one: the player's own blunders become their own puzzles.
+    const puzzles = puzzlesFrom(analysis, game);
+    const queued = await addOwnGamePuzzles(puzzles);
+
+    // The loop, part two: skill scores follow a new game on their own. Nobody
+    // should have to press a button for the app to notice a game was played.
+    const refreshed = [];
+    if (opts.updateScores !== false) {
+      for (const playerId of [game.whitePlayerId, game.blackPlayerId].filter(Boolean)) {
+        const result = await refreshPlayerScoresFromStore(playerId);
+        if (result.ok) refreshed.push(playerId);
+      }
+    }
+
+    return { ok: true, analysis, puzzles, puzzlesAdded: queued.added ?? 0, refreshed };
   } catch (error) {
     return { ok: false, error: error.message };
   } finally {
@@ -68,10 +85,12 @@ export function puzzlesFrom(analysis, game) {
     ...criticalMomentsAsPuzzles(analysis, 'w', {
       playerId: game.whitePlayerId || null,
       playedAt: game.playedAt || null,
+      gameId: game.id,
     }),
     ...criticalMomentsAsPuzzles(analysis, 'b', {
       playerId: game.blackPlayerId || null,
       playedAt: game.playedAt || null,
+      gameId: game.id,
     }),
   ].filter((p) => p.playerId);
 }
@@ -83,13 +102,35 @@ export function puzzlesFrom(analysis, game) {
  */
 export async function refreshPlayerScores(playerId, analysesForPlayer, previous = null) {
   if (!playerId || !analysesForPlayer?.length) return { ok: false, error: 'nothing to score' };
-  const raw = aggregateRaw(analysesForPlayer.map((a) => ({ raw: a.raw })));
+
+  // aggregateRaw reads movesPlayed/movesCounted/motifCounts off the TOP of each
+  // game report, not out of `raw`. Passing only { raw } silently zeroed the
+  // oversight denominator, which is what board vision is a rate over - so the
+  // category came back null and never reached the database.
+  const reports = analysesForPlayer.map((a) => ({
+    raw: a.raw || {},
+    movesPlayed: a.movesPlayed ?? 0,
+    movesCounted: a.movesCounted ?? 0,
+    motifCounts: a.motifCounts || {},
+  }));
+  const raw = aggregateRaw(reports);
   const scores = rubricScores(raw);
   const tracked = updatePlayerScores(previous, scores);
-  const result = await saveSkillScores(playerId, tracked, {
+
+  // updatePlayerScores carries score/games/trend/confidence but not the
+  // observation count, and the coach view labels a score by how much evidence
+  // sits behind it. Carry n across from the scoring pass.
+  const withCounts = Object.fromEntries(
+    Object.entries(tracked).map(([key, entry]) => [
+      key,
+      { ...entry, n: scores[key]?.n ?? 0 },
+    ]),
+  );
+
+  const result = await saveSkillScores(playerId, withCounts, {
     gameId: analysesForPlayer[0]?.gameId ?? null,
   });
-  return { ...result, scores, tracked };
+  return { ...result, scores, tracked: withCounts };
 }
 
 /**
@@ -112,4 +153,19 @@ export async function drainQueue(games, queue, { signal, onGame } = {}) {
     if (result.ok) done.push(gameId);
   }
   return done;
+}
+
+/**
+ * Recompute one player's tracked scores from every analysis of theirs held
+ * locally. Called automatically after each game is analysed, so a coach never
+ * has to press anything for the numbers to move.
+ */
+export async function refreshPlayerScoresFromStore(playerId) {
+  const mine = getAnalyses().filter((a) => a.playerId === playerId);
+  if (!mine.length) return { ok: false, error: 'no analyses for that player' };
+  // Pass the scores already on record so the exponential update has something
+  // to move FROM. Without it every refresh reads as the player's first game
+  // and the trend is permanently zero.
+  const previous = getSkillsForPlayer(playerId);
+  return refreshPlayerScores(playerId, mine, Object.keys(previous).length ? previous : null);
 }

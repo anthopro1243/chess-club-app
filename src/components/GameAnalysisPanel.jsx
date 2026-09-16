@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useAnalysisForGame } from '../data/analysisStore.js';
 import { analyzeArchivedGame } from '../analysis/runner.js';
-import { playerSummary, coachSummary, isStaff, canViewAnalysis } from '../analysis/presentation.js';
+import {
+  playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor,
+} from '../analysis/presentation.js';
+import { improvementPlan } from '../analysis/scoring.js';
 import { CATEGORY_LABELS } from '../analysis/scoring.js';
 
 /*
@@ -80,7 +83,11 @@ export default function GameAnalysisPanel({ game, viewer }) {
 
 function SideReport({ row, game, staff }) {
   const name = row.side === 'w' ? game.whiteName : game.blackName;
-  const summary = useMemo(() => playerSummary(row.scores, null), [row.scores]);
+  const plan = useMemo(
+    () => improvementPlan(row.scores || {}, row.motifCounts || {}),
+    [row.scores, row.motifCounts],
+  );
+  const summary = useMemo(() => playerSummary(row.scores, plan), [row.scores, plan]);
   const coachRows = useMemo(() => (staff ? coachSummary(row.scores) : null), [row.scores, staff]);
 
   return (
@@ -116,6 +123,30 @@ function SideReport({ row, game, staff }) {
           );
         })}
       </ul>
+
+      {/*
+        One priority, not a ranked list of every failure. A teenager handed
+        eight numbers and told six are bad stops opening the app. The button
+        lands them on the drill itself rather than leaving them advice to act
+        on later.
+      */}
+      {summary.priority && (
+        <div className="analysis-priority">
+          <strong>Work on: {summary.priority.label}</strong>
+          {summary.priority.advice && <p className="muted">{summary.priority.advice}</p>}
+          {puzzleThemeFor(summary.priority.trainingTheme) && (
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                window.location.hash = `#/training?theme=${puzzleThemeFor(summary.priority.trainingTheme)}`;
+              }}
+            >
+              Practise {summary.priority.trainingTheme}
+            </button>
+          )}
+        </div>
+      )}
 
       {!!row.critical?.length && (
         <>
