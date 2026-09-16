@@ -33,6 +33,9 @@ export function useAnalysisQueue({ enabled = true } = {}) {
   const queue = usePendingQueue();
   const [current, setCurrent] = useState(null);
   const [progress, setProgress] = useState(null);
+  // Bumped to ask the drainer to look again — on becoming visible, or after a
+  // game finishes — without changing any of the real dependencies.
+  const [tick, setTick] = useState(0);
   const stopped = useRef(false);
 
   useEffect(() => {
@@ -42,12 +45,36 @@ export function useAnalysisQueue({ enabled = true } = {}) {
     };
   }, []);
 
+  /*
+   * Waking up when the tab comes back.
+   *
+   * Skipping work while hidden is right — nobody wants an engine running on a
+   * backgrounded Chromebook. Skipping it and never looking again is a bug: the
+   * effect does not re-run on its own, so a tab that was in the background at
+   * the wrong moment would leave the queue stalled until something unrelated
+   * changed. This is what makes "it analyses itself" actually true.
+   */
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const wake = () => {
+      if (!document.hidden) setTick((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
+  }, []);
+
   useEffect(() => {
     if (!enabled || !queue.length || current) return undefined;
 
     let timer = null;
     const run = async () => {
       if (stopped.current || isBusy()) return;
+      // Hidden tab: do nothing now, and let the visibilitychange listener above
+      // bring us back. Never just drop the work.
       if (typeof document !== 'undefined' && document.hidden) return;
 
       const gameId = queue[0];
@@ -71,11 +98,13 @@ export function useAnalysisQueue({ enabled = true } = {}) {
       dequeueGame(gameId);
       setCurrent(null);
       setProgress(null);
+      // Look again straight away, so a queue of several drains in one sitting.
+      setTick((n) => n + 1);
     };
 
     timer = setTimeout(run, current === null && queue.length ? SETTLE_MS : BETWEEN_MS);
     return () => clearTimeout(timer);
-  }, [enabled, queue, games, current]);
+  }, [enabled, queue, games, current, tick]);
 
   return {
     pending: queue.length,
