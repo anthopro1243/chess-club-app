@@ -15,13 +15,19 @@ import { CATEGORY_LABELS } from '../analysis/scoring.js';
  * database policies in 0009_game_analysis.sql are the real boundary; this is
  * the second line.
  */
-export default function GameAnalysisPanel({ game, viewer }) {
+export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = false }) {
   const stored = useAnalysisForGame(game.id);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState(null);
 
   const staff = isStaff(viewer);
+  // A player may run the engine on a game that is theirs. The database decides
+  // what may actually be written; this only decides whether to offer a button.
+  const ownsThisGame =
+    !!viewer?.playerId &&
+    (game.whitePlayerId === viewer.playerId || game.blackPlayerId === viewer.playerId);
+  const mayAnalyse = staff || (allowSelfAnalysis && ownsThisGame);
 
   // Which sides may this viewer look at?
   const visible = useMemo(
@@ -50,7 +56,7 @@ export default function GameAnalysisPanel({ game, viewer }) {
     <div className="analysis-panel">
       <div className="panel-header">
         <h3>Game analysis</h3>
-        {staff && (
+        {mayAnalyse && (
           <button type="button" onClick={run} disabled={running}>
             {running ? 'Analysing…' : visible.length ? 'Re-analyse' : 'Analyse this game'}
           </button>
@@ -68,7 +74,7 @@ export default function GameAnalysisPanel({ game, viewer }) {
 
       {!visible.length && !running && (
         <p className="muted">
-          {staff
+          {mayAnalyse
             ? 'Not analysed yet.'
             : 'Your coach has not published an analysis of this game yet.'}
         </p>

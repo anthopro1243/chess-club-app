@@ -15,6 +15,9 @@
 import { fetchGames, fetchProfile, PLATFORMS } from './externalChess.js';
 import { getPlayers, recordExternalResults, setConnection } from './rosterStore.js';
 import { recordExternalGames } from './gamesStore.js';
+import { enqueueGame } from './analysisStore.js';
+import { toRatingRows } from '../analysis/ratings.js';
+import { savePlatformRatings } from './ratingStore.js';
 
 /*
  * Decision 1: the scale.
@@ -133,15 +136,24 @@ export async function syncPlatform(playerId, platform) {
     lastGameAt: newestAt || connection.lastGameAt || null,
   });
 
-  if (imported.length) {
-    recordExternalGames(imported.map((g) => toArchiveRecord(g, playerId)));
+  const archived = imported.map((g) => toArchiveRecord(g, playerId));
+  if (archived.length) {
+    recordExternalGames(archived);
+    // A game imported in bulk is queued exactly like a game played in the app.
+    // Nothing should sit waiting for a coach to notice it exists.
+    for (const game of archived) enqueueGame(game.id);
   }
+
+  // Ratings are stored per (platform, time control) as separate rows and are
+  // never merged into one number - see src/analysis/ratings.js for why.
+  await savePlatformRatings(toRatingRows(playerId, platform, profile.ratings));
 
   return {
     platform,
     label: PLATFORMS[platform]?.label || platform,
     username: profile.username,
     imported: imported.length,
+    queuedForAnalysis: archived.length,
     ratings: profile.ratings,
     ratingBefore,
     ratingAfter,

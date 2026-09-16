@@ -4,6 +4,7 @@ import PlayPage from './pages/PlayPage.jsx';
 import RosterPage from './pages/RosterPage.jsx';
 import TrainingPage from './pages/TrainingPage.jsx';
 import GamesPage from './pages/GamesPage.jsx';
+import MyGamesPage from './pages/MyGamesPage.jsx';
 import CoachPage from './pages/CoachPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
 import ResetPasswordModal from './components/ResetPasswordModal.jsx';
@@ -11,12 +12,14 @@ import AccessGate from './components/AccessGate.jsx';
 import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 import { useAccount } from './data/accountStore.js';
 import { useSyncError, clearSyncError } from './data/syncStatus.js';
+import { useAnalysisQueue } from './analysis/useAnalysisQueue.js';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
   { id: 'play', label: 'Play' },
   { id: 'training', label: 'Training' },
   { id: 'games', label: 'Games' },
+  { id: 'my-games', label: 'My games' },
   { id: 'roster', label: 'Roster' },
   { id: 'coach', label: 'Coach' },
 ];
@@ -53,6 +56,10 @@ export default function App() {
   // their own storage and there is nothing to gate.
   const account = useAccount();
   const syncError = useSyncError();
+
+  // Drains the analysis queue while the app is open, so no game waits on a
+  // human noticing it. The coach's batch button remains as a fallback.
+  useAnalysisQueue({ enabled: !!account?.isApproved });
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
@@ -194,6 +201,7 @@ export default function App() {
         ) : (
           <>
             {route === 'home' && <DashboardPage onNavigate={navigate} />}
+            {route === 'my-games' && <MyGamesPage />}
             {route === 'play' && <PlayPage />}
             {route === 'training' && <TrainingPage />}
             {route === 'games' && <GamesPage />}

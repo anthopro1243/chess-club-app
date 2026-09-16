@@ -7,9 +7,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  winPercent, moveAccuracy, gameAccuracy, classifyPly, analyseGameForSide,
-  rubricScores, aggregateRaw, updatePlayerScores, improvementPlan,
-  normaliseAfter, curve, LOSS_ANCHORS, CATEGORY_KEYS,
+  winPercent,
+  moveAccuracy,
+  gameAccuracy,
+  classifyPly,
+  analyseGameForSide,
+  rubricScores,
+  aggregateRaw,
+  updatePlayerScores,
+  improvementPlan,
+  normaliseAfter,
+  curve,
+  LOSS_ANCHORS,
+  CATEGORY_KEYS,
+  recalibrationReport,
 } from './scoring.js';
 
 const approx = (a, b, tol = 0.5) =>
@@ -286,4 +297,35 @@ test('curve interpolates and clamps at both ends', () => {
   assert.equal(curve(999, LOSS_ANCHORS), 0);
   const mid = curve(2.25, LOSS_ANCHORS); // halfway between [1.5,92] and [3,82]
   approx(mid, 87, 0.01);
+});
+
+/* ── recalibration readiness ─────────────────────────────────────────────
+ * Not used in anger until roughly 50 analysed club games exist. Asserted here
+ * so that when that day comes it is known to be callable, rather than
+ * discovered to be broken at the moment it is first needed.
+ */
+test('recalibrationReport is callable and reports percentiles per metric', () => {
+  const FIELDS = ['openingWinLoss', 'quietWinLoss', 'endgameWinLoss', 'tacticErrorRate',
+    'oversightRate', 'timeTroubleRate', 'resilienceDelta'];
+  const sample = Array.from({ length: 50 }, (_, i) => ({
+    openingWinLoss: i * 0.2, quietWinLoss: i * 0.3, endgameWinLoss: i * 0.25,
+    tacticErrorRate: i / 100, oversightRate: i * 0.4, timeTroubleRate: i / 200,
+    resilienceDelta: i * 0.1 - 2,
+  }));
+  const report = recalibrationReport(sample);
+  for (const f of FIELDS) {
+    assert.ok(report[f], `${f} missing from the report`);
+    assert.equal(report[f].n, 50);
+    for (const p of ['p10', 'p25', 'p50', 'p75', 'p90']) {
+      assert.equal(typeof report[f][p], 'number', `${f}.${p} should be numeric`);
+    }
+    assert.ok(report[f].p10 <= report[f].p50 && report[f].p50 <= report[f].p90, `${f} percentiles out of order`);
+  }
+});
+
+test('recalibrationReport survives missing metrics without inventing numbers', () => {
+  const report = recalibrationReport([{ openingWinLoss: 5 }, {}, { openingWinLoss: null }]);
+  assert.equal(report.openingWinLoss.n, 1);
+  assert.equal(report.quietWinLoss.n, 0);
+  assert.equal(report.quietWinLoss.p50, null, 'no data must yield null, not 0');
 });

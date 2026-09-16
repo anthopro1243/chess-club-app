@@ -5,6 +5,7 @@ import { useGames } from '../data/gamesStore.js';
 import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
+import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
 import { useCoachNotes } from '../data/coachNotesStore.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -100,6 +101,8 @@ export default function CoachPage() {
   return (
     <div className="dashboard">
       <MemberApproval />
+
+      <AnalysisQueuePanel />
 
       <section className="panel">
         <div className="panel-header">
