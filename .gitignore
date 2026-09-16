@@ -8,3 +8,7 @@ dist/
 
 .vercel
 .env*
+
+# local-only: injected auth session used for browser verification
+public/__session.json
+.env.test.local

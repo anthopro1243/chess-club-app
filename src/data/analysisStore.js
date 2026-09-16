@@ -106,7 +106,7 @@ export async function saveAnalysis(rows) {
   analyses.set([...local, ...keep].slice(0, LOCAL_LIMIT));
   for (const row of stamped) dequeueGame(row.game_id);
 
-  if (!isSupabaseConfigured()) return { ok: true, local: true };
+  if (!isSupabaseConfigured) return { ok: true, local: true };
 
   const { error } = await supabase
     .from('game_analyses')
@@ -142,7 +142,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
   const keep = skills.get().filter((s) => s.playerId !== playerId);
   skills.set([...keep, ...rows.map(skillFromRow)]);
 
-  if (!isSupabaseConfigured()) return { ok: true, local: true };
+  if (!isSupabaseConfigured) return { ok: true, local: true };
 
   const { error } = await supabase
     .from('player_skill_scores')
@@ -168,7 +168,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
 /* ── reads ───────────────────────────────────────────────────────────────── */
 
 export async function syncFromCloud() {
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured) return;
   const { data, error } = await supabase
     .from('game_analyses')
     .select('*')
