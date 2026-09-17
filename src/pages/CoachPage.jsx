@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
 import { usePlayers, recordAssessment, setAttendance } from '../data/rosterStore.js';
 import { useGames } from '../data/gamesStore.js';
@@ -7,6 +7,11 @@ import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
+import { useAssessments } from '../data/assessmentStore.js';
+import { useSkillScores } from '../data/analysisStore.js';
+import { engineRubricFrom } from '../data/assessmentStore.js';
+import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
+import { resolveRating } from '../analysis/ratings.js';
 import { useCoachNotes } from '../data/coachNotesStore.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -60,17 +65,55 @@ export default function CoachPage() {
   const [sessionDate, setSessionDate] = useState(today);
   const [assessingId, setAssessingId] = useState(null);
   const [draftRubric, setDraftRubric] = useState({});
+  const [engineSeeded, setEngineSeeded] = useState({});
   const [assessNotes, setAssessNotes] = useState('');
   const [toast, setToast] = useState('');
+
+  // Engine-derived assessments and scores, so the form can start from the data
+  // rather than from a row of 5s.
+  const assessments = useAssessments();
+  const skillRows = useSkillScores();
+  const skillsByPlayer = useMemo(() => {
+    const out = {};
+    for (const row of skillRows) (out[row.playerId] ||= {})[row.category] = row;
+    return out;
+  }, [skillRows]);
+  const latestByPlayer = useMemo(() => {
+    const out = {};
+    for (const a of assessments) {
+      const prev = out[a.playerId];
+      if (!prev || String(a.assessedAt) > String(prev.assessedAt)) out[a.playerId] = a;
+    }
+    return out;
+  }, [assessments]);
 
   const flash = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 2500);
   };
 
+  /*
+   * Same fix as the leaderboard: players.club_rating was one Glicko-2 number
+   * built from bullet, blitz, rapid and daily games poured into a single pool.
+   * Resolve it properly, and show which platform and time control it is.
+   */
+  const platformRatings = usePlatformRatings();
+  const ratingOverrides = useRatingOverrides();
+  const ratingFor = useCallback(
+    (player) =>
+      resolveRating({
+        override: ratingOverrides.find((o) => o.playerId === player.playerId) ?? null,
+        official: player.ratings?.uscf != null ? { platform: 'uscf', rating: player.ratings.uscf } : null,
+        platformRatings: platformRatings
+          .filter((r) => r.playerId === player.playerId)
+          .map((r) => ({ platform: r.platform, timeControl: r.timeControl, rating: r.rating })),
+      }),
+    [platformRatings, ratingOverrides],
+  );
+
   const sorted = useMemo(
-    () => [...players].sort((a, b) => (b.clubRating?.rating ?? 0) - (a.clubRating?.rating ?? 0)),
-    [players],
+    () => [...players].sort((a, b) => (ratingFor(b).rating ?? 0) - (ratingFor(a).rating ?? 0)),
+    [players, ratingFor],
   );
 
   const recentActivity = useMemo(() => {
@@ -85,7 +128,15 @@ export default function CoachPage() {
 
   const startAssessment = (player) => {
     setAssessingId(player.playerId);
-    setDraftRubric({ ...player.rubric });
+    /*
+     * Start from what the engine has measured, not from a row of 5s. The coach
+     * is still the author - every slider is editable and what they save is
+     * authoritative - but they begin from the evidence instead of from a
+     * default that told them nothing.
+     */
+    const { rubric: engineRubric } = engineRubricFrom(skillsByPlayer[player.playerId] || {});
+    setDraftRubric({ ...player.rubric, ...engineRubric });
+    setEngineSeeded(engineRubric);
     setAssessNotes('');
   };
 
@@ -200,17 +251,44 @@ export default function CoachPage() {
               </thead>
               <tbody>
                 {sorted.map((p) => {
-                  const last = (p.assessments || [])[(p.assessments || []).length - 1];
+                  const fromTable = latestByPlayer[p.playerId];
+                  const fromBlob = (p.assessments || [])[(p.assessments || []).length - 1];
+                  const last = fromTable
+                    ? { at: fromTable.assessedAt, source: fromTable.source }
+                    : fromBlob
+                      ? { at: fromBlob.at, source: 'coach' }
+                      : null;
                   return (
                     <tr key={p.playerId}>
                       <td>{p.name}</td>
-                      <td className="mono">{Math.round(p.clubRating?.rating ?? 1500)}</td>
+                      <td className="mono">
+                        {ratingFor(p).rating ?? '—'}
+                        <span className="hint-text"> {ratingFor(p).label}</span>
+                      </td>
                       <td>
-                        <RatingTrend history={p.ratingHistory} />
+                        {/*
+                          The old trend was computed from players.rating_history,
+                          which is the blended Glicko-2 sequence built from mixed
+                          time controls and a cold RD-350 start. It produced -426
+                          measured from a peak that only ever existed because of
+                          that cold start. Now that the blend is not the club
+                          rating, the number it produced is not a trend of
+                          anything - so it is not shown.
+                        */}
+                        {ratingFor(p).provenance === 'club' ? (
+                          <RatingTrend history={p.ratingHistory} />
+                        ) : (
+                          <span className="hint-text">—</span>
+                        )}
                       </td>
                       <td className="mono">{p.clubRating?.count ?? 0}</td>
                       <td className="mono">{p.puzzleStats?.solvedIds?.length ?? 0}</td>
-                      <td className="mono">{last ? String(last.at).slice(0, 10) : '—'}</td>
+                      <td className="mono">
+                        {last ? String(last.at).slice(0, 10) : '—'}
+                        {last?.source === 'engine' && (
+                          <span className="hint-text"> from games</span>
+                        )}
+                      </td>
                       <td>
                         <button type="button" className="link-button" onClick={() => startAssessment(p)}>
                           Assess
@@ -231,8 +309,10 @@ export default function CoachPage() {
             <h2>
               {players.find((p) => p.playerId === assessingId)?.name}'s assessment
               <InfoTooltip>
-                Logging keeps a dated history. The roster's rubric bars always show the most
-                recent one, and every assessment lands in the spreadsheet export.
+                The sliders start from what the engine measured across this player's analysed
+                games, marked &ldquo;from games&rdquo;. Adjust anything you disagree with — what you
+                save is the coach&rsquo;s assessment and outranks the engine&rsquo;s. The engine
+                also files its own dated estimate on its own, so this column never sits empty.
               </InfoTooltip>
             </h2>
             <span className="badge mono">{today()}</span>
@@ -240,7 +320,12 @@ export default function CoachPage() {
           <div className="rubric rubric-edit">
             {RUBRIC_CATEGORIES.map((category) => (
               <div className="rubric-row" key={category.key}>
-                <span className="rubric-label">{category.label}</span>
+                <span className="rubric-label">
+                  {category.label}
+                  {engineSeeded[category.key] != null && (
+                    <em className="rubric-suggestion">from games</em>
+                  )}
+                </span>
                 <input
                   type="range"
                   min="0"

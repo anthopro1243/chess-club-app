@@ -16,6 +16,7 @@ import {
   saveAnalysis, saveSkillScores, getAnalyses, getSkillsForPlayer,
 } from '../data/analysisStore.js';
 import { addOwnGamePuzzles } from '../data/ownPuzzleStore.js';
+import { recordEngineAssessment } from '../data/assessmentStore.js';
 import { aggregateRaw, rubricScores, updatePlayerScores } from './scoring.js';
 
 let engine = null;
@@ -130,6 +131,20 @@ export async function refreshPlayerScores(playerId, analysesForPlayer, previous 
   const result = await saveSkillScores(playerId, withCounts, {
     gameId: analysesForPlayer[0]?.gameId ?? null,
   });
+
+  /*
+   * And write the assessment itself.
+   *
+   * Storing scores was never the missing piece - the Coach page's "Last
+   * assessed" column read "—" for every player because an assessment only
+   * existed if a human typed one. This produces a dated assessment from the
+   * games, capped at one per player per day, marked source 'engine' so a
+   * coach's own entry always outranks it.
+   */
+  await recordEngineAssessment(playerId, withCounts, {
+    gamesAnalysed: analysesForPlayer.length,
+  });
+
   return { ...result, scores, tracked: withCounts };
 }
 
