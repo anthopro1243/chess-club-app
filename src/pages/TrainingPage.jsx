@@ -4,6 +4,7 @@ import Board from '../components/Board.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
+import { useDuePuzzles, useReviewSummary, reviewOwnPuzzle } from '../data/ownPuzzleStore.js';
 import { usePlayers, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
 import {
   recordAttempt,
@@ -65,12 +66,65 @@ export default function TrainingPage() {
     [themeFilter, difficultyFilter],
   );
 
+  /*
+   * "Your mistakes" mode.
+   *
+   * Every critical moment the analyzer finds is a position the player actually
+   * got wrong, plus the move they should have played - which is a puzzle, and
+   * a far better one than a random tactic, because it is THEIR blunder. The
+   * spaced-repetition schedule decides which come back today.
+   */
+  const [source, setSource] = useState('library');
   const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [themeFilter, difficultyFilter]);
+  useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source]);
   // Some theme + difficulty combinations have no puzzles at all — fall back
   // to a harmless placeholder so every hook below still has a real puzzle
   // to work with; the empty case is handled in the render instead.
-  const puzzle = filtered.length ? filtered[Math.min(index, filtered.length - 1)] : PUZZLES[0];
+  const players = usePlayers();
+  const [traineeId, setTraineeId] = useState(() => {
+    try {
+      return localStorage.getItem(TRAINEE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(TRAINEE_KEY, traineeId);
+    } catch {
+      /* storage can be unavailable; the selection still holds for this visit */
+    }
+  }, [traineeId]);
+
+  const trainee = players.find((p) => p.playerId === traineeId) || null;
+
+  const duePuzzles = useDuePuzzles(traineeId);
+  const reviewState = useReviewSummary(traineeId);
+  /* Own-game puzzles wear the same shape as the library ones, so the whole
+     solving machinery below works unchanged. */
+  const ownPuzzles = useMemo(
+    () =>
+      duePuzzles.map((p) => ({
+        id: `own:${p.id ?? p.fen}`,
+        fen: p.fen,
+        rating: 0,
+        themes: p.themes?.length ? p.themes : ['ownGame'],
+        name: p.san ? `Your game — you played ${p.san}` : 'Your game',
+        hint: 'You met this position in one of your own games and got it wrong.',
+        solution: [
+          {
+            from: p.solution.slice(0, 2),
+            to: p.solution.slice(2, 4),
+            ...(p.solution.length > 4 ? { promotion: p.solution[4] } : {}),
+          },
+        ],
+        own: p,
+      })),
+    [duePuzzles],
+  );
+
+  const pool = source === 'mistakes' ? ownPuzzles : filtered;
+  const puzzle = pool.length ? pool[Math.min(index, pool.length - 1)] : PUZZLES[0];
 
   const gameRef = useRef(new Chess(puzzle.fen));
   const [, setVersion] = useState(0);
@@ -108,27 +162,19 @@ export default function TrainingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [puzzle.id]);
 
-  const players = usePlayers();
-  const [traineeId, setTraineeId] = useState(() => {
-    try {
-      return localStorage.getItem(TRAINEE_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(TRAINEE_KEY, traineeId);
-    } catch {
-      /* storage can be unavailable; the selection still holds for this visit */
-    }
-  }, [traineeId]);
-
-  const trainee = players.find((p) => p.playerId === traineeId) || null;
   const solvedIds = useMemo(
     () => (trainee ? new Set(trainee.puzzleStats?.solvedIds || []) : sessionSolved),
     [trainee, sessionSolved],
   );
+  const mistakesNote =
+    source === 'mistakes'
+      ? duePuzzles.length
+        ? `${duePuzzles.length} position${duePuzzles.length === 1 ? '' : 's'} from your own games are due for review. Solving one pushes it further out; getting it wrong brings it back tomorrow.`
+        : reviewState.active
+          ? `Nothing due right now. ${reviewState.active} position${reviewState.active === 1 ? '' : 's'} are on your review list and will come back on schedule.`
+          : 'No mistakes recorded yet — they appear here once your games have been analysed.'
+      : null;
+
   const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
 
   const attempts = useAttempts();
@@ -157,17 +203,23 @@ export default function TrainingPage() {
       secondsTaken: Math.max(0, Math.round((Date.now() - attemptStartRef.current) / 1000)),
     });
     attemptStartRef.current = Date.now();
+
+    // An own-game puzzle also reschedules itself: solved moves it further out,
+    // failed brings it back tomorrow.
+    if (puzzle.own) {
+      reviewOwnPuzzle(puzzle.own, correct && !usedSolution ? 'good' : 'again');
+    }
   };
 
   const loadPuzzle = useCallback(
     (nextIndex) => {
-      if (!filtered.length) return;
-      setIndex((nextIndex + filtered.length) % filtered.length);
+      if (!pool.length) return;
+      setIndex((nextIndex + pool.length) % pool.length);
     },
-    [filtered.length],
+    [pool.length],
   );
 
-  const randomPuzzle = () => loadPuzzle(Math.floor(Math.random() * filtered.length));
+  const randomPuzzle = () => loadPuzzle(Math.floor(Math.random() * pool.length));
 
   const game = gameRef.current;
   const orientation = useMemo(() => new Chess(puzzle.fen).turn, [puzzle.fen]);
@@ -261,8 +313,9 @@ export default function TrainingPage() {
 
   return (
     <div className="training-layout">
+      {mistakesNote && <p className="muted mistakes-note">{mistakesNote}</p>}
       <section className="board-column">
-        {filtered.length === 0 ? (
+        {pool.length === 0 ? (
           <div className="panel-block">
             <h2>No puzzles match</h2>
             <p className="hint-text">
@@ -274,7 +327,7 @@ export default function TrainingPage() {
             <div className={`puzzle-banner ${result || ''}`}>
               <div>
                 <span className="puzzle-counter mono">
-                  {index + 1} / {filtered.length}
+                  {index + 1} / {pool.length}
                 </span>
                 <strong>{puzzle.name}</strong>
                 <span className="puzzle-rating mono">{puzzle.rating}</span>
@@ -346,8 +399,23 @@ export default function TrainingPage() {
         <div className="panel-block">
           <h2>Puzzle type</h2>
           <label className="field">
+            <span>Puzzles</span>
+            <select value={source} onChange={(event) => setSource(event.target.value)}>
+              <option value="library">Tactics library ({PUZZLES.length})</option>
+              <option value="mistakes" disabled={!traineeId}>
+                {traineeId
+                  ? `Your mistakes (${duePuzzles.length} due)`
+                  : 'Your mistakes — pick a trainee first'}
+              </option>
+            </select>
+          </label>
+          <label className="field">
             <span>Theme</span>
-            <select value={themeFilter} onChange={(event) => setThemeFilter(event.target.value)}>
+            <select
+              value={themeFilter}
+              disabled={source === 'mistakes'}
+              onChange={(event) => setThemeFilter(event.target.value)}
+            >
               <option value="">All themes</option>
               {PUZZLE_THEMES.map((theme) => (
                 <option key={theme} value={theme}>
@@ -366,14 +434,18 @@ export default function TrainingPage() {
               ))}
             </select>
           </label>
-          <p className="hint-text">{filtered.length} puzzles match.</p>
+          <p className="hint-text">
+            {source === 'mistakes'
+              ? `${pool.length} of your own positions due.`
+              : `${filtered.length} puzzles match.`}
+          </p>
         </div>
 
         <div className="panel-block">
           <h2>{trainee ? `${trainee.name}'s progress` : 'Progress this session'}</h2>
           <p className="big-number">
             {solvedInFilter}
-            <span> / {filtered.length} solved{themeFilter ? ` (${prettyTheme(themeFilter)})` : ''}</span>
+            <span> / {pool.length} solved{themeFilter && source !== 'mistakes' ? ` (${prettyTheme(themeFilter)})` : ''}</span>
           </p>
 
           {trainee && summary.attempts > 0 && (

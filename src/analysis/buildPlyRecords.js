@@ -12,6 +12,7 @@ import { Chess, FLAGS, QUEEN, ROOK, BISHOP, KNIGHT, START_FEN } from '../engine/
 import { normaliseAfter, TACTIC_GAIN } from './scoring.js';
 import { see, seeCapture } from './see.js';
 import { detectMotifs } from './motifs.js';
+import { annotateSacrifices } from './sacrifice.js';
 
 /** Non-pawn material, used to decide the phase. */
 const PHASE_VALUES = { [QUEEN]: 9, [ROOK]: 5, [BISHOP]: 3, [KNIGHT]: 3 };
@@ -220,8 +221,16 @@ export async function buildPlyRecords(game, engine, opts = {}) {
     };
   });
 
+  /*
+   * `hangs` is SEE-based, so a sound sacrifice scores identically to blundering
+   * a piece — which penalises exactly the strongest player in the club, the
+   * opposite of what a coaching tool should do. This clears `hangs` on plies
+   * where the engine itself wanted the move.
+   */
+  const annotated = annotateSacrifices(plies);
+
   return {
-    plies,
+    plies: annotated,
     meta: {
       result: game.result,
       baseSeconds: baseSecondsFrom(game.tags?.TimeControl),

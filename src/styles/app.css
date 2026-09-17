@@ -1878,3 +1878,4 @@ tr.clickable:hover { background: rgba(255,255,255,0.04); }
 .pgn-details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted, #888); }
 .unranked-note { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
 .unranked-note ul { margin: 6px 0 0; padding-left: 18px; }
+.mistakes-note { margin: 0 0 10px; }
