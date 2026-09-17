@@ -1858,3 +1858,23 @@ button.rubric-suggestion:hover { opacity: 1; }
   border-radius: 4px;
 }
 .analysis-priority p { margin: 4px 0 8px; }
+
+/* Game review: board on the left, moves and turning points on the right. */
+.game-review { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .game-review { grid-template-columns: 1fr; } }
+.game-review-board { min-width: 0; }
+.game-review-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.review-controls { margin-top: 10px; }
+.review-eval { margin-top: 8px; font-size: 0.9rem; }
+.review-eval.blunder { color: var(--danger, #e06c6c); }
+.review-eval.mistake { color: #e0a76c; }
+.review-eval.inaccuracy { color: #e0d06c; }
+.critical-panel { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.critical-list { margin: 6px 0 0; padding-left: 18px; font-size: 0.85rem; }
+.critical-list li { margin-bottom: 4px; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: rgba(255,255,255,0.04); }
+.pgn-details { margin-top: 14px; }
+.pgn-details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted, #888); }
+.unranked-note { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.unranked-note ul { margin: 6px 0 0; padding-left: 18px; }

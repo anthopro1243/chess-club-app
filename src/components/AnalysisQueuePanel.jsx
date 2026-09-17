@@ -1,67 +1,89 @@
-import { useState } from 'react';
-import { useGames } from '../data/gamesStore.js';
-import { usePendingQueue, useAnalyses } from '../data/analysisStore.js';
-import { enqueueUnanalysed } from '../analysis/useAnalysisQueue.js';
+import { useEffect, useState } from 'react';
+import { queueCounts, enqueueAll } from '../analysis/queue.js';
 
 /*
- * The coach's fallback, not the main mechanism.
- *
- * Games queue themselves when played or imported, and the queue drains while
- * the app is open. This panel exists for the case the automation cannot cover:
- * a backlog imported before auto-analysis existed, or a batch someone wants
- * pushed through straight after club night.
+ * The coach's view of the analysis queue — a status board and a backfill
+ * button, not the mechanism. Games queue themselves when played or imported
+ * and are drained in the background; this exists for clearing a backlog and
+ * for seeing that the machinery is alive.
  */
-export default function AnalysisQueuePanel() {
-  const games = useGames();
-  const queue = usePendingQueue();
-  const analyses = useAnalyses();
+export default function AnalysisQueuePanel({ queue }) {
+  const [counts, setCounts] = useState(null);
   const [message, setMessage] = useState(null);
+  const [working, setWorking] = useState(false);
 
-  const analysedGameIds = new Set(analyses.map((a) => a.gameId));
-  const unanalysed = games.filter((g) => g.pgn && !analysedGameIds.has(g.id));
+  useEffect(() => {
+    let alive = true;
+    queueCounts().then((c) => alive && setCounts(c));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // The live hook's counts win once it has them.
+  const shown = queue?.counts ?? counts;
+  const outstanding = (shown?.pending ?? 0) + (shown?.running ?? 0);
 
   return (
     <section className="panel">
       <div className="panel-header">
         <h2>Analysis queue</h2>
-        <span className="badge mono">{queue.length} queued</span>
+        <span className="badge mono">{outstanding} outstanding</span>
       </div>
+
       <p className="muted">
-        Games queue themselves when they are played or imported, and are analysed in the
-        background while this app is open. Nothing here needs pressing in the normal course of
-        things — this is for clearing a backlog.
+        Games are queued automatically when they are played or synced in, and analysed in the
+        background while this app is open. In the normal course of things nothing here needs
+        pressing.
       </p>
+
+      {queue?.running && (
+        <p className="muted">
+          Analysing now
+          {queue.progress?.total ? ` — position ${queue.progress.done} of ${queue.progress.total}` : '…'}
+        </p>
+      )}
+
       <dl className="stat-row">
-        <div>
-          <dt>Archived games</dt>
-          <dd className="mono">{games.length}</dd>
-        </div>
-        <div>
-          <dt>Analysed</dt>
-          <dd className="mono">{analysedGameIds.size}</dd>
-        </div>
-        <div>
-          <dt>Never analysed</dt>
-          <dd className="mono">{unanalysed.length}</dd>
-        </div>
+        {['pending', 'running', 'done', 'failed', 'skipped'].map((key) => (
+          <div key={key}>
+            <dt>{key[0].toUpperCase() + key.slice(1)}</dt>
+            <dd className="mono">{shown?.[key] ?? '—'}</dd>
+          </div>
+        ))}
       </dl>
+
       <div className="button-grid">
         <button
           type="button"
           className="primary"
-          disabled={!unanalysed.length}
-          onClick={() => {
-            const queued = enqueueUnanalysed(games);
+          disabled={working}
+          onClick={async () => {
+            setWorking(true);
+            const result = await enqueueAll();
+            const next = await queueCounts();
+            setCounts(next);
+            setWorking(false);
             setMessage(
-              queued
-                ? `${queued} game${queued === 1 ? '' : 's'} queued. They will be analysed in the background — you can leave this page.`
-                : 'Everything with a PGN has already been analysed.',
+              result.ok
+                ? result.queued
+                  ? `${result.queued} game${result.queued === 1 ? '' : 's'} put back in the queue.`
+                  : 'Nothing was waiting — everything with a PGN is analysed or already queued.'
+                : `Could not queue: ${result.error}`,
             );
           }}
         >
-          Analyse all pending ({unanalysed.length})
+          {working ? 'Queuing…' : 'Retry failed and skipped'}
         </button>
       </div>
+
+      {shown?.failed > 0 && (
+        <p className="muted">
+          {shown.failed} game{shown.failed === 1 ? '' : 's'} failed analysis after repeated
+          attempts. They stay failed rather than retrying forever — use the button above once the
+          cause is fixed.
+        </p>
+      )}
       {message && <p className="muted">{message}</p>}
     </section>
   );

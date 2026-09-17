@@ -12,8 +12,20 @@
  * motif, rather than five half-right detectors at once.
  */
 
-import { Chess, SQUARES, algebraic, PAWN, KING, WHITE, BLACK } from '../engine/chess.js';
-import { see, PIECE_VALUES } from './see.js';
+import {
+  Chess,
+  SQUARES,
+  algebraic,
+  PAWN,
+  KNIGHT,
+  BISHOP,
+  ROOK,
+  QUEEN,
+  KING,
+  WHITE,
+  BLACK,
+} from '../engine/chess.js';
+import { see, seeCapture, PIECE_VALUES } from './see.js';
 
 /** SEE at which a capture counts as winning real material. */
 export const MATERIAL_THRESHOLD = 200;
@@ -23,6 +35,96 @@ export const DECISIVE_THRESHOLD = 500;
 export const VALUABLE_PIECE = 320;
 
 const other = (color) => (color === WHITE ? BLACK : WHITE);
+
+/* ── 0x88 geometry, mirroring src/engine/chess.js and see.js ──────────────── */
+
+const DIAGONAL = [-17, -15, 15, 17];
+const ORTHOGONAL = [-16, -1, 1, 16];
+const ALL_RAYS = [...DIAGONAL, ...ORTHOGONAL];
+const KNIGHT_DELTAS = [-18, -33, -31, -14, 18, 33, 31, 14];
+
+// Where a pawn of `color` must stand to attack a given square: a white pawn on
+// s attacks s-17 and s-15, so it attacks t from t+17 / t+15.
+const PAWN_ATTACKER_ORIGINS = {
+  [WHITE]: [17, 15],
+  [BLACK]: [-17, -15],
+};
+
+const onBoard = (sq) => (sq & 0x88) === 0;
+const isDiagonal = (delta) => DIAGONAL.includes(delta);
+
+/** Does a piece of this type slide along this ray direction? */
+const slidesAlong = (type, delta) =>
+  type === QUEEN ||
+  (type === BISHOP && isDiagonal(delta)) ||
+  (type === ROOK && !isDiagonal(delta));
+
+/** Ray directions a slider travels; empty for anything that is not a slider. */
+function sliderRays(type) {
+  if (type === QUEEN) return ALL_RAYS;
+  if (type === BISHOP) return DIAGONAL;
+  if (type === ROOK) return ORTHOGONAL;
+  return [];
+}
+
+/** First occupied square walking from `from` (exclusive) along `delta`. */
+function firstAlong(board, from, delta) {
+  let sq = from + delta;
+  while (onBoard(sq)) {
+    const piece = board.get(sq);
+    if (piece) return { index: sq, piece };
+    sq += delta;
+  }
+  return null;
+}
+
+/** Every square of the board that holds a piece, as { index, piece }. */
+function* occupied(board) {
+  for (let sq = 0; sq <= 119; sq++) {
+    if (sq & 0x88) {
+      sq += 7;
+      continue;
+    }
+    const piece = board.get(sq);
+    if (piece) yield { index: sq, piece };
+  }
+}
+
+/**
+ * Every piece of `color` that attacks `target`, as { index, piece }.
+ *
+ * Radiates out from the target the way see.js does, so the occupant of the
+ * target square never screens its own defenders — which is the whole point
+ * when asking "what defends this piece?". Pinned defenders still count, as
+ * they do in SEE.
+ */
+export function attackersOf(board, target, color) {
+  const out = [];
+  if (!onBoard(target)) return out;
+
+  for (const offset of PAWN_ATTACKER_ORIGINS[color]) {
+    const sq = target + offset;
+    if (!onBoard(sq)) continue;
+    const piece = board.get(sq);
+    if (piece && piece.color === color && piece.type === PAWN) out.push({ index: sq, piece });
+  }
+
+  for (const offset of KNIGHT_DELTAS) {
+    const sq = target + offset;
+    if (!onBoard(sq)) continue;
+    const piece = board.get(sq);
+    if (piece && piece.color === color && piece.type === KNIGHT) out.push({ index: sq, piece });
+  }
+
+  for (const delta of ALL_RAYS) {
+    const first = firstAlong(board, target, delta);
+    if (!first || first.piece.color !== color) continue;
+    if (slidesAlong(first.piece.type, delta)) out.push(first);
+    else if (first.piece.type === KING && first.index === target + delta) out.push(first);
+  }
+
+  return out;
+}
 
 /** A copy of the position with `color` to move. Used to enumerate attacks. */
 function withTurn(board, color) {

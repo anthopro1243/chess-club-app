@@ -5,6 +5,7 @@ import { useAccount } from '../data/accountStore.js';
 import { useAnalysisForGame } from '../data/analysisStore.js';
 import { useDuePuzzles, useReviewSummary } from '../data/ownPuzzleStore.js';
 import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
+import GameReview from '../components/GameReview.jsx';
 
 /*
  * MyGamesPage — a player's own game history, and the analyser on demand.
@@ -122,6 +123,7 @@ export default function MyGamesPage() {
               themselves, rather than waiting for the queue or for a coach. The
               database still decides what may be written.
             */}
+            <MyGameReview game={game} playerId={playerId} />
             <GameAnalysisPanel game={game} viewer={viewer} allowSelfAnalysis />
           </section>
         );
@@ -152,5 +154,18 @@ function MyGameRow({ game, playerId, open, onToggle }) {
         </button>
       </td>
     </tr>
+  );
+}
+
+/** The board viewer, oriented to the side this player actually had. */
+function MyGameReview({ game, playerId }) {
+  const analyses = useAnalysisForGame(game.id);
+  const mine = analyses.filter((a) => a.playerId === playerId);
+  return (
+    <GameReview
+      game={game}
+      analyses={mine.length ? mine : analyses}
+      orientation={game.whitePlayerId === playerId ? 'w' : 'b'}
+    />
   );
 }

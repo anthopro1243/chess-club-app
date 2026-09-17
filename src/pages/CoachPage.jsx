@@ -6,6 +6,7 @@ import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
+import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useCoachNotes } from '../data/coachNotesStore.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -52,6 +53,7 @@ function RatingTrend({ history }) {
  * dashboard, which is the members' view.
  */
 export default function CoachPage() {
+  const queue = useAnalysisQueue({ enabled: false });
   const players = usePlayers();
   const games = useGames();
   const coachNotes = useCoachNotes();
@@ -102,7 +104,7 @@ export default function CoachPage() {
     <div className="dashboard">
       <MemberApproval />
 
-      <AnalysisQueuePanel />
+      <AnalysisQueuePanel queue={queue} />
 
       <section className="panel">
         <div className="panel-header">

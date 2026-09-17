@@ -15,7 +15,7 @@
 import { fetchGames, fetchProfile, PLATFORMS } from './externalChess.js';
 import { getPlayers, recordExternalResults, setConnection } from './rosterStore.js';
 import { recordExternalGames } from './gamesStore.js';
-import { enqueueGame } from './analysisStore.js';
+import { enqueueGameRow } from '../analysis/queue.js';
 import { toRatingRows } from '../analysis/ratings.js';
 import { savePlatformRatings } from './ratingStore.js';
 
@@ -140,8 +140,10 @@ export async function syncPlatform(playerId, platform) {
   if (archived.length) {
     recordExternalGames(archived);
     // A game imported in bulk is queued exactly like a game played in the app.
-    // Nothing should sit waiting for a coach to notice it exists.
-    for (const game of archived) enqueueGame(game.id);
+    // Nothing should sit waiting for a coach to notice it exists. The row is
+    // inserted with analysis_status 'pending' by default, so this only matters
+    // for a game that was previously marked failed or skipped.
+    for (const game of archived) await enqueueGameRow(game.id);
   }
 
   // Ratings are stored per (platform, time control) as separate rows and are

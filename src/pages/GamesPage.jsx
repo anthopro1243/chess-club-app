@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
+import GameReview from '../components/GameReview.jsx';
+import { useAnalysisForGame } from '../data/analysisStore.js';
 import { useAccount } from '../data/accountStore.js';
 import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { usePlayers } from '../data/rosterStore.js';
@@ -113,7 +115,11 @@ export default function GamesPage() {
               </thead>
               <tbody>
                 {filtered.map((g) => (
-                  <tr key={g.id} className={openId === g.id ? 'selected' : ''}>
+                  <tr
+                    key={g.id}
+                    className={`clickable ${openId === g.id ? 'selected' : ''}`}
+                    onClick={() => setOpenId(openId === g.id ? null : g.id)}
+                  >
                     <td className="mono">{String(g.playedAt).slice(0, 10)}</td>
                     <td>{g.whiteName}</td>
                     <td>{g.blackName}</td>
@@ -131,7 +137,10 @@ export default function GamesPage() {
                       <button
                         type="button"
                         className="link-button"
-                        onClick={() => setOpenId(openId === g.id ? null : g.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenId(openId === g.id ? null : g.id);
+                        }}
                       >
                         {openId === g.id ? 'Hide' : 'PGN'}
                       </button>
@@ -155,7 +164,11 @@ export default function GamesPage() {
               </h2>
               <span className="badge mono">{game.result}</span>
             </div>
-            <pre className="pgn-block">{game.pgn}</pre>
+            <GameReviewFor game={game} />
+            <details className="pgn-details">
+              <summary>Raw PGN</summary>
+              <pre className="pgn-block">{game.pgn}</pre>
+            </details>
             <div className="button-grid">
               <button
                 type="button"
@@ -188,4 +201,10 @@ export default function GamesPage() {
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
+}
+
+/** Small wrapper so the review can subscribe to this game's analyses. */
+function GameReviewFor({ game }) {
+  const analyses = useAnalysisForGame(game.id);
+  return <GameReview game={game} analyses={analyses} />;
 }

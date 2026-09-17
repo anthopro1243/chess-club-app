@@ -1,58 +1,50 @@
 /*
  * useAnalysisQueue.js — drains the analysis queue while the app is open.
  *
- * Decision 3 in the spec: archiving a game marks it pending and a worker
- * drains the queue whenever the app is open and idle. The point is that no
- * game ever sits waiting for a human to notice it: a coach's "Analyze all
- * pending" button stays as a fallback for a batch after club night, but it is
- * not how the work normally gets done.
+ * Spec Decision 3: a game queues itself and a worker drains it, so nothing
+ * waits for a human to notice it exists. The coach's "Analyse all pending"
+ * button is an override for clearing a backlog, not the mechanism.
  *
  * Deliberately unhurried:
  *   - one game at a time, because the engine is single-threaded
  *   - only while the tab is visible, so a backgrounded tab is not burning
- *     someone's battery on a Chromebook
- *   - a short settle delay after load, so the first paint is never competing
- *     with a WASM engine starting up
+ *     someone's battery, and it wakes on visibilitychange rather than giving up
+ *   - claims are taken in the database, so two open tabs cannot analyse the
+ *     same game twice
  *   - permission is the database's business: a player may analyse their own
- *     games and the RLS policy refuses anything else, so this needs no role
- *     check of its own
+ *     games and RLS refuses anything else, so this needs no role check
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { useGames } from '../data/gamesStore.js';
-import { usePendingQueue, dequeueGame, enqueueGame, getAnalyses } from '../data/analysisStore.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { claimNext, markDone, markFailed, queueCounts } from './queue.js';
 import { analyzeArchivedGame, isBusy } from './runner.js';
+import { DEFAULT_DEPTH } from './analyzeGame.js';
 
-/** Wait this long after mount before starting, so the UI settles first. */
-const SETTLE_MS = 4000;
-/** Breathing room between games. */
-const BETWEEN_MS = 1500;
+const SETTLE_MS = 3500;
+const BETWEEN_MS = 1200;
 
-export function useAnalysisQueue({ enabled = true } = {}) {
-  const games = useGames();
-  const queue = usePendingQueue();
+export function useAnalysisQueue({ enabled = true, playerId = null } = {}) {
   const [current, setCurrent] = useState(null);
   const [progress, setProgress] = useState(null);
-  // Bumped to ask the drainer to look again — on becoming visible, or after a
-  // game finishes — without changing any of the real dependencies.
+  const [counts, setCounts] = useState(null);
   const [tick, setTick] = useState(0);
   const stopped = useRef(false);
+  const abort = useRef(null);
 
   useEffect(() => {
     stopped.current = false;
     return () => {
       stopped.current = true;
+      // A user who closes the tab should not leave an engine spinning.
+      abort.current?.abort();
     };
   }, []);
 
   /*
-   * Waking up when the tab comes back.
-   *
-   * Skipping work while hidden is right — nobody wants an engine running on a
-   * backgrounded Chromebook. Skipping it and never looking again is a bug: the
-   * effect does not re-run on its own, so a tab that was in the background at
-   * the wrong moment would leave the queue stalled until something unrelated
-   * changed. This is what makes "it analyses itself" actually true.
+   * Skipping work while the tab is hidden is right; skipping it and never
+   * looking again is a bug. The effect does not re-run on its own, so without
+   * this a tab that happened to be backgrounded when the timer fired would
+   * leave the queue stalled indefinitely.
    */
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -67,66 +59,68 @@ export function useAnalysisQueue({ enabled = true } = {}) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!enabled || !queue.length || current) return undefined;
+  const refreshCounts = useCallback(async () => {
+    const next = await queueCounts();
+    if (!stopped.current) setCounts(next);
+  }, []);
 
+  useEffect(() => {
+    if (!enabled) return undefined;
     let timer = null;
+
     const run = async () => {
-      if (stopped.current || isBusy()) return;
-      // Hidden tab: do nothing now, and let the visibilitychange listener above
-      // bring us back. Never just drop the work.
+      if (stopped.current || isBusy() || current) return;
       if (typeof document !== 'undefined' && document.hidden) return;
 
-      const gameId = queue[0];
-      const game = games.find((g) => g.id === gameId);
+      const game = await claimNext({ playerId });
       if (!game) {
-        // The game is gone from the archive. Stop asking for it.
-        dequeueGame(gameId);
-        return;
-      }
-      // Already analysed by someone else (another device, or the coach).
-      if (getAnalyses().some((a) => a.gameId === gameId)) {
-        dequeueGame(gameId);
+        await refreshCounts();
         return;
       }
 
-      setCurrent(gameId);
+      setCurrent(game.id);
       setProgress(null);
-      await analyzeArchivedGame(game, { onProgress: setProgress });
-      // analyzeArchivedGame dequeues on success; drop it either way so one
-      // unanalysable game cannot wedge the queue forever.
-      dequeueGame(gameId);
+      const controller = new AbortController();
+      abort.current = controller;
+
+      const record = {
+        id: game.id,
+        pgn: game.pgn,
+        whitePlayerId: game.white_player_id,
+        blackPlayerId: game.black_player_id,
+        playedAt: game.played_at,
+        mode: game.mode,
+      };
+
+      const result = await analyzeArchivedGame(record, {
+        onProgress: setProgress,
+        signal: controller.signal,
+      });
+
+      if (result.ok) await markDone(game.id, DEFAULT_DEPTH);
+      else await markFailed(game.id, result.error, (game.analysis_attempts ?? 0) + 1);
+
+      abort.current = null;
       setCurrent(null);
       setProgress(null);
-      // Look again straight away, so a queue of several drains in one sitting.
+      await refreshCounts();
+      // Look again immediately so a backlog drains in one sitting.
       setTick((n) => n + 1);
     };
 
-    timer = setTimeout(run, current === null && queue.length ? SETTLE_MS : BETWEEN_MS);
+    timer = setTimeout(run, tick === 0 ? SETTLE_MS : BETWEEN_MS);
     return () => clearTimeout(timer);
-  }, [enabled, queue, games, current, tick]);
+  }, [enabled, playerId, current, tick, refreshCounts]);
+
+  useEffect(() => {
+    if (enabled) refreshCounts();
+  }, [enabled, refreshCounts]);
 
   return {
-    pending: queue.length,
+    counts,
     current,
     progress,
     running: current !== null,
+    refresh: refreshCounts,
   };
-}
-
-/**
- * Backfill: queue every archived game that has never been analysed. This is
- * what makes auto-analysis apply to games imported before it existed, rather
- * than only to games played from now on.
- */
-export function enqueueUnanalysed(games, { playerId = null } = {}) {
-  const done = new Set(getAnalyses().map((a) => a.gameId));
-  let queued = 0;
-  for (const game of games) {
-    if (done.has(game.id) || !game.pgn) continue;
-    if (playerId && game.whitePlayerId !== playerId && game.blackPlayerId !== playerId) continue;
-    enqueueGame(game.id);
-    queued += 1;
-  }
-  return queued;
 }

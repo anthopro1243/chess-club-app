@@ -50,6 +50,10 @@ function fromRow(row) {
     mode: row.mode || 'human',
     computerElo: row.computer_elo ?? null,
     pgn: row.pgn || '',
+    analysisStatus: row.analysis_status || 'pending',
+    analysisAttempts: row.analysis_attempts ?? 0,
+    analysisError: row.analysis_error || null,
+    analysisDepth: row.analysis_depth ?? null,
   };
 }
 

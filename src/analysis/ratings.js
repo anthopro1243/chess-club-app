@@ -40,6 +40,20 @@ export const TIME_CONTROLS = ['bullet', 'blitz', 'rapid', 'classical', 'daily', 
 
 export const PLATFORMS = ['chesscom', 'lichess', 'uscf', 'fide'];
 
+/**
+ * The club's canonical basis for a single comparable number.
+ *
+ * A platform rating is not comparable ACROSS platforms or time controls - but
+ * two players measured on the SAME platform at the SAME speed are in the same
+ * pool, and that IS a fair comparison. So the club names one basis, everyone
+ * measured on it is ranked together, and everyone else is listed separately
+ * with their own number labelled rather than silently ranked against a
+ * different scale.
+ *
+ * Coach-configurable; this is only the default.
+ */
+export const DEFAULT_CLUB_BASIS = Object.freeze({ platform: 'chesscom', timeControl: 'rapid' });
+
 /** Where a resolved rating came from, most trusted first. */
 export const PROVENANCE = ['coach', 'uscf', 'fide', 'club', 'platform', 'none'];
 
@@ -122,6 +136,7 @@ export function resolveRating({
   official = null,
   clubRating = null,
   platformRatings = [],
+  basis = DEFAULT_CLUB_BASIS,
   preferredOrder = ['rapid', 'blitz', 'classical', 'bullet', 'daily'],
 } = {}) {
   if (override?.clubRating != null) {
@@ -145,6 +160,22 @@ export function resolveRating({
     return { rating: Math.round(clubRating), provenance: 'club', label: 'club rating', comparable: true };
   }
   const usable = (platformRatings || []).filter((r) => r.rating != null && r.timeControl !== 'puzzles');
+
+  // The club's chosen basis: same platform, same speed, same pool - so these
+  // players may legitimately be ranked against one another.
+  const onBasis = basis
+    ? usable.find((r) => r.platform === basis.platform && r.timeControl === basis.timeControl)
+    : null;
+  if (onBasis) {
+    return {
+      rating: onBasis.rating,
+      provenance: 'platform',
+      label: `${onBasis.platform === 'lichess' ? 'Lichess' : 'Chess.com'} ${onBasis.timeControl}`,
+      comparable: true,
+      basis: true,
+    };
+  }
+
   if (usable.length) {
     // Pick ONE, by a stated preference. Never blend two.
     const pick =

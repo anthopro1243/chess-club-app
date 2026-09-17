@@ -60,6 +60,7 @@ export default function App() {
   // Drains the analysis queue while the app is open, so no game waits on a
   // human noticing it. The coach's batch button remains as a fallback.
   useAnalysisQueue({ enabled: !!account?.isApproved });
+
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 
   // Supabase redirects auth outcomes back here via the URL hash — the same

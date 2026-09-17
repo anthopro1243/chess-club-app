@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  toRatingRows, percentileOf, clubRelativeIndex, resolveRating,
-  rankForLeaderboard, usableAsScoringAnchor,
+  toRatingRows,
+  percentileOf,
+  clubRelativeIndex,
+  resolveRating,
+  rankForLeaderboard,
+  usableAsScoringAnchor,
+  DEFAULT_CLUB_BASIS,
 } from './ratings.js';
 
 /* ── storage keeps platforms and speeds apart ────────────────────────────── */
@@ -125,4 +130,54 @@ test('only same-pool ratings may anchor scoring', () => {
     'a platform rating must not calibrate a club measured on another pool',
   );
   assert.equal(usableAsScoringAnchor(resolveRating({})), false);
+});
+
+/* ── the club's chosen basis ─────────────────────────────────────────────── */
+
+test('a rating on the club basis is comparable and may be ranked', () => {
+  const r = resolveRating({
+    platformRatings: [
+      { platform: 'chesscom', timeControl: 'rapid', rating: 1356 },
+      { platform: 'chesscom', timeControl: 'bullet', rating: 1159 },
+    ],
+  });
+  assert.equal(r.rating, 1356, 'the basis wins over the preference order');
+  assert.equal(r.comparable, true, 'same platform and speed is the same pool');
+  assert.equal(r.basis, true);
+  assert.match(r.label, /Chess\.com rapid/);
+});
+
+test('a rating off the basis is still shown, but not ranked', () => {
+  const r = resolveRating({
+    platformRatings: [{ platform: 'lichess', timeControl: 'blitz', rating: 1900 }],
+  });
+  assert.equal(r.rating, 1900);
+  assert.equal(r.comparable, false, 'a different pool must not be ranked against the basis');
+});
+
+test('the basis is configurable', () => {
+  const r = resolveRating({
+    platformRatings: [{ platform: 'lichess', timeControl: 'blitz', rating: 1900 }],
+    basis: { platform: 'lichess', timeControl: 'blitz' },
+  });
+  assert.equal(r.comparable, true);
+});
+
+test('a coach override still beats the basis', () => {
+  const r = resolveRating({
+    override: { clubRating: 1150 },
+    platformRatings: [{ platform: 'chesscom', timeControl: 'rapid', rating: 1356 }],
+  });
+  assert.equal(r.rating, 1150);
+  assert.equal(r.provenance, 'coach');
+});
+
+test('players on the basis rank together and others are set aside', () => {
+  const { ranked, unranked } = rankForLeaderboard([
+    { playerId: 'a', platformRatings: [{ platform: 'chesscom', timeControl: 'rapid', rating: 1356 }] },
+    { playerId: 'b', platformRatings: [{ platform: 'chesscom', timeControl: 'rapid', rating: 1100 }] },
+    { playerId: 'c', platformRatings: [{ platform: 'lichess', timeControl: 'blitz', rating: 2100 }] },
+  ]);
+  assert.deepEqual(ranked.map((r) => r.playerId), ['a', 'b']);
+  assert.deepEqual(unranked.map((r) => r.playerId), ['c'], 'the biggest number is not the top rank');
 });

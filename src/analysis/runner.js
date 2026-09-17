@@ -13,7 +13,7 @@
 import { createEngine } from '../engine/stockfishClient.js';
 import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from './analyzeGame.js';
 import {
-  saveAnalysis, saveSkillScores, dequeueGame, getAnalyses, getSkillsForPlayer,
+  saveAnalysis, saveSkillScores, getAnalyses, getSkillsForPlayer,
 } from '../data/analysisStore.js';
 import { addOwnGamePuzzles } from '../data/ownPuzzleStore.js';
 import { aggregateRaw, rubricScores, updatePlayerScores } from './scoring.js';
@@ -144,10 +144,7 @@ export async function drainQueue(games, queue, { signal, onGame } = {}) {
   for (const gameId of queue) {
     if (signal?.aborted) break;
     const game = byId.get(gameId);
-    if (!game) {
-      dequeueGame(gameId); // archived game has gone; stop asking for it
-      continue;
-    }
+    if (!game) continue; // archived game has gone
     const result = await analyzeArchivedGame(game, { signal });
     onGame?.(game, result);
     if (result.ok) done.push(gameId);
