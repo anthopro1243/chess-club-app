@@ -7,7 +7,6 @@ import {
   signUpWithPassword,
   sendPasswordReset,
   updatePassword,
-  signInWithEmail,
   signOut,
 } from '../data/auth.js';
 
@@ -18,16 +17,16 @@ const MIN_PASSWORD_LENGTH = 8;
  *
  * Renders nothing when no backend is configured (accounts are inherently a
  * shared-backend feature). Otherwise walks through: signed out (sign in /
- * create account / forgot password / magic link, one at a time), signed in
- * with no player row yet (claim one), and signed in with a profile (name,
- * rating, change password, sign out).
+ * create account / forgot password, one at a time), signed in with no
+ * player row yet (claim one), and signed in with a profile (name, rating,
+ * change password, sign out).
  */
 export default function AccountControl() {
   const cloud = useCloudStatus();
   const profile = useMyProfile();
   const account = useAccount();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot' | 'magiclink'
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [showConnections, setShowConnections] = useState(false);
 
   if (!cloud.configured) return null;
@@ -54,9 +53,6 @@ export default function AccountControl() {
           )}
           {!cloud.signedIn && mode === 'forgot' && (
             <ForgotPasswordForm onSwitch={setMode} />
-          )}
-          {!cloud.signedIn && mode === 'magiclink' && (
-            <MagicLinkForm onSwitch={setMode} />
           )}
           {cloud.signedIn && !account.loading && !account.isApproved && <AwaitingApproval />}
           {cloud.signedIn && account.isApproved && !profile && <ClaimProfileForm onDone={close} />}
@@ -146,9 +142,6 @@ function SignInForm({ onDone, onSwitch }) {
           Forgot password?
         </button>
       </div>
-      <button type="button" className="link-button" onClick={() => onSwitch('magiclink')}>
-        Or use a magic link instead
-      </button>
     </form>
   );
 }
@@ -270,51 +263,6 @@ function ForgotPasswordForm({ onSwitch }) {
         Send reset link
       </button>
       {status && status !== 'sending' && <span className="hint-text auth-error">{status}</span>}
-      <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
-        Back to sign in
-      </button>
-    </form>
-  );
-}
-
-function MagicLinkForm({ onSwitch }) {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('');
-
-  const submit = async (event) => {
-    event.preventDefault();
-    if (!email.trim()) return;
-    setStatus('sending');
-    try {
-      await signInWithEmail(email.trim());
-      setStatus('sent');
-    } catch (err) {
-      setStatus(err.message || 'Could not send the link');
-    }
-  };
-
-  if (status === 'sent') {
-    return <p className="hint-text">Check your email for a sign-in link, then come back here.</p>;
-  }
-
-  return (
-    <form className="signin-form" onSubmit={submit}>
-      <p className="hint-text">No password needed. We'll email you a one-time sign-in link.</p>
-      <input
-        type="email"
-        required
-        autoFocus
-        placeholder="you@example.com"
-        value={email}
-        onChange={(e) => {
-          setEmail(e.target.value);
-          setStatus('');
-        }}
-      />
-      <button type="submit" className="primary" disabled={status === 'sending'}>
-        Send magic link
-      </button>
-      {status && status !== 'sending' && <span className="hint-text">{status}</span>}
       <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
         Back to sign in
       </button>

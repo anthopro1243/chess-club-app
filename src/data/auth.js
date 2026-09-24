@@ -7,8 +7,10 @@
  * sees a password in a form that isn't about to go straight into
  * `supabase.auth.*`; there is no custom password storage of any kind.
  *
- * Email magic links (signInWithEmail) still work too — same underlying
- * account, just a second way in that doesn't need a password at all.
+ * No magic link, no email OTP — password only. Whether signUp signs someone
+ * in immediately or makes them click a confirmation link first is a Supabase
+ * project setting (Authentication -> Providers -> Email -> "Confirm email"),
+ * not something this file controls.
  */
 
 import { useEffect, useState } from 'react';
@@ -64,12 +66,6 @@ export async function sendPasswordReset(email) {
 export async function updatePassword(newPassword) {
   if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
   const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) throw error;
-}
-
-export async function signInWithEmail(email) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } });
   if (error) throw error;
 }
 

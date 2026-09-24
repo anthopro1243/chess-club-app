@@ -10,7 +10,7 @@
  *
  * With no Supabase project configured (see supabaseClient.js), everything
  * stays in this browser, same as before. Once one is configured, anyone can
- * sign in (email magic link, see auth.js) and claim their own player row —
+ * sign in (email + password, see auth.js) and claim their own player row —
  * this module fetches the shared table, mirrors every local write to it,
  * and subscribes to Realtime so every open tab, on any device, sees changes
  * as they land.
