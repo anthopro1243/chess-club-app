@@ -1,0 +1,21 @@
+-- 0016_game_analyses_opponent_side_for_own_games.sql
+--
+-- BACKFILL FILE, written 2026-09-25 overnight WITHOUT database access.
+-- Live migration: 20260924161814 game_analyses_opponent_side_for_own_games (already applied, 2026-09-24,
+-- by a session whose SQL was not kept).
+--
+-- What it did, per HANDOFF §5 and the app code: lets a player write the OPPONENT's side of a game they played (an analysis saves both sides at once; before this, 13 CC-003 games failed with an RLS violation).
+--
+-- STATUS: NOT RECONSTRUCTED. This is an RLS policy change, and a guessed
+-- policy replayed onto production would change who can write what (HANDOFF
+-- §10: do not rewrite the policies). Nothing below executes.
+--
+-- To fill this in, copy the live definition from production:
+--   select policyname, cmd, roles, qual as using_expr, with_check as check_expr
+--   from pg_policies
+--   where schemaname = 'public' and tablename in ('game_analyses', 'assessments')
+--   order by tablename, policyname;
+-- and write it here as `drop policy if exists …; create policy …;`, the
+-- style of 0009/0010. Then re-run `npm run test:rls` with the fixture accounts.
+
+select 1; -- intentionally empty

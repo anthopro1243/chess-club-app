@@ -397,6 +397,18 @@ at a 375px viewport).
 13. **"Save optimistically" was already true.** Every store writes locally first and pushes after,
     and failed pushes show the sync-error banner. I added nothing there.
 
+14. **I did not query the live database**, even though a Supabase connector is listed in this
+    session: the plan says there is no database access, and I took that as a rule. So 0012–0017 are
+    reconstructions, not dumps.
+15. **The RLS-policy backfills (0013, 0015, 0016, 0017) are documentation, not SQL.** Their
+    content is known only by name and description. A guessed policy replayed onto production would
+    silently change who can read or write what (HANDOFF §10). Each file says what the migration did
+    and gives the exact `pg_policies` query to paste the real definition from. 0012 and 0014
+    (columns, a check and indexes) are real SQL, guarded with `if not exists`, and each unconfirmed
+    detail is marked `UNCONFIRMED` in the file.
+16. **I added a comment to the top of 0009** about its uuid/text mismatch (COWORK-PROMPT Phase A
+    item 1). None of its SQL was changed.
+
 ### Item 2 — hide soft-deleted players everywhere
 
 - `src/data/retiredPlayers.js` (pure) + 11 tests, including negative cases (an active opponent keeps
@@ -461,3 +473,34 @@ has no `playerId` field (the player row comes from `useMyProfile()`). On the clu
 player's viewer id is therefore always null. The analysis panel's wording/permission rules see "no
 player". Staff are unaffected, and My Games does it correctly. Left alone because it touches the
 permission rules in `presentation.js`.
+
+### Item 5 — backfill migrations 0012–0017
+
+| File | Live migration | State |
+|---|---|---|
+| `0012_analysis_queue_state_on_games.sql` | 20260916222241 | **SQL.** Column names certain (the app uses all six); types/defaults/check/index marked UNCONFIRMED |
+| `0013_normalise_policies_and_index_fks.sql` | 20260917193932 | **Not reconstructed**: dump query only |
+| `0014_assessment_source_engine.sql` | 20260917194812 | **SQL.** `source` + generated `assessed_on` + unique (player_id, assessed_on), which the client's `onConflict` proves exists; details UNCONFIRMED |
+| `0015_game_analyses_owner_update.sql` | 20260924161500 | **Not reconstructed**: RLS, dump query only |
+| `0016_game_analyses_opponent_side_for_own_games.sql` | 20260924161814 | **Not reconstructed**: RLS, dump query only |
+| `0017_assessments_players_write_own_engine_rows.sql` | 20260924161942 | **Not reconstructed**: RLS, dump query only |
+
+None of them should be run against production; all are already applied there.
+
+**Tested against a real Postgres 16**, a throwaway local cluster (deleted afterwards) with the
+Supabase `auth` schema, roles and `supabase_realtime` publication stubbed. I replayed
+`schema.sql` → `migration-2/3/4` → `0005`…`0018` in order:
+- 0012, 0014 and the four placeholder files apply. 0012 and 0014 re-run cleanly (idempotent).
+- `supabase/pending/skip-cc003-games.sql` on seeded rows skipped exactly the two CC-003-only
+  pending/failed games. It left a CC-003-vs-CC-002 game, a `done` game and an active member's game
+  alone, and a second run changed nothing.
+- **Two older files fail on a fresh project, and both were already broken:**
+  - `0009` (`game_analyses_game_id_fkey cannot be implemented`): the known uuid/text mismatch,
+    now noted at the top of the file.
+  - `0011`, line 81: `function public.rls_auto_enable() does not exist`. Nothing in the repo
+    creates that function, so production has it from somewhere unrecorded (a dashboard toggle or
+    an event trigger). Not fixed, because 0011 is the security-definer grants file on the
+    do-not-change list. **The repo still cannot rebuild production end to end** until 0009's types
+    are fixed, the source of `rls_auto_enable()` is found, and the four policy files are filled in
+    from `pg_policies`.
+- `npm test` / `test:engine` / build unchanged (no code in this item): 450 / 15 / ✓.

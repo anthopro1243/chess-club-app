@@ -1,0 +1,31 @@
+-- 0013_normalise_policies_and_index_fks.sql
+--
+-- BACKFILL FILE, written 2026-09-25 overnight WITHOUT database access.
+-- Live migration: 20260917193932 normalise_policies_and_index_fks (already applied).
+--
+-- STATUS: NOT RECONSTRUCTED. What this migration did is documented only by its
+-- name. HANDOFF §5 and §10 say the resulting policies are consistently gated
+-- on is_coach() / is_approved() / owns_player() and must not be rewritten.
+-- Guessing their text here would be worse than leaving a gap: replaying a
+-- guessed policy onto production would silently change who can read what.
+--
+-- Nothing below executes. To fill this file in, dump the real definitions
+-- from production and paste them here as `drop policy if exists` +
+-- `create policy` pairs (the style of 0009/0010):
+--
+--   select schemaname, tablename, policyname, cmd, roles,
+--          pg_get_expr(pol.polqual, pol.polrelid)      as using_expr,
+--          pg_get_expr(pol.polwithcheck, pol.polrelid) as check_expr
+--   from pg_policies p
+--   join pg_policy pol on pol.polname = p.policyname
+--   join pg_class c on c.oid = pol.polrelid and c.relname = p.tablename
+--   where schemaname = 'public'
+--   order by tablename, policyname;
+--
+--   -- and the foreign-key indexes it added:
+--   select tablename, indexname, indexdef from pg_indexes
+--   where schemaname = 'public' order by tablename, indexname;
+--
+-- Or, simplest: `supabase db dump --schema public` and diff against 0005–0011.
+
+select 1; -- intentionally empty

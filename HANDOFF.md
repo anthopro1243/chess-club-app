@@ -230,8 +230,12 @@ them is text. The committed `0009_game_analysis.sql` says `uuid` and `players(id
 
 **Every migration below has been applied.** The problem is that only some exist as files.
 
-Files present in `supabase/migrations/`: `0005` … `0011`, then **`0018`**. The gap `0012`–`0017`
-is deliberate and reserved for backfilling the six file-less migrations below (Phase A item 1).
+Files present in `supabase/migrations/`: `0005` … `0018`. **`0012`–`0017` were backfilled
+overnight 2026-09-25 without database access.** 0012 and 0014 are real (guarded) SQL with
+UNCONFIRMED details marked; 0013/0015/0016/0017 are RLS changes and hold only a description plus the
+`pg_policies` query to paste the real definitions from. Replayed on a local Postgres 16: the repo
+still fails at 0009 (types) and 0011 (`rls_auto_enable()` is not created anywhere in the repo).
+See PROGRESS.md → "Item 5".
 
 Applied to the database (from `list_migrations`), newest last:
 
@@ -241,12 +245,12 @@ Applied to the database (from `list_migrations`), newest last:
 | 20260916221931 | harden_definer_functions_and_invites | ✅ folded into `0011_*.sql` |
 | 20260916222044 | revoke_definer_functions_from_public | ✅ folded into `0011` |
 | 20260916222110 | restore_execute_on_policy_helpers | ✅ folded into `0011` |
-| 20260916222241 | analysis_queue_state_on_games | ❌ **NO FILE** |
-| 20260917193932 | normalise_policies_and_index_fks | ❌ **NO FILE** |
-| 20260917194812 | assessment_source_engine | ❌ **NO FILE** |
-| 20260924161500 | game_analyses_owner_update | ❌ **NO FILE** |
-| 20260924161814 | game_analyses_opponent_side_for_own_games | ❌ **NO FILE** |
-| 20260924161942 | assessments_players_write_own_engine_rows | ❌ **NO FILE** |
+| 20260916222241 | analysis_queue_state_on_games | ⚠️ `0012` reconstructed, unconfirmed |
+| 20260917193932 | normalise_policies_and_index_fks | ⚠️ `0013` placeholder, needs pg_policies dump |
+| 20260917194812 | assessment_source_engine | ⚠️ `0014` reconstructed, unconfirmed |
+| 20260924161500 | game_analyses_owner_update | ⚠️ `0015` placeholder, needs pg_policies dump |
+| 20260924161814 | game_analyses_opponent_side_for_own_games | ⚠️ `0016` placeholder, needs pg_policies dump |
+| 20260924161942 | assessments_players_write_own_engine_rows | ⚠️ `0017` placeholder, needs pg_policies dump |
 | 2026-09-25 (applied via connector) | roster_import_private_fields_and_experience | ✅ `0018_roster_import.sql` |
 
 ⚠️ **This is the single biggest liability in the project.** Six applied migrations have no file.

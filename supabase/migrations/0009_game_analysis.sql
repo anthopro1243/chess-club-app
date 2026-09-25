@@ -1,3 +1,13 @@
+-- ⚠ NOTE ADDED 2026-09-25: THIS FILE DOES NOT MATCH PRODUCTION.
+-- It declares game_analyses.game_id / player_id as uuid referencing
+-- players(id). In production, players.player_id and games.id are TEXT, and
+-- every column referencing them (game_analyses.game_id, .player_id,
+-- player_skill_scores.player_id, player_skill_history.player_id/game_id) is
+-- text, referencing players(player_id). The migration was applied by hand
+-- with those types corrected. The SQL below is left exactly as committed;
+-- when rebuilding a fresh project, fix the types before running it
+-- (see HANDOFF.md §5).
+--
 -- supabase/migrations/0xx_game_analysis.sql
 -- Renumber to follow your existing migrations. Forward-only. Safe on a database
 -- that already has rows: it creates new tables and touches no existing column.
