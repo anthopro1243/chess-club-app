@@ -367,6 +367,21 @@ at a 375px viewport).
    with **no** club player at all is not treated as retired-only. If RLS refuses the skip write,
    the game is still left out of that claim.
 
+4. **PGN import does not touch ratings.** `LogGameForm` can feed the Glicko club rating; the PGN
+   import only archives and queues for analysis. `players.club_rating` is known-wrong (HANDOFF
+   §9.5) and a bulk file would push many results into it at once.
+5. **An undated PGN game needs a date from the coach.** `pgnImport.js` refuses to invent a date, so
+   the preview shows a date field for those games and holds them back until one is chosen. The
+   chosen day is stored as noon UTC so it shows the same date in every US time zone.
+6. **Anyone who can see the Games page can import**, the same audience as "Log a game". RLS
+   decides what actually saves; I did not add a role check (permissions are out of scope).
+7. **An import never overwrites an archived game** (`ignoreDuplicates` on the upsert, plus the
+   stable `pgn:` id from `pgnImport.js`).
+8. **Push is blocked.** Every push this session got HTTP 403 (git: "Claude doesn't have GitHub
+   access to anthopro1243/chess-club-app"; API `create_branch`: "Resource not accessible by
+   integration"). Reads work. Commits are local, and are also handed over as a patch file — see the
+   Morning summary.
+
 ### Item 2 — hide soft-deleted players everywhere
 
 - `src/data/retiredPlayers.js` (pure) + 11 tests, including negative cases (an active opponent keeps
@@ -378,3 +393,21 @@ at a 375px viewport).
 - `supabase/pending/skip-cc003-games.sql` — **NOT applied.** Preview query, then an update in a
   transaction, then an undo line.
 - After: `npm test` 426 pass / 0 fail (246 under `node --test`), `test:engine` 15/15, build ✓.
+
+### Item 3 — PGN import on the Games page
+
+- `src/data/pgnImportPlan.js` (pure) + 9 tests: preview rows from `importPgnText()`, archive
+  duplicates marked and unticked, same member on both sides refused, undated games held until a date
+  is chosen, a picked member's name replacing a placeholder tag (but never a real scoresheet name),
+  empty input.
+- `src/components/PgnImportModal.jsx`: paste or upload a .pgn (5 MB cap) → preview with a player
+  picker per side, pre-filled only where `matchPlayer()` is confident → Import. Games that fail to
+  parse are listed by game number and move, and the rest still import.
+- `gamesStore.recordImportedGames()` waits for the insert (so queueing afterwards actually finds
+  the row), never overwrites an existing game, and takes the games back out of the local view if
+  the save fails. Each imported game is then queued with `enqueueGameRow()`.
+- Verified in the backend-free local preview with headless Chromium: 3-game paste → 2 ready,
+  1 illegal (`game 3: illegal move 2. Qh8`); the same-player check fired; picking a date and players
+  imported 2 games; re-importing the same text returned both as already archived. Checked at 1280px
+  and 375px. **Not exercised against the live database.**
+- After: `npm test` 435 pass / 0 fail (255 under `node --test`), `test:engine` 15/15, build ✓.

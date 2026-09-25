@@ -309,6 +309,9 @@ you see only "Club members only".
   jump to the position. Arrow-key navigation.
 - ✅ Analysis panel; coaches can trigger analysis on demand.
 - ✅ Log a game manually (`LogGameForm`), copy/download PGN.
+- ✅ **Import PGN** (overnight 2026-09-25, not on master): paste or upload, preview with a
+  player picker per side, then archive + queue for analysis. `PgnImportModal.jsx` over the pure
+  `pgnImportPlan.js`, which sits on `pgnImport.js`. Does not touch club ratings.
 - ⚠️ The "Lichess" type filter now returns real rows (50 lichess games exist).
 
 ### My games — `MyGamesPage.jsx`
@@ -385,7 +388,7 @@ preview is for.
 
 ### Written but NOT wired to any UI (dead code today)
 Each is complete and tested; nothing imports them:
-- `src/data/pgnImport.js` — paste/upload PGN import (17 tests). **No button anywhere.**
+- ~~`src/data/pgnImport.js`~~ — **now wired** (Games page → Import PGN, overnight branch).
 - `src/data/lichessSync.js` — a Lichess sync layer (16 tests). **Superseded in practice:** Lichess
   linking actually works through `externalSync.js` + `externalChess.js`, which is why 50 Lichess
   games exist. `lichessSync.js` is a parallel implementation nothing calls. Decide whether to wire

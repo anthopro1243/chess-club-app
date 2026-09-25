@@ -1978,3 +1978,25 @@ tr.clickable:hover { background: rgba(255,255,255,0.04); }
   gap: 10px;
   align-items: flex-start;
 }
+
+/* -- PGN import ---------------------------------------------------------- */
+
+.pgn-paste {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.import-errors {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.import-preview select {
+  max-width: 180px;
+}
+
+.import-errors li {
+  overflow-wrap: anywhere;
+}

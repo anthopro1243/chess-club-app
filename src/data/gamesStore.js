@@ -170,6 +170,43 @@ export function recordExternalGames(games) {
   return added;
 }
 
+/*
+ * Archive games imported from a PGN file (Games page → Import PGN).
+ *
+ * Unlike recordExternalGames this waits for the database, because the caller
+ * queues each game for analysis next — queueing a row that has not landed yet
+ * updates nothing. `ignoreDuplicates` means a game already in the table is
+ * left exactly as it is: an import never overwrites the archive.
+ */
+export async function recordImportedGames(games) {
+  if (!games.length) return { ok: true, added: [] };
+
+  let added = [];
+  store.set((existing) => {
+    const known = new Set(existing.map((g) => g.id));
+    added = games.filter((g) => !known.has(g.id));
+    if (!added.length) return existing;
+    return [...added, ...existing]
+      .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)))
+      .slice(0, 500);
+  });
+
+  if (!added.length || !isSupabaseConfigured || !cloudReady) return { ok: true, added, local: true };
+
+  const { error } = await supabase
+    .from('games')
+    .upsert(added.map(toRow), { onConflict: 'id', ignoreDuplicates: true });
+  if (error) {
+    // Take them back out of the local view: showing games that were never
+    // saved is how people lose a Tuesday's worth of scoresheets.
+    const failed = new Set(added.map((g) => g.id));
+    store.set((existing) => existing.filter((g) => !failed.has(g.id)));
+    reportSyncError('the imported games', error.message);
+    return { ok: false, added: [], error: error.message };
+  }
+  return { ok: true, added };
+}
+
 export function removeGame(id) {
   store.set((games) => games.filter((g) => g.id !== id));
   if (isSupabaseConfigured && cloudReady) {
