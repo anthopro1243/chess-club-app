@@ -1,33 +1,21 @@
 # Morning summary — overnight 2026-09-25
 
-**Read this first, Anthony: nothing from last night reached GitHub.** Every push got HTTP 403 ("Claude
-doesn't have GitHub access to anthopro1243/chess-club-app"; the API said "Resource not accessible by
-integration"). Reading the repo worked; writing didn't. The work is in six local commits, and was
-also handed to you as a patch file, `overnight-2026-09-25.patch`, in the session. To get it onto
-GitHub:
-
-```bash
-git checkout feature/roster-import
-git checkout -b feature/roster-import-9cg3im
-git am overnight-2026-09-25.patch      # applies the 6 commits with their messages
-git push -u origin feature/roster-import-9cg3im
-```
-
-Or fix access (reconnect GitHub for Claude at https://claude.ai/connect-github, and make sure the
-Claude GitHub App is installed on this repo), and a session can push the branch itself.
+**Pushed.** Overnight, every push got HTTP 403 (the Claude GitHub App had read access but no write
+access). After GitHub was reconnected, the branch was pushed on 2026-09-25 and the remote tip matches
+the local one. **Ignore the `overnight-2026-09-25.patch` file from the session.** Applying it now
+would duplicate the commits.
 
 ### Branches and preview URLs
 
 | Branch | Contents | Preview |
 |---|---|---|
 | `feature/roster-import` (on GitHub, `f67bd9d`) | Item 1, roster CSV import (done before tonight) | `chess-club-app-git-feature-roster-import-chess-club2.vercel.app` (by Vercel's naming pattern; not re-checked) |
-| `feature/roster-import-9cg3im` (**local only**, 6 commits on `f67bd9d`) | Items 2–5, one commit per item | Would be `chess-club-app-git-feature-roster-import-9cg3im-chess-club2.vercel.app` once pushed. **It does not exist yet.** |
+| `feature/roster-import-9cg3im` (on GitHub, 7 commits on `f67bd9d`) | Items 2–5, one commit per item | `chess-club-app-git-feature-roster-import-9cg3im-chess-club2.vercel.app` (by Vercel's naming pattern; not checked) |
 
 One branch rather than one per item: this session could only push to `feature/roster-import-9cg3im`
-(see Decisions, 1). Each item is its own commit, so they can be split with `git cherry-pick` (hashes change when the
-patch is applied, so here they are by subject): `roster: hide retired players' scores…` item 2 ·
-`games: Import PGN…` item 3 · `app: background sync…` + `docs: tidy handoff placement` item 4 ·
-`db: backfill migration files…` item 5 · `docs: overnight morning summary` this summary.
+(see Decisions, 1). Each item is its own commit, so they can be split with `git cherry-pick`: `19450b2` item 2 ·
+`d7a62c4` item 3 · `bfe85d2` + `bb65cf6` item 4 · `ae41813` item 5 · `bffa899` + the next commit
+this summary.
 `master` was not touched.
 
 ### SQL you must apply (none of it has been applied)
@@ -74,7 +62,7 @@ instructions.
 
 ### Unfinished / needs you
 
-- **Push the branch** (above), then click through its preview. Nothing tonight ran against the
+- **Click through the branch's preview.** Nothing tonight ran against the
   live database: the queue skip, backoff, auto-sync and PGN save were verified by unit tests, a
   backend-free browser run and code review only.
 - Apply `skip-cc003-games.sql` when you're happy.
@@ -468,8 +456,8 @@ at a 375px viewport).
    stable `pgn:` id from `pgnImport.js`).
 8. **Push is blocked.** Every push this session got HTTP 403 (git: "Claude doesn't have GitHub
    access to anthopro1243/chess-club-app"; API `create_branch`: "Resource not accessible by
-   integration"). Reads work. Commits are local, and are also handed over as a patch file — see the
-   Morning summary.
+   integration"). Reads work. **Resolved:** after GitHub was reconnected, the branch was pushed
+   as-is, so the overnight patch file is no longer needed.
 
 9. **Auto-sync covers only the signed-in member's own linked accounts**, at most every 30 minutes
    per account. A coach opening the app does not sync all ~30 members (rate limits, and a slow
