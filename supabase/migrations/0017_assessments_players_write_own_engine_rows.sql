@@ -1,21 +1,10 @@
 -- 0017_assessments_players_write_own_engine_rows.sql
---
--- BACKFILL FILE, written 2026-09-25 overnight WITHOUT database access.
--- Live migration: 20260924161942 assessments_players_write_own_engine_rows (already applied, 2026-09-24,
--- by a session whose SQL was not kept).
---
--- What it did, per HANDOFF §5 and the app code: lets a player insert/update their own assessments rows where source = 'engine' (runner.js records an engine assessment after analysing a player's own game).
---
--- STATUS: NOT RECONSTRUCTED. This is an RLS policy change, and a guessed
--- policy replayed onto production would change who can write what (HANDOFF
--- §10: do not rewrite the policies). Nothing below executes.
---
--- To fill this in, copy the live definition from production:
---   select policyname, cmd, roles, qual as using_expr, with_check as check_expr
---   from pg_policies
---   where schemaname = 'public' and tablename in ('game_analyses', 'assessments')
---   order by tablename, policyname;
--- and write it here as `drop policy if exists …; create policy …;`, the
--- style of 0009/0010. Then re-run `npm run test:rls` with the fixture accounts.
+-- Applied to production as migration 20260924161942. Everything below this header is the
+-- EXACT SQL applied, recovered 2026-09-25 from supabase_migrations.schema_migrations
+-- (md5 594a5764ceabf4e28bf12eecb8106d32). Already applied: do NOT re-run against production.
 
-select 1; -- intentionally empty
+create policy "Players write own engine assessments" on public.assessments for insert
+  with check (owns_player(player_id) and source = 'engine');
+create policy "Players update own engine assessments" on public.assessments for update
+  using (owns_player(player_id) and source = 'engine')
+  with check (owns_player(player_id) and source = 'engine');

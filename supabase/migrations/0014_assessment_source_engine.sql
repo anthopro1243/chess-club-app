@@ -1,53 +1,26 @@
 -- 0014_assessment_source_engine.sql
---
--- BACKFILL FILE, written 2026-09-25 overnight WITHOUT database access.
--- Live migration: 20260917194812 assessment_source_engine (already applied).
---
--- STATUS: reconstructed from the application code, NOT confirmed.
--- Certain: `assessments.source` exists with values 'coach' / 'engine'
--- (src/data/assessmentStore.js), and `assessed_on` exists and is part of a
--- unique key, because the store upserts with onConflict 'player_id,assessed_on'
--- (PostgREST refuses an onConflict that no unique index matches).
--- UNCONFIRMED: the default, the check, the exact generated expression for
--- assessed_on (HANDOFF §5 calls it "generated date"), and whether the unique
--- index also includes `source` or has a WHERE clause.
---
--- DO NOT RUN AGAINST PRODUCTION (already applied there). For fresh projects.
--- Guarded with `if not exists`, but a differently named live index or check
--- would be duplicated. On a fresh project, the unique index fails if two
--- assessments for one player fall on the same UTC day — dedupe first.
---
--- Confirm with:
---   select column_name, data_type, column_default, is_generated, generation_expression
---   from information_schema.columns
---   where table_schema = 'public' and table_name = 'assessments'
---     and column_name in ('source', 'assessed_on');
---   select indexname, indexdef from pg_indexes where tablename = 'assessments';
-
-begin;
+-- Applied to production as migration 20260917194812. Everything below this header is the
+-- EXACT SQL applied, recovered 2026-09-25 from supabase_migrations.schema_migrations
+-- (md5 db98020ffd2c4448248f8cc5edcf0e92). Already applied: do NOT re-run against production.
 
 alter table public.assessments
-  add column if not exists source text not null default 'coach';   -- UNCONFIRMED default
+  add column if not exists source text not null default 'coach'
+    check (source in ('coach','engine'));
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid = 'public.assessments'::regclass and conname = 'assessments_source_check'
-  ) then
-    alter table public.assessments
-      add constraint assessments_source_check check (source in ('coach', 'engine'));   -- UNCONFIRMED
-  end if;
-end $$;
+comment on column public.assessments.source is
+  'coach = typed by a human and authoritative. engine = derived from analysed games.';
 
--- UNCONFIRMED expression. `at time zone 'UTC'` makes it immutable, which a
--- generated column requires; the live column may use a different zone.
+-- A UTC-pinned generated column, because assessed_at::date depends on the
+-- session timezone and so cannot be indexed directly.
 alter table public.assessments
   add column if not exists assessed_on date
-  generated always as ((assessed_at at time zone 'UTC')::date) stored;
+    generated always as (((assessed_at at time zone 'UTC'))::date) stored;
 
--- UNCONFIRMED shape (see header). Matches the client's onConflict target.
-create unique index if not exists assessments_player_day_key
-  on public.assessments (player_id, assessed_on);
+create index if not exists assessments_player_time_idx
+  on public.assessments (player_id, assessed_at desc);
 
-commit;
+-- One engine assessment per player per day. The scores shift a little after
+-- every game; a row per game would bury the coach's own entries in noise.
+create unique index if not exists assessments_engine_daily_idx
+  on public.assessments (player_id, assessed_on)
+  where source = 'engine';
