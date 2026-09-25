@@ -1,3 +1,92 @@
+# Morning summary — overnight 2026-09-25
+
+**Read this first, Anthony: nothing from last night reached GitHub.** Every push got HTTP 403 ("Claude
+doesn't have GitHub access to anthopro1243/chess-club-app"; the API said "Resource not accessible by
+integration"). Reading the repo worked; writing didn't. The work is in six local commits, and was
+also handed to you as a patch file, `overnight-2026-09-25.patch`, in the session. To get it onto
+GitHub:
+
+```bash
+git checkout feature/roster-import
+git checkout -b feature/roster-import-9cg3im
+git am overnight-2026-09-25.patch      # applies the 6 commits with their messages
+git push -u origin feature/roster-import-9cg3im
+```
+
+Or fix access (reconnect GitHub for Claude at https://claude.ai/connect-github, and make sure the
+Claude GitHub App is installed on this repo), and a session can push the branch itself.
+
+### Branches and preview URLs
+
+| Branch | Contents | Preview |
+|---|---|---|
+| `feature/roster-import` (on GitHub, `f67bd9d`) | Item 1, roster CSV import (done before tonight) | `chess-club-app-git-feature-roster-import-chess-club2.vercel.app` (by Vercel's naming pattern; not re-checked) |
+| `feature/roster-import-9cg3im` (**local only**, 6 commits on `f67bd9d`) | Items 2–5, one commit per item | Would be `chess-club-app-git-feature-roster-import-9cg3im-chess-club2.vercel.app` once pushed. **It does not exist yet.** |
+
+One branch rather than one per item: this session could only push to `feature/roster-import-9cg3im`
+(see Decisions, 1). Each item is its own commit, so they can be split with `git cherry-pick` (hashes change when the
+patch is applied, so here they are by subject): `roster: hide retired players' scores…` item 2 ·
+`games: Import PGN…` item 3 · `app: background sync…` + `docs: tidy handoff placement` item 4 ·
+`db: backfill migration files…` item 5 · `docs: overnight morning summary` this summary.
+`master` was not touched.
+
+### SQL you must apply (none of it has been applied)
+
+1. `supabase/pending/skip-cc003-games.sql`: marks CC-003's pending/failed games `skipped`. Run
+   the preview SELECT first, then the transaction. It has an undo line. Tested against a local
+   Postgres on seeded rows.
+2. Nothing else. **Do not run 0012–0017 on production**; they are already applied there. They
+   are files so the repo can rebuild production. The four RLS ones (0013, 0015, 0016, 0017) need
+   their real definitions pasted in from `pg_policies`; each file has the query.
+
+### What was done
+
+- **Item 2: retired players hidden.** Skill scores and platform ratings are filtered to roster
+  members on the Dashboard and Coach page. The queue marks games whose only club player is retired
+  as `skipped`. Pure module `retiredPlayers.js` + 11 tests.
+- **Item 3: Import PGN on the Games page.** Paste or upload, preview with a player picker per side,
+  illegal games reported by move while the rest import, re-import recognised, undated games held
+  until you pick a date. Imported games are queued for analysis. `pgnImportPlan.js` + 9 tests.
+  Driven end to end in a local browser.
+- **Item 4: background behaviour.** Your own linked accounts sync on open (at most every 30 min).
+  Analysis runs viewer's-games-first. Failed analyses retry with backoff (2/8/32 min). The drain
+  loop has timeouts and cannot stall, and a 5-minute cap restarts a wedged engine. A small corner
+  note shows analysing/syncing. Every in-scope async button got a timeout with a readable "what to
+  do now" message. Also fixed: on-demand analysis could collide with the background queue on the
+  same engine. `autoPolicy.js` + 15 tests.
+- **Item 5: migrations 0012–0017 backfilled** (see the SQL note above), plus a warning comment on
+  0009. Replaying the whole chain on a real Postgres showed the repo **still cannot rebuild
+  production**: 0009 fails on its types, and 0011 fails because `rls_auto_enable()` isn't created by
+  any file.
+
+Tests at the end: `npm test` **450 pass / 0 fail** (270 under `node --test` + 180 legacy),
+`npm run test:engine` **15/15**, `npm run build` ✓ (the usual >500 kB warning). `test:rls` skipped
+(no fixture accounts).
+
+### Decisions I made (details under "Decisions I made overnight" at the bottom)
+
+One branch instead of five · retired filtering as defence in depth · retired-only games marked
+`skipped`, not just passed over · PGN import leaves club ratings alone · undated PGN games need a
+date from you · same import audience as "Log a game" · imports never overwrite · auto-sync is your
+own accounts only · auto-retry stays within 3 attempts · a timed-out sync is not retried
+immediately · auth/approval screens untouched · no live-DB queries · RLS backfills left as dump
+instructions.
+
+### Unfinished / needs you
+
+- **Push the branch** (above), then click through its preview. Nothing tonight ran against the
+  live database: the queue skip, backoff, auto-sync and PGN save were verified by unit tests, a
+  backend-free browser run and code review only.
+- Apply `skip-cc003-games.sql` when you're happy.
+- Fill 0013/0015/0016/0017 from `pg_policies`, and find where `rls_auto_enable()` comes from.
+- **Found, not fixed:** the Games page passes `account?.playerId` (which doesn't exist) as the
+  viewer id, so a player's own analysis there is treated as "not theirs". It's in the permission
+  rules, so I left it. The top nav still overflows at phone width.
+- Still open from before: tournament mode (waiting on team vs individual scoring), and merging
+  `feature/roster-import`.
+
+---
+
 # Buildout progress
 
 Ledger for the gap-audit backlog. **On a new session, read this first and
