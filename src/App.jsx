@@ -124,6 +124,12 @@ export default function App() {
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
 
+  // On a phone the nav scrolls sideways, so the current page's link can sit
+  // off-screen (Roster, Coach). Keep it in view without moving the page.
+  useEffect(() => {
+    document.querySelector('.nav-link.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [route]);
+
   useEffect(() => {
     const onHashChange = () => setRoute(routeFromHash());
     window.addEventListener('hashchange', onHashChange);
@@ -157,7 +163,7 @@ export default function App() {
               <path d="M7.6 35.8h29.8v3.1H7.6z" />
             </svg>
           </span>
-          Chess Club
+          <span className="brand-name">Chess Club</span>
         </button>
 
         <nav className="nav">

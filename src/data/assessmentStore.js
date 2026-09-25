@@ -16,6 +16,7 @@ import { useMemo } from 'react';
 import { createStore, useStore } from './store.js';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { reportSyncError } from './syncStatus.js';
+import { writeEngineAssessment } from './engineAssessmentWrite.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
 import { RUBRIC_KEY_BY_CATEGORY } from '../analysis/presentation.js';
 import { toRubric } from '../analysis/skillModel.js';
@@ -102,19 +103,12 @@ export async function recordEngineAssessment(playerId, skills, { gamesAnalysed =
 
   if (!isSupabaseConfigured) return { ok: true, local: true, measured };
 
-  // The unique partial index keeps this to one engine row per player per day;
-  // a second call the same day updates it rather than piling up.
-  const { error } = await supabase
-    .from('assessments')
-    .upsert(row, { onConflict: 'player_id,assessed_on', ignoreDuplicates: false });
-  if (error) {
-    // A conflict target the database does not expose is not worth failing over;
-    // fall back to a plain insert and let the index reject a true duplicate.
-    const retry = await supabase.from('assessments').insert(row);
-    if (retry.error && !/duplicate key/i.test(retry.error.message)) {
-      reportSyncError('the assessment', retry.error.message);
-      return { ok: false, error: retry.error.message };
-    }
+  // One engine row per player per UTC day (a partial unique index). See
+  // engineAssessmentWrite.js for why this is not an upsert.
+  const saved = await writeEngineAssessment(supabase, row);
+  if (!saved.ok) {
+    reportSyncError('the assessment', saved.error);
+    return { ok: false, error: saved.error };
   }
   return { ok: true, measured };
 }

@@ -4,7 +4,7 @@ import GameReview from '../components/GameReview.jsx';
 import { useAnalysisForGame } from '../data/analysisStore.js';
 import { useAccount } from '../data/accountStore.js';
 import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
-import { usePlayers } from '../data/rosterStore.js';
+import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 import LogGameForm from '../components/LogGameForm.jsx';
 import PgnImportModal from '../components/PgnImportModal.jsx';
 
@@ -37,7 +37,11 @@ function downloadPgn(game) {
 /** GamesPage — every finished game the club has played, newest first. */
 export default function GamesPage() {
   const account = useAccount();
-  const viewer = { role: account?.role, playerId: account?.playerId ?? null };
+  // The account row carries the role; the player id lives on the roster row
+  // the account has claimed. Reading it off the account (which has no such
+  // field) made every player a stranger to their own games on this page.
+  const me = useMyProfile();
+  const viewer = { role: account?.role, playerId: me?.playerId ?? null };
   const games = useGames();
   const players = usePlayers();
   const [playerFilter, setPlayerFilter] = useState('');

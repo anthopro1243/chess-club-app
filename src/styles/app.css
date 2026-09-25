@@ -1797,16 +1797,38 @@ textarea:focus {
 }
 
 @media (max-width: 640px) {
+  /*
+   * Seven nav links do not fit beside the brand and account controls on a
+   * phone: at 375px the bar was ~570px wide and the whole page scrolled
+   * sideways. The nav gets its own row instead and scrolls within itself.
+   */
   .topbar {
-    padding: 0 14px;
-    gap: 12px;
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 14px 0;
+    gap: 4px 12px;
   }
 
-  .brand span:last-child {
+  .brand {
+    margin-right: auto;
+  }
+
+  .nav {
+    order: 3;
+    flex: 1 0 100%;
+    margin-right: 0;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
     display: none;
   }
 
   .nav-link {
+    flex: none;
+    white-space: nowrap;
     padding: 7px 9px;
     font-size: 0.88rem;
   }
