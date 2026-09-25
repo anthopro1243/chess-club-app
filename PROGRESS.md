@@ -346,3 +346,35 @@ evaluating `is_coach()` as a player login (false) and as the coach (true).
 **Found, not fixed (out of this item's scope):** the top nav overflows at phone width (~570px wide
 at a 375px viewport).
 
+---
+
+## Overnight session 2026-09-25 (autonomous, docs/OVERNIGHT-PLAN.md)
+
+### Decisions I made overnight
+
+1. **One branch, not one per item.** The plan asks for a branch per item. This session is only
+   permitted to push to `feature/roster-import-9cg3im` (a copy of `feature/roster-import` at
+   `f67bd9d`), so every item is its own commit (or commits) stacked on that branch, in plan order,
+   each with the `area:` prefix. To split them later, cherry-pick the item's commits onto
+   `feature/roster-import`. Nothing touched `master`.
+2. **Retired-player filtering is defence in depth.** The roster store already hides
+   `deleted_at` players, and the leaderboard, club skill profile, Coach page and every player picker
+   iterate that roster, so CC-003 was already absent from them on this branch. I still filter skill
+   scores and platform ratings by roster membership on the Dashboard and Coach page, so a retired
+   player's rows cannot reach a club average by another route.
+3. **The queue marks retired-only games `skipped` (not just passes over them).** A row left
+   `pending` would return at the top of every claim and could starve the claim window. A game
+   with **no** club player at all is not treated as retired-only. If RLS refuses the skip write,
+   the game is still left out of that claim.
+
+### Item 2 — hide soft-deleted players everywhere
+
+- `src/data/retiredPlayers.js` (pure) + 11 tests, including negative cases (an active opponent keeps
+  the game in the queue; a game with no club player is not skipped; with no id set the filter fails
+  open instead of hiding everything).
+- `src/analysis/queue.js`: `claimNext` reads the retired ids, marks retired-only candidates
+  `skipped` with a readable `analysis_error`, and claims from what is left. Claim window 5 → 25.
+- Dashboard + Coach page: skill rows and platform ratings are filtered to roster members.
+- `supabase/pending/skip-cc003-games.sql` — **NOT applied.** Preview query, then an update in a
+  transaction, then an undo line.
+- After: `npm test` 426 pass / 0 fail (246 under `node --test`), `test:engine` 15/15, build ✓.

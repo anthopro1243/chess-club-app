@@ -9,6 +9,7 @@ import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from '../data/assessmentStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
+import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
 import { engineRubricFrom } from '../data/assessmentStore.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
 import { resolveRating } from '../analysis/ratings.js';
@@ -72,7 +73,10 @@ export default function CoachPage() {
   // Engine-derived assessments and scores, so the form can start from the data
   // rather than from a row of 5s.
   const assessments = useAssessments();
-  const skillRows = useSkillScores();
+  // Scores stay in the table after a member is retired; only roster members count.
+  const activeIds = useMemo(() => activePlayerIdSet(players), [players]);
+  const allSkillRows = useSkillScores();
+  const skillRows = useMemo(() => onlyActiveRows(allSkillRows, activeIds), [allSkillRows, activeIds]);
   const skillsByPlayer = useMemo(() => {
     const out = {};
     for (const row of skillRows) (out[row.playerId] ||= {})[row.category] = row;
@@ -97,7 +101,11 @@ export default function CoachPage() {
    * built from bullet, blitz, rapid and daily games poured into a single pool.
    * Resolve it properly, and show which platform and time control it is.
    */
-  const platformRatings = usePlatformRatings();
+  const allPlatformRatings = usePlatformRatings();
+  const platformRatings = useMemo(
+    () => onlyActiveRows(allPlatformRatings, activeIds),
+    [allPlatformRatings, activeIds],
+  );
   const ratingOverrides = useRatingOverrides();
   const ratingFor = useCallback(
     (player) =>

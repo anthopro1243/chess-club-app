@@ -506,7 +506,11 @@ more than they look); one end-to-end game analysis.
     `supabase/migrations/0011_security_hardening.sql`.
 11. **The top nav overflows at phone width.** At 375px the nav bar is ~570px wide, so the whole
     page scrolls sideways. Pre-existing — found while checking the import dialog, which itself fits.
-12. **CC-003 still visible on production** until `feature/roster-import` merges (see §7).
+12. **CC-003 still visible on production** until `feature/roster-import` merges (see §7). On the
+    branch, retired players are hidden from the roster, and their skill scores / platform ratings
+    are filtered out of the Dashboard and Coach page (`src/data/retiredPlayers.js`). The queue marks
+    games whose only club player is retired as `skipped`. `supabase/pending/skip-cc003-games.sql`
+    does the same for the existing backlog — **written, not applied**.
 13. **Guardian email is on `players`**, which approved members can read (placed there by 0008).
     The UI shows it to coaches only. Recorded as a fact; the owner has ruled security work out of
     scope for these sessions.

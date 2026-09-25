@@ -15,9 +15,12 @@
 
 import { supabase, isSupabaseConfigured } from '../data/supabaseClient.js';
 import { reportSyncError } from '../data/syncStatus.js';
+import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../data/retiredPlayers.js';
 
 export const STALE_MINUTES = 15;
 export const MAX_ATTEMPTS = 3;
+/* Wide enough that a run of skippable games cannot hide the next real one. */
+const CLAIM_WINDOW = 25;
 
 const staleCutoff = () => new Date(Date.now() - STALE_MINUTES * 60000).toISOString();
 
@@ -57,7 +60,7 @@ export async function claimNext({ playerId = null } = {}) {
     .lt('analysis_attempts', MAX_ATTEMPTS)
     .or(`analysis_status.eq.pending,and(analysis_status.eq.running,analysis_claimed_at.lt.${staleCutoff()})`)
     .order('played_at', { ascending: false })
-    .limit(5);
+    .limit(CLAIM_WINDOW);
 
   // A player drains their own games; a coach drains everything.
   if (playerId) find = find.or(`white_player_id.eq.${playerId},black_player_id.eq.${playerId}`);
@@ -65,7 +68,17 @@ export async function claimNext({ playerId = null } = {}) {
   const { data, error } = await find;
   if (error || !data?.length) return null;
 
-  for (const candidate of data) {
+  /*
+   * A game whose only club player has been retired is not worth engine time:
+   * nothing on the roster would ever read the result. Those are marked
+   * 'skipped' rather than quietly passed over, because a row left 'pending'
+   * would come back at the top of every claim and could starve the window of
+   * real work (CC-003 alone had 67 pending when it was retired).
+   */
+  const { analyse, skip } = partitionQueueCandidates(data, await retiredPlayerIds());
+  await markSkipped(skip.map((g) => g.id));
+
+  for (const candidate of analyse) {
     const { data: claimed, error: claimError } = await supabase
       .from('games')
       .update({
@@ -81,6 +94,33 @@ export async function claimNext({ playerId = null } = {}) {
     if (!claimError && claimed) return candidate;
   }
   return null;
+}
+
+/** Player ids that have been soft-deleted. Empty on any error: fail open, never block the queue. */
+async function retiredPlayerIds() {
+  const { data, error } = await supabase
+    .from('players')
+    .select('player_id')
+    .not('deleted_at', 'is', null);
+  if (error) return new Set();
+  return new Set((data || []).map((row) => row.player_id));
+}
+
+async function markSkipped(gameIds) {
+  if (!gameIds.length) return;
+  const { error } = await supabase
+    .from('games')
+    .update({
+      analysis_status: 'skipped',
+      analysis_error: RETIRED_SKIP_REASON,
+      analysis_claimed_at: null,
+      analysis_updated_at: new Date().toISOString(),
+    })
+    .in('id', gameIds)
+    .neq('analysis_status', 'done');
+  // Best effort: if RLS refuses (a player cannot update a retired member's
+  // game), the game is still left out of this claim, which is what matters.
+  if (error) console.warn('analysis queue: could not mark skipped', error.message);
 }
 
 export async function markDone(gameId, depth) {

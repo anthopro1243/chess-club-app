@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { useSkillScores } from '../data/analysisStore.js';
+import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
 import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
@@ -14,7 +15,10 @@ export default function DashboardPage({ onNavigate }) {
   // The club profile now prefers real engine measurements over an untouched
   // manual rubric, and leaves a category blank rather than averaging "no data"
   // as zero - which is what made every category read a flat 2.5.
-  const skillRows = useSkillScores();
+  // Scores stay in the table after a member is retired; only roster members count.
+  const activeIds = useMemo(() => activePlayerIdSet(players), [players]);
+  const allSkillRows = useSkillScores();
+  const skillRows = useMemo(() => onlyActiveRows(allSkillRows, activeIds), [allSkillRows, activeIds]);
   const skillsByPlayer = useMemo(() => {
     const out = {};
     for (const row of skillRows) {
@@ -41,7 +45,11 @@ export default function DashboardPage({ onNavigate }) {
    * comparable across platforms, so it is listed separately rather than
    * ranked against a different scale.
    */
-  const platformRatings = usePlatformRatings();
+  const allPlatformRatings = usePlatformRatings();
+  const platformRatings = useMemo(
+    () => onlyActiveRows(allPlatformRatings, activeIds),
+    [allPlatformRatings, activeIds],
+  );
   const overrides = useRatingOverrides();
   const { ranked, unranked } = useMemo(() => {
     const entries = players.map((player) => ({
