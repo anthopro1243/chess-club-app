@@ -80,7 +80,8 @@ had to exist before any new table did.
 - [ ] **Board order / lineup**
 - [ ] **Homework**
 - [ ] **Session planner**
-- [ ] **CSV intake**
+- [x] **CSV intake** — bulk roster import from the Google Form export, 2026-09-25, on
+      branch `feature/roster-import` (awaiting merge). See the session log at the end.
 - [ ] **Player personal dashboard**
 - [ ] **Board accessibility** — arrow-key navigation, SAN entry, announced
       moves. Not started. Worth pairing with the notation rubric category.
@@ -299,3 +300,49 @@ collect before I build the intake form.
 Still outstanding from last session: the Connected accounts modal and the new
 member-approval UI only render for a signed-in account, so I have not seen
 either running against a real session.
+
+---
+
+## Session 2026-09-25 — bulk roster import (Phase A item 3)
+
+Branch `feature/roster-import`. Not merged; production unchanged apart from migration 0018.
+
+**Baseline before any change:** `npm test` 376 pass / 0 fail, `test:engine` 15/15, build ✓ —
+identical to the handoff.
+
+**Built**
+- `src/data/rosterImport.js` — pure planner: RFC 4180 CSV parsing, header matching that ignores
+  case/spacing/punctuation, per-field validation, signup-order `CC-###` allocation above every id
+  ever issued, dedupe by student ID → school email → name, in-file duplicate detection.
+- `src/data/rosterImport.test.js` — 39 tests, most of them negative cases (bad ID, empty ID,
+  missing name, out-of-range grade, bad email, repeated ID / email in one file, same-name students,
+  the student ID never reaching the `players` payload).
+- `src/data/playerPrivateStore.js` — coach-only store for student ID + school email, shaped like
+  `coachNotesStore.js`.
+- `src/components/RosterImportModal.jsx` + Import CSV button on the Roster page (coach only).
+- `supabase/migrations/0018_roster_import.sql`, **applied via the connector**: `player_private`
+  table (coach-only RLS, `student_id` unique), `players.experience`, CC-003 soft-deleted.
+  Numbered 0018 so 0012–0017 stay free for the missing-migration backfill.
+
+**Fixed along the way (all required for the import to be correct)**
+- The roster store ignored `deleted_at`, so soft-deleted players still showed everywhere but the
+  analysis queue. It now hides them — while still counting their ids, so a retired `CC-###` can
+  never be reissued (reissuing one would overwrite the retired row, games and all).
+- `removePlayer` hard-deleted, cascading into games and analyses. It is now the soft delete
+  migration 0008 was written for.
+- `guardian_email` was never mapped in `fromRow`/`toRow`, so it was silently dropped on write.
+
+**Decisions made in-session (flag if wrong)**
+- US Chess ID → `connections.uscf.id`, not `ratings.uscf`: it's a membership number and that
+  column renders as a rating.
+- `player_private` has no "member reads own row" policy — coach-only, as asked.
+- An invalid guardian email is dropped without failing the row; an invalid school email fails it
+  (school email is a dedupe key, guardian email is not).
+
+**After:** `npm test` 415 pass / 0 fail (235 under `node --test`), `test:engine` 15/15, build ✓.
+`npm run test:rls` skipped (no fixture accounts on this machine); the new policy was checked by
+evaluating `is_coach()` as a player login (false) and as the coach (true).
+
+**Found, not fixed (out of this item's scope):** the top nav overflows at phone width (~570px wide
+at a 375px viewport).
+

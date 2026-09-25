@@ -1,6 +1,7 @@
 # HANDOFF — chess-club-app
 
 Written 2026-09-17 by inspecting the repo and the live database directly, not from memory.
+Updated 2026-09-25 (bulk roster import session): §5–§9 and §12.
 Every command output quoted below was actually run. Where I am unsure, it says so.
 
 ---
@@ -201,7 +202,8 @@ Supabase project `rftlozmdyetubhjcutht`. RLS is on for every table and is genuin
 
 | Table | Key columns |
 |---|---|
-| `players` | `player_id` **text PK** (e.g. `CC-002`), name, grade, joined, board_role, commitment, `ratings` jsonb, preferred_openings, style, `rubric` jsonb, goal, training_focus, `coach_notes` text (legacy, blanked), `puzzle_stats` jsonb, `rating_history` jsonb, `assessments` jsonb, `attendance` jsonb, `connections` jsonb, `imported_game_ids` jsonb, `user_id` uuid, `club_rating` jsonb, guardian_email, deleted_at |
+| `players` | `player_id` **text PK** (e.g. `CC-002`), name, grade, joined, board_role, commitment, `ratings` jsonb, preferred_openings, style, `rubric` jsonb, goal, training_focus, `coach_notes` text (legacy, blanked), `puzzle_stats` jsonb, `rating_history` jsonb, `assessments` jsonb, `attendance` jsonb, `connections` jsonb, `imported_game_ids` jsonb, `user_id` uuid, `club_rating` jsonb, guardian_email, deleted_at, **`experience`** (0018, self-reported at signup) |
+| `player_private` | **new in 0018.** `player_id` text PK → players, `student_id` **unique**, `school_email`, created_at, updated_at. **Coach-only RLS** (`is_coach()` for all ops). Holds the DISD student ID + school email so they never sit on `players`, which every approved member can read. |
 | `games` | `id` **text PK**, played_at, white/black_player_id, white/black_name, result, reason, move_count, mode, computer_elo, pgn, deleted_at, **`analysis_status`**, analysis_attempts, analysis_error, analysis_depth, analysis_claimed_at, analysis_updated_at |
 | `profiles` | `user_id` uuid PK → auth.users, `role` (player/coach/admin/parent), `status` (pending/approved/suspended), display_name, created_at, approved_at, approved_by |
 | `game_analyses` | id uuid, `game_id` text, `player_id` text, side char, engine, depth, multipv, schema_version, accuracy, acpl, mean_win_loss, moves_played/counted, counts/by_phase/raw/scores/critical/motif_counts/plies jsonb, coach_note, analyzed_at |
@@ -228,7 +230,8 @@ them is text. The committed `0009_game_analysis.sql` says `uuid` and `players(id
 
 **Every migration below has been applied.** The problem is that only some exist as files.
 
-Files present in `supabase/migrations/`: `0005` … `0011`.
+Files present in `supabase/migrations/`: `0005` … `0011`, then **`0018`**. The gap `0012`–`0017`
+is deliberate and reserved for backfilling the six file-less migrations below (Phase A item 1).
 
 Applied to the database (from `list_migrations`), newest last:
 
@@ -244,6 +247,7 @@ Applied to the database (from `list_migrations`), newest last:
 | 20260924161500 | game_analyses_owner_update | ❌ **NO FILE** |
 | 20260924161814 | game_analyses_opponent_side_for_own_games | ❌ **NO FILE** |
 | 20260924161942 | assessments_players_write_own_engine_rows | ❌ **NO FILE** |
+| 2026-09-25 (applied via connector) | roster_import_private_fields_and_experience | ✅ `0018_roster_import.sql` |
 
 ⚠️ **This is the single biggest liability in the project.** Six applied migrations have no file.
 Anyone replaying `supabase/migrations/` onto a fresh project gets a schema that does not match
@@ -257,12 +261,15 @@ players write their own engine assessments.
 
 ### Current data (live counts)
 
-153 games (103 chesscom + 50 lichess) · 2 players (`CC-002` Anthony admin, `CC-003` "Magnus
-Carlsen" player) · 4 auth users / 4 profiles · 144 game_analyses · 69 player_puzzles ·
+153 games (103 chesscom + 50 lichess) · 2 player rows: `CC-002` Anthony (admin, the only real
+member) and `CC-003` "Magnus Carlsen" — **confirmed test data and soft-deleted on 2026-09-25**
+(`deleted_at` set; its 100 games, 20 analyses, 1 puzzle and 7 skill scores are kept) ·
+0 player_private rows (nobody imported yet) · 4 auth users / 4 profiles · 144 game_analyses · 69 player_puzzles ·
 14 player_skill_scores · 497 player_skill_history · 2 assessments · 11 player_platform_ratings ·
 0 coach_notes · 0 puzzle_attempts.
 
-Analysis status: **done 72, pending 67, failed 13, running 1.**
+Analysis status: **done 72, pending 67, failed 13, running 1** (as of 2026-09-17; not re-checked
+this session).
 
 ---
 
@@ -312,6 +319,28 @@ you see only "Club members only".
 
 ### Roster — `RosterPage.jsx`
 - ✅ Player list and detail, 8-category rubric, goals, coach notes, connected accounts.
+- ✅ **Import CSV** (coach only; branch `feature/roster-import`, not yet on master). Reads the
+  Google Form responses export. Shows a preview first — **New / Update / Check / Error** per row
+  with the reason — and writes nothing until the coach presses Import. Logic lives in the pure
+  module `src/data/rosterImport.js`; UI in `src/components/RosterImportModal.jsx`; write path is
+  `applyRosterImport()` in `rosterStore.js`. Details:
+  - Header match ignores case, spacing and punctuation. Required columns: Full name, Student ID.
+  - Student ID must be exactly 7 digits (every DISD ID is). Grade must be 9–12 if present.
+  - "Do you want to compete in tournaments?": Yes → Competitive; anything else → Casual.
+  - New `CC-###` ids continue from the highest id ever issued **including retired ones**, in
+    Timestamp order (not file order).
+  - Dedupe order: Student ID → school email → name. ID/email match = **Update** (fills gaps, never
+    blanks a coach-entered field, merges connections). Name-only match = **Check**: never imported
+    unless the coach ticks it, and then as a separate new member.
+  - Within one file, a repeated Student ID or school email is an **Error** on the later signup.
+  - Re-importing the same file is safe: everything already imported comes back as Update.
+  - **US Chess ID goes to `connections.uscf.id`, NOT `ratings.uscf`** — it is a membership
+    number, and `ratings.uscf` is rendered as a rating (an 8-digit id would read as one).
+- ✅ Detail view shows **Experience** (everyone) and **Student ID / School email / Guardian email**
+  (coach only).
+- ✅ **Remove is now a soft delete** (sets `deleted_at`), as migration 0008 intended. It used to
+  hard-delete, cascading into games/analyses. Undo from SQL:
+  `update players set deleted_at = null where player_id = '…'`.
 - ✅ **Engine-suggested rubric scores** shown beside the coach's own, labelled "from games",
   click-to-adopt. Never written automatically. Withheld below medium confidence.
 
@@ -328,46 +357,31 @@ you see only "Club members only".
 
 ## 7. CURRENT STATE
 
-```
-$ git status
-On branch master
-Your branch is up to date with 'origin/master'.
-nothing to commit, working tree clean
-```
+As of 2026-09-25, work is on branch **`feature/roster-import`**, pushed to GitHub for a Vercel
+preview and **not merged to `master`**. `master` is unchanged at `286f7e6` and is what production
+serves. Do not merge until the owner says so (COWORK-PROMPT.md §5).
 
-**Working tree is clean. `master` and `origin/master` are identical (0 ahead, 0 behind). The live
-deployment is built from the same commit (`a7e9a07`).** Nothing is half-saved locally.
-
-Last 20 commits:
+Branch commits on top of `master`:
 
 ```
-a7e9a07 auth: drop magic-link sign-in, password only
-eebb16e chore: trigger deploy after reconnecting Vercel Git
-9355c37 coach: assessments write themselves from analysed games
-7286248 docs: audit response report
-e51a135 analysis: recalibration report over 48 real analysed sides
-1afbbe7 app: own-game puzzles in Training, sacrifice detection, PGN and Lichess modules
-4e93cef app: real skill profile, honest leaderboard, board viewer, DB-backed queue
-b90efb2 security: harden invite redemption and lock internal trigger functions
-504dbba analyzer: report for parts 1 and 2
-be4482c analyzer: fix a stalled queue on a hidden tab, add coach batch fallback
-3d3bc82 analyzer: platform ratings, automatic analysis, and a player-facing My Games
-c3f0436 analyzer: wire the loop - own-game puzzles, rubric suggestions, training filter
-975d268 analyzer: fix save path, verify views and Gate 5 against the live database
-6deb64f analyzer: build report
-f6fd2b8 analyzer: presentation rules, analysis store and queue, games-page panel
-6c99ae5 analyzer: ply records, orchestrator, motifs v1, gate 4 end to end
-754640d analyzer: PGN importer gates 2 and 3, 21 assertions
-af2c7ae analyzer: evaluate() with sign-convention gate, Node engine transport, SEE
-4e25dd0 analyzer: add scoring module, spec, migration
-2ebe716 docs: handover notes for picking this up on another machine
+(docs commit)  docs: handoff and progress for the roster import
+155e03b roster: wrap import reasons; add a backend-free local preview config
+9e18500 roster: Import CSV on the Roster page, with a preview before any write
+740c66a roster: CSV import planner with tests, and the migration behind it
 ```
+
+**The database is ahead of `master`.** Migration 0018 is already applied to production (the owner
+chose to apply via the connector). It is additive, so the current production build ignores the new
+table and column — except that **CC-003 is now soft-deleted**, and the *production* build's roster
+store does not filter `deleted_at`, so CC-003 still shows there until this branch is merged.
 
 ### The last thing worked on
-Removing magic-link sign-in so accounts are email + password only (`a7e9a07`), and turning off
-Supabase's "Confirm email" setting in the dashboard so signup logs people straight in. The owner
-confirmed he flipped that toggle. **It has not been end-to-end tested with a real new signup** —
-that is the first thing to verify.
+Bulk roster import (Phase A item 3). See §6 Roster. Verified end to end in a backend-free local
+preview (`chess-club-app-local` in `.claude/launch.json`, port 5174, runs as a local coach with no
+Supabase): a 7-row sample CSV gave 2 New, 2 Check, 3 Error with the right reasons; ticking a Check
+row allocated the next id; Import wrote 3 members; re-importing the same file returned all 3 as
+Update with no new ids. **Not yet exercised against the live database** — that is what the Vercel
+preview is for.
 
 ### Written but NOT wired to any UI (dead code today)
 Each is complete and tested; nothing imports them:
@@ -379,7 +393,7 @@ Each is complete and tested; nothing imports them:
 - `src/analysis/repertoire.js` — opening repertoire report (16 tests). **No UI.**
 
 ### Planned next (from `PROGRESS.md` and the audit reports)
-Tournaments/Swiss pairings, board order, homework, session planner, CSV intake, a player personal
+Tournaments/Swiss pairings, board order, homework, session planner, a player personal
 dashboard, and board accessibility (arrow-key navigation, SAN entry, announced moves) are all still
 unbuilt. The five remaining motifs are unbuilt (§11).
 
@@ -393,8 +407,8 @@ $ npm test
 (no summary line)            (src/data/glicko2.test.mjs — prints "MATCH", exit 0)
 45 passed, 0 failed          (src/data/externalChess.test.mjs)
 42 passed, 0 failed          (src/data/chessClock.test.mjs)
-ℹ tests 196
-ℹ pass 196
+ℹ tests 235
+ℹ pass 235
 ℹ fail 0
 SKIP  rls-test: set RLS_COACH_EMAIL/PASSWORD and RLS_PLAYER_EMAIL/PASSWORD to run.
 ```
@@ -416,15 +430,17 @@ dist/assets/index-y1GoP4o-.js   690.53 kB │ gzip: 193.05 kB
 ✓ built in 1.70s
 ```
 
-**Totals: 376 assertions passing, 0 failing** (180 from the four legacy runners + 196 under
-`node --test`), plus 15 engine-backed. Build succeeds; the >500 kB chunk warning is expected and
+**Totals: 415 assertions passing, 0 failing** (180 from the four legacy runners + 235 under
+`node --test`, of which 39 are the new `src/data/rosterImport.test.js`), plus 15 engine-backed. Build succeeds; the >500 kB chunk warning is expected and
 harmless (it is the xlsx library plus the app bundle).
 
 ### Covered
 Rules engine incl. perft; Glicko-2 against Glickman's paper; chess clock; Chess.com/Lichess
 normalisation; all of `scoring.js`; SEE; PGN parsing incl. nested variations and `[%clk]`; the
 three implemented motifs; permission + wording rules; spaced repetition; ratings doctrine; skill
-model; PGN import; Lichess sync; repertoire; sacrifice detection; `evaluate()`'s sign convention
+model; PGN import; Lichess sync; repertoire; sacrifice detection; roster CSV import (CSV
+quoting, header matching, every validation rule, signup-order id allocation, all three dedupe keys,
+in-file duplicates, and that the student ID never enters the `players` payload); `evaluate()`'s sign convention
 (the "Gate 1" tests — a sign error here produces confident, inverted coaching, so these matter
 more than they look); one end-to-end game analysis.
 
@@ -434,6 +450,11 @@ more than they look); one end-to-end game analysis.
 - **RLS**, unless you seed accounts: `npm run test:rls` skips without the four env vars. Use
   `supabase/seed-rls-fixtures.sql` → run → `supabase/cleanup-test-fixtures.sql`. It was passing
   16/16 when last run. **Do not leave the fixtures in production.**
+- **`player_private` RLS** is not in `rls-test.mjs` yet. On 2026-09-25 it was checked by hand
+  instead: evaluated as the CC-003 player login, `is_coach()` is false (so the policy refuses every
+  operation); as Anthony's login it is true.
+- `applyRosterImport()` and `playerPrivateStore.js` (they touch Supabase) — verified in the local
+  preview only.
 - The analysis **queue drain loop** itself (`useAnalysisQueue.js`) — verified only by hand.
 - `externalSync.js` orchestration and anything that makes a live network call.
 
@@ -483,7 +504,12 @@ more than they look); one end-to-end game analysis.
     expressions run with the caller's privileges, so authenticated reads started returning 42501.
     They were restored immediately. **Do not "fix" this warning.** Reasoning is in
     `supabase/migrations/0011_security_hardening.sql`.
-11. **Leaked-password protection is still disabled** in Supabase Auth (a dashboard toggle).
+11. **The top nav overflows at phone width.** At 375px the nav bar is ~570px wide, so the whole
+    page scrolls sideways. Pre-existing — found while checking the import dialog, which itself fits.
+12. **CC-003 still visible on production** until `feature/roster-import` merges (see §7).
+13. **Guardian email is on `players`**, which approved members can read (placed there by 0008).
+    The UI shows it to coaches only. Recorded as a fact; the owner has ruled security work out of
+    scope for these sessions.
 
 ---
 
@@ -581,23 +607,30 @@ Against `docs/ANALYZER-SPEC.md` — read that file before touching any of this.
 
 ## 12. OPEN QUESTIONS — decisions waiting on the owner
 
-1. **Were the flat 5s in the rubric a real judgement or a blank form?** The app currently assumes
-   blank form (§9.6). One word from him settles it.
-2. **Apply the recalibration anchors, or wait for more players?** Recommendation on file: wait.
-   `docs/RECALIBRATION-2026-09.md` has the numbers.
-3. **Reconcile the rating-conversion contradiction** (§9.4) — keep `RATING_OFFSETS` for opponent
-   strength, or drop it to match the no-conversion doctrine?
-4. **Wire or delete `pgnImport.js`, `lichessSync.js`, `repertoire.js`?** All three are finished and
-   tested but unreachable by any user.
-5. **Is `CC-003` "Magnus Carlsen" a real member or test data?**
-6. **Leaked-password protection** — enable it in the Supabase dashboard (Authentication →
-   Providers → Password)?
-7. **Priority for the next build phase:** tournaments/Swiss pairings were called the largest
-   remaining item, but homework and a player personal dashboard may matter more to retention.
+Security, auth, sign-up, invites, consent and permissions are **out of scope** by the owner's
+decision (COWORK-PROMPT.md §4), so they are not listed here.
 
-### Recommended first three actions for the next session
-1. **Write migration files `0012`–`0017` from the live schema** so the repo can rebuild production
-   (§5). This is the biggest liability in the project.
-2. **Press "Retry failed and skipped" on the Coach page** and confirm the 13 stale failures clear.
-3. **Test a real new signup end to end** now that email confirmation is off — that change is
-   deployed but unverified.
+Resolved 2026-09-25: **CC-003 is test data** (soft-deleted); **migrations are applied through the
+Supabase connector** by the session that writes them.
+
+1. **Merge `feature/roster-import`?** Waiting on the owner to try the Vercel preview.
+2. **The Google Form itself** isn't built yet. The importer expects these headers (case and
+   spacing don't matter): Timestamp, Email Address, Full name, Student ID, Grade, "Do you want to
+   compete in tournaments?", Experience, Chess.com username, Lichess username, US Chess ID,
+   "What do you want to get better at?", Parent/guardian email.
+3. **US Chess rating vs ID.** The form asks for the ID; the importer stores it as an id. If a
+   rating is wanted on the leaderboard, add a separate question, or look it up from the id later.
+4. **Were the flat 5s in the rubric a real judgement or a blank form?** The app assumes blank form.
+5. **Apply the recalibration anchors, or wait for more players?** Recommendation on file: wait —
+   and the import is what will finally give it more players.
+6. **Reconcile the rating-conversion contradiction** (§9.4).
+7. **Delete `lichessSync.js`?** (`pgnImport.js` is Phase A item 4; `repertoire.js` item 11.)
+8. **DISD tournament: individual or team scoring, and what time control?** Needed before Swiss.
+
+### Recommended next actions
+1. **Owner:** click through the preview with a real (or sample) CSV, then say whether to merge.
+2. **Write migration files `0012`–`0017` from the live schema** (Phase A item 1) — still the
+   biggest liability in the repo. The numbers are free.
+3. **Press "Retry failed and skipped" on the Coach page** and confirm the 13 stale failures clear
+   (Phase A item 2).
+4. Then **wire `pgnImport.js`** (Phase A item 4) so Oct 24 games can be entered.
