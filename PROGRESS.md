@@ -1,3 +1,29 @@
+# Evening update — 2026-09-25 (read this first)
+
+**For a gap analysis of the whole app, start with `STATE-OF-THE-APP.md`.** It lists what's built,
+what's live in the database, and the full backlog with a status per item.
+
+All work is on **`feature/roster-import-9cg3im`** (pushed). Not merged; `master` untouched.
+
+Done this evening (the Supabase connector was used read-only, except where noted):
+- **0012–0017 now hold the verbatim SQL from production**, recovered from
+  `supabase_migrations.schema_migrations` and checked against the stored md5 before commit.
+- **Found a live bug**: engine assessments after the first each day were silently dropped (a
+  partial unique index the upsert can't target; Postgres logs the ON CONFLICT error on every analysis
+  run). Fixed on the branch (`engineAssessmentWrite.js`, 9 tests). Still happening on production
+  until the branch merges.
+- The Games page viewer id is fixed, the phone nav is fixed (page width = viewport from 320px up),
+  and the test script runs every `src/**/*.test.js`.
+- `rls_auto_enable()` (why 0011 fails on a fresh DB) is Supabase's own automatic-RLS event trigger.
+
+**Nothing was written to the database.** Still to do: apply `supabase/pending/skip-cc003-games.sql`,
+run the live end-to-end checks with temporary test accounts, then the backlog in
+STATE-OF-THE-APP.md §5.
+
+Tests: `npm test` 459 pass / 0 fail · `test:engine` 15/15 · build OK.
+
+---
+
 # Morning summary — overnight 2026-09-25
 
 **Pushed.** Overnight, every push got HTTP 403 (the Claude GitHub App had read access but no write
@@ -485,6 +511,15 @@ at a 375px viewport).
     detail is marked `UNCONFIRMED` in the file.
 16. **I added a comment to the top of 0009** about its uuid/text mismatch (COWORK-PROMPT Phase A
     item 1). None of its SQL was changed.
+
+17. **(Evening) The work branch is the only branch.** The owner's evening instructions say to stay
+    on the current branch, so everything stays on `feature/roster-import-9cg3im`.
+18. **(Evening) The test script uses a glob** (`node --test 'src/**/*.test.js'`) so new test files
+    run without editing `package.json`. The glob matched exactly the previously listed files plus the
+    new one. Needs Node ≥ 21 (this machine has 22; Anthony's has 24).
+19. **(Evening) An auth account with "test" in its email** (created 2026-09-08, approved player,
+    almost certainly CC-003's login) was left alone. It isn't a fixture this work created, and
+    deleting accounts is auth work.
 
 ### Item 2 — hide soft-deleted players everywhere
 

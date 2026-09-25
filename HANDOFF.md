@@ -2,6 +2,8 @@
 
 Written 2026-09-17 by inspecting the repo and the live database directly, not from memory.
 Updated 2026-09-25 (bulk roster import session): §5–§9 and §12.
+Updated again 2026-09-25 evening from the live database (read through the Supabase connector): §5, §7–§9, §12.
+For a single-page summary of what is built and what is missing, read STATE-OF-THE-APP.md.
 Every command output quoted below was actually run. Where I am unsure, it says so.
 
 ---
@@ -226,16 +228,18 @@ Supabase project `rftlozmdyetubhjcutht`. RLS is on for every table and is genuin
 them is text. The committed `0009_game_analysis.sql` says `uuid` and `players(id)` — that file does
 **not** match what was actually applied. Production is the truth.
 
-### Migrations — the repo and the database DISAGREE
+### Migrations — repo and database now AGREE (as of 2026-09-25)
 
-**Every migration below has been applied.** The problem is that only some exist as files.
+**Every migration below has been applied, and every one now has a file.** `0012`–`0017` hold the
+**verbatim** SQL recovered from `supabase_migrations.schema_migrations` in production; each file's
+header gives the md5 of the applied statements, and each was checked against it before commit.
 
-Files present in `supabase/migrations/`: `0005` … `0018`. **`0012`–`0017` were backfilled
-overnight 2026-09-25 without database access.** 0012 and 0014 are real (guarded) SQL with
-UNCONFIRMED details marked; 0013/0015/0016/0017 are RLS changes and hold only a description plus the
-`pg_policies` query to paste the real definitions from. Replayed on a local Postgres 16: the repo
-still fails at 0009 (types) and 0011 (`rls_auto_enable()` is not created anywhere in the repo).
-See PROGRESS.md → "Item 5".
+Replaying `supabase/migrations/` onto a fresh project still needs two manual steps:
+- **0009** declares `uuid` ids; production uses `text`. Fix the types before running it (note at
+  the top of the file).
+- **0011** revokes on `public.rls_auto_enable()`. That function is **Supabase's own "automatically
+  enable RLS on new tables" feature** (event trigger `ensure_rls`), not something a migration
+  created. On a fresh Supabase project with that setting on, 0011 applies; without it, line 81 fails.
 
 Applied to the database (from `list_migrations`), newest last:
 
@@ -245,27 +249,32 @@ Applied to the database (from `list_migrations`), newest last:
 | 20260916221931 | harden_definer_functions_and_invites | ✅ folded into `0011_*.sql` |
 | 20260916222044 | revoke_definer_functions_from_public | ✅ folded into `0011` |
 | 20260916222110 | restore_execute_on_policy_helpers | ✅ folded into `0011` |
-| 20260916222241 | analysis_queue_state_on_games | ⚠️ `0012` reconstructed, unconfirmed |
-| 20260917193932 | normalise_policies_and_index_fks | ⚠️ `0013` placeholder, needs pg_policies dump |
-| 20260917194812 | assessment_source_engine | ⚠️ `0014` reconstructed, unconfirmed |
-| 20260924161500 | game_analyses_owner_update | ⚠️ `0015` placeholder, needs pg_policies dump |
-| 20260924161814 | game_analyses_opponent_side_for_own_games | ⚠️ `0016` placeholder, needs pg_policies dump |
-| 20260924161942 | assessments_players_write_own_engine_rows | ⚠️ `0017` placeholder, needs pg_policies dump |
-| 2026-09-25 (applied via connector) | roster_import_private_fields_and_experience | ✅ `0018_roster_import.sql` |
+| 20260916222241 | analysis_queue_state_on_games | ✅ `0012` verbatim |
+| 20260917193932 | normalise_policies_and_index_fks | ✅ `0013` verbatim |
+| 20260917194812 | assessment_source_engine | ✅ `0014` verbatim |
+| 20260924161500 | game_analyses_owner_update | ✅ `0015` verbatim |
+| 20260924161814 | game_analyses_opponent_side_for_own_games | ✅ `0016` verbatim |
+| 20260924161942 | assessments_players_write_own_engine_rows | ✅ `0017` verbatim |
+| 20260925185926 | roster_import_private_fields_and_experience | ✅ `0018_roster_import.sql` |
 
-⚠️ **This is the single biggest liability in the project.** Six applied migrations have no file.
-Anyone replaying `supabase/migrations/` onto a fresh project gets a schema that does not match
-production — missing `games.analysis_status` entirely, which breaks the whole analysis queue.
-**Fixing this by dumping the live schema into numbered files `0012`–`0017` is the highest-value
-first task for the next session.**
+What 0015–0017 did (now readable in the files): players may update their own `game_analyses`
+rows; a new `owns_game()` helper lets a player write the opponent's side of a game they played;
+players may insert/update their own `source = 'engine'` assessments.
 
-The last three (2026-09-24) were applied by a session I was not part of. From the policy state they
-loosened `game_analyses` so a player can write the opponent's side of their own game, and let
-players write their own engine assessments.
+**0014 made the engine-assessment index PARTIAL** (`unique (player_id, assessed_on) where source =
+'engine'`). See §9 item 15 for the bug that caused.
 
-### Current data (live counts)
+### Current data (live counts, re-read 2026-09-25 evening)
 
-153 games (103 chesscom + 50 lichess) · 2 player rows: `CC-002` Anthony (admin, the only real
+1 active player (`CC-002`) + 1 retired (`CC-003`) · 0 player_private · 153 games (103 chesscom +
+50 lichess) · queue: **done 114, pending 25, failed 13, running 1** · 228 game_analyses ·
+76 player_puzzles · 3 assessments (all engine) · 0 attendance · 0 puzzle_attempts · 4 profiles.
+The 13 failed are still the stale CC-003 RLS failures; `supabase/pending/skip-cc003-games.sql`
+(written, **not yet applied**) turns them and CC-003's pending games into `skipped`.
+One non-fixture auth account with "test" in its email (created 2026-09-08, approved player) exists;
+almost certainly CC-003's login. Left alone.
+
+Earlier snapshot (2026-09-17), kept for comparison: 153 games (103 chesscom + 50 lichess) · 2 player rows: `CC-002` Anthony (admin, the only real
 member) and `CC-003` "Magnus Carlsen" — **confirmed test data and soft-deleted on 2026-09-25**
 (`deleted_at` set; its 100 games, 20 analyses, 1 puzzle and 7 skill scores are kept) ·
 0 player_private rows (nobody imported yet) · 4 auth users / 4 profiles · 144 game_analyses · 69 player_puzzles ·
@@ -364,8 +373,9 @@ you see only "Club members only".
 
 ## 7. CURRENT STATE
 
-As of 2026-09-25, work is on branch **`feature/roster-import`**, pushed to GitHub for a Vercel
-preview and **not merged to `master`**. `master` is unchanged at `286f7e6` and is what production
+As of 2026-09-25 evening, **all current work is on branch `feature/roster-import-9cg3im`** (pushed;
+it contains everything on `feature/roster-import` plus the overnight and evening commits). Neither
+branch is merged to `master`. `master` is unchanged at `286f7e6` and is what production
 serves. Do not merge until the owner says so (COWORK-PROMPT.md §5).
 
 Branch commits on top of `master`:
@@ -406,6 +416,12 @@ Each is complete and tested; nothing imports them:
   it or delete it.
 - `src/analysis/repertoire.js` — opening repertoire report (16 tests). **No UI.**
 
+### Fixed 2026-09-25 evening (on the branch)
+- Engine assessments: update-then-insert instead of an upsert the partial index rejects (§9.15).
+- Games page viewer id (§9.14).
+- Phone nav: its own scrolling row; the page no longer scrolls sideways at 320–414px (§9.11).
+- Test script runs every `src/**/*.test.js` automatically (Node ≥ 21).
+
 ### Planned next (from `PROGRESS.md` and the audit reports)
 Tournaments/Swiss pairings, board order, homework, session planner, a player personal
 dashboard, and board accessibility (arrow-key navigation, SAN entry, announced moves) are all still
@@ -444,9 +460,11 @@ dist/assets/index-y1GoP4o-.js   690.53 kB │ gzip: 193.05 kB
 ✓ built in 1.70s
 ```
 
-**Totals: 415 assertions passing, 0 failing** (180 from the four legacy runners + 235 under
-`node --test`, of which 39 are the new `src/data/rosterImport.test.js`), plus 15 engine-backed. Build succeeds; the >500 kB chunk warning is expected and
-harmless (it is the xlsx library plus the app bundle).
+**Totals (2026-09-25 evening, branch `feature/roster-import-9cg3im`): 459 assertions passing,
+0 failing** — 180 from the four legacy runners + 279 under `node --test 'src/**/*.test.js'` — plus
+15 engine-backed. Build succeeds; the >500 kB chunk warning is expected and harmless (it is the xlsx
+library plus the app bundle). New since the roster session: `retiredPlayers` (11), `pgnImportPlan`
+(9), `autoPolicy` (15), `engineAssessmentWrite` (9). The block above is the older run, kept as-is.
 
 ### Covered
 Rules engine incl. perft; Glicko-2 against Glickman's paper; chess clock; Chess.com/Lichess
@@ -518,8 +536,8 @@ more than they look); one end-to-end game analysis.
     expressions run with the caller's privileges, so authenticated reads started returning 42501.
     They were restored immediately. **Do not "fix" this warning.** Reasoning is in
     `supabase/migrations/0011_security_hardening.sql`.
-11. **The top nav overflows at phone width.** At 375px the nav bar is ~570px wide, so the whole
-    page scrolls sideways. Pre-existing — found while checking the import dialog, which itself fits.
+11. ~~**The top nav overflows at phone width.**~~ **Fixed on the branch**: measured page width
+    equals the viewport from 320px to 1280px.
 12. **CC-003 still visible on production** until `feature/roster-import` merges (see §7). On the
     branch, retired players are hidden from the roster, and their skill scores / platform ratings
     are filtered out of the Dashboard and Coach page (`src/data/retiredPlayers.js`). The queue marks
@@ -528,8 +546,15 @@ more than they look); one end-to-end game analysis.
 13. **Guardian email is on `players`**, which approved members can read (placed there by 0008).
     The UI shows it to coaches only. Recorded as a fact; the owner has ruled security work out of
     scope for these sessions.
-14. **Games page viewer id is always null** (`account?.playerId` does not exist; use
-    `useMyProfile()`). Staff unaffected. Found overnight, not fixed.
+14. ~~**Games page viewer id is always null.**~~ **Fixed on the branch** (`useMyProfile()`).
+15. **Engine assessments after the first each day were silently dropped — LIVE ON PRODUCTION until
+    the branch merges.** `assessmentStore` upserted with `onConflict: 'player_id,assessed_on'`, but
+    the only index on those columns is partial (`where source = 'engine'`), which Postgres cannot
+    match to an ON CONFLICT target. Production's Postgres log shows "there is no unique or exclusion
+    constraint matching the ON CONFLICT specification" throughout every analysis run. The fallback
+    insert saved the day's first row; later ones hit the duplicate key and were dropped. Fixed on the
+    branch (`engineAssessmentWrite.js`, 9 tests). **Not yet confirmed in the logs**, because production
+    still runs the old code.
 
 ---
 
@@ -633,7 +658,8 @@ decision (COWORK-PROMPT.md §4), so they are not listed here.
 Resolved 2026-09-25: **CC-003 is test data** (soft-deleted); **migrations are applied through the
 Supabase connector** by the session that writes them.
 
-1. **Merge `feature/roster-import`?** Waiting on the owner to try the Vercel preview.
+1. **Merge `feature/roster-import-9cg3im`?** (It includes `feature/roster-import`.) Waiting on the
+   owner to try the Vercel preview.
 2. **The Google Form itself** isn't built yet. The importer expects these headers (case and
    spacing don't matter): Timestamp, Email Address, Full name, Student ID, Grade, "Do you want to
    compete in tournaments?", Experience, Chess.com username, Lichess username, US Chess ID,
@@ -648,9 +674,7 @@ Supabase connector** by the session that writes them.
 8. **DISD tournament: individual or team scoring, and what time control?** Needed before Swiss.
 
 ### Recommended next actions
-1. **Owner:** click through the preview with a real (or sample) CSV, then say whether to merge.
-2. **Write migration files `0012`–`0017` from the live schema** (Phase A item 1) — still the
-   biggest liability in the repo. The numbers are free.
-3. **Press "Retry failed and skipped" on the Coach page** and confirm the 13 stale failures clear
-   (Phase A item 2).
-4. Then **wire `pgnImport.js`** (Phase A item 4) so Oct 24 games can be entered.
+The full backlog, with status, is in **STATE-OF-THE-APP.md** §5. In short:
+1. Apply `supabase/pending/skip-cc003-games.sql` (clears the 13 stale failures).
+2. Verify the branch against the live database with temporary test accounts, then merge.
+3. Tournament mode (Swiss), before Oct 24.
