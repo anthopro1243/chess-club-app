@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs && node src/data/chessClock.test.mjs && node --test src/analysis/scoring.test.js src/analysis/see.test.js src/analysis/pgn.test.js src/analysis/motifs.test.js src/analysis/presentation.test.js src/analysis/spacedRepetition.test.js src/analysis/ratings.test.js src/analysis/skillModel.test.js src/data/pgnImport.test.js src/data/lichessSync.test.js src/analysis/repertoire.test.js src/analysis/sacrifice.test.js && node supabase/rls-test.mjs",
+    "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs && node src/data/chessClock.test.mjs && node --test src/analysis/scoring.test.js src/analysis/see.test.js src/analysis/pgn.test.js src/analysis/motifs.test.js src/analysis/presentation.test.js src/analysis/spacedRepetition.test.js src/analysis/ratings.test.js src/analysis/skillModel.test.js src/data/pgnImport.test.js src/data/lichessSync.test.js src/analysis/repertoire.test.js src/analysis/sacrifice.test.js src/data/rosterImport.test.js && node supabase/rls-test.mjs",
     "test:rls": "node supabase/rls-test.mjs",
     "test:engine": "node --test src/engine/stockfishClient.test.mjs src/analysis/analyzeGame.test.mjs",
     "test:all": "npm test && npm run test:engine"

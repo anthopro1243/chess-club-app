@@ -26,6 +26,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
 import { updateRating, DEFAULT_RATING } from './glicko2.js';
 import { reportSyncError } from './syncStatus.js';
+import { savePrivateRows } from './playerPrivateStore.js';
 
 const store = createStore('cc-roster-v1', SAMPLE_PLAYERS);
 
@@ -51,6 +52,8 @@ function fromRow(row) {
     joined: row.joined || '',
     boardRole: row.board_role || '',
     commitment: row.commitment || 'Casual',
+    experience: row.experience || '',
+    guardianEmail: row.guardian_email || '',
     ratings: row.ratings || {},
     preferredOpenings: row.preferred_openings || [],
     style: row.style || '',
@@ -77,6 +80,8 @@ function toRow(player) {
     joined: player.joined || null,
     board_role: player.boardRole,
     commitment: player.commitment,
+    experience: player.experience || null,
+    guardian_email: player.guardianEmail || null,
     ratings: player.ratings,
     preferred_openings: player.preferredOpenings,
     style: player.style,
@@ -94,6 +99,16 @@ function toRow(player) {
   };
 }
 
+/*
+ * Every player id the table has ever issued, soft-deleted ones included.
+ *
+ * Retired members are filtered out of the store below, but their ids are NOT
+ * free: `player_id` is the primary key, and reissuing one would make the next
+ * upsert overwrite a retired member's row — taking their games and analyses
+ * with it. So id assignment reads this, not the visible roster.
+ */
+let issuedPlayerIds = [];
+
 async function syncFromCloud() {
   const { data, error } = await supabase.from('players').select('*').order('player_id');
   if (error) {
@@ -101,7 +116,26 @@ async function syncFromCloud() {
     return;
   }
   cloudReady = true;
-  store.set(data.map(fromRow));
+  issuedPlayerIds = data.map((row) => row.player_id);
+  // Soft-deleted members stay in the table so their games, analyses and scores
+  // keep their foreign keys (0008), but they are off the roster. Until this
+  // filter existed `deleted_at` was honoured only by the analysis queue, so a
+  // "removed" player still appeared everywhere else in the app.
+  store.set(data.filter((row) => !row.deleted_at).map(fromRow));
+}
+
+/** The roster as the id allocator sees it: active members plus retired ids. */
+function allKnownPlayerIds(players) {
+  return [...new Set([...issuedPlayerIds, ...players.map((p) => p.playerId)])];
+}
+
+/**
+ * Every id that is taken, retired members included. Anything that allocates
+ * CC-### ids outside this module (the CSV import planner) must allocate
+ * above these, never above the visible roster alone.
+ */
+export function getIssuedPlayerIds() {
+  return allKnownPlayerIds(store.get());
 }
 
 function subscribeRealtime() {
@@ -148,9 +182,12 @@ async function pushToCloud(player) {
   if (error) reportSyncError('the roster', error.message);
 }
 
-async function deleteFromCloud(playerId) {
+async function retireInCloud(playerId) {
   if (!cloudActive()) return;
-  const { error } = await supabase.from('players').delete().eq('player_id', playerId);
+  const { error } = await supabase
+    .from('players')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('player_id', playerId);
   if (error) reportSyncError('removing that player', error.message);
 }
 
@@ -184,8 +221,8 @@ export function useMyProfile() {
 // -- reads and writes ----------------------------------------------------
 
 function nextPlayerId(players) {
-  const numbers = players
-    .map((p) => Number(String(p.playerId || '').replace(/\D/g, '')))
+  const numbers = allKnownPlayerIds(players)
+    .map((id) => Number(String(id || '').replace(/\D/g, '')))
     .filter((n) => !Number.isNaN(n));
   const next = (numbers.length ? Math.max(...numbers) : 0) + 1;
   return `CC-${String(next).padStart(3, '0')}`;
@@ -203,6 +240,7 @@ function blankPlayer(playerId, overrides) {
     joined: new Date().toISOString().slice(0, 10),
     boardRole: '',
     commitment: 'Casual',
+    experience: '',
     ratings: { uscf: null, chesscomRapid: null, chesscomBlitz: null, lichessPuzzles: null },
     preferredOpenings: [],
     style: '',
@@ -238,6 +276,82 @@ export function addPlayer(partial) {
   });
   pushToCloud(created);
   return created.playerId;
+}
+
+/**
+ * Apply a confirmed import plan (see rosterImport.js).
+ *
+ * Takes the `new` and `update` rows the coach ticked. Players are written
+ * first and awaited, because `player_private` has a foreign key to them and
+ * because a private row that fails to land is worse than one never attempted:
+ * the student ID is the next import's first dedupe key, so losing it turns
+ * the same member into a second roster entry next time.
+ *
+ * Returns { created, updated, playerIds }. Throws if the player write fails.
+ */
+export async function applyRosterImport(rows) {
+  const usable = rows.filter((row) => row.kind === 'new' || row.kind === 'update');
+  if (!usable.length) return { created: 0, updated: 0, playerIds: [] };
+
+  const now = new Date().toISOString().slice(0, 10);
+  const existing = new Map(store.get().map((p) => [p.playerId, p]));
+
+  const merged = usable.map((row) => {
+    const prior = existing.get(row.playerId);
+    const fields = {
+      name: row.player.name,
+      grade: row.player.grade,
+      commitment: row.player.commitment,
+      experience: row.player.experience,
+      goal: row.player.goal,
+      guardianEmail: row.player.guardianEmail,
+      // Merge, never replace: a coach may have linked an account by hand that
+      // the form response does not mention.
+      connections: { ...(prior?.connections || {}), ...row.player.connections },
+    };
+
+    if (prior) {
+      // An update fills gaps and refreshes what the member told us. It must
+      // not blank a field the coach filled in and the form left empty.
+      const patch = { ...prior };
+      for (const [key, value] of Object.entries(fields)) {
+        if (key === 'connections') patch.connections = value;
+        else if (value) patch[key] = value;
+      }
+      return patch;
+    }
+
+    return blankPlayer(row.playerId, { ...fields, joined: row.player.joined || now });
+  });
+
+  store.set((players) => {
+    const byId = new Map(players.map((p) => [p.playerId, p]));
+    for (const player of merged) byId.set(player.playerId, player);
+    return [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId));
+  });
+
+  if (cloudActive()) {
+    const { error } = await supabase.from('players').upsert(merged.map(toRow), { onConflict: 'player_id' });
+    if (error) {
+      reportSyncError('the roster import', error.message);
+      throw new Error(error.message);
+    }
+    issuedPlayerIds = [...new Set([...issuedPlayerIds, ...merged.map((p) => p.playerId)])];
+  }
+
+  await savePrivateRows(
+    usable.map((row) => ({
+      playerId: row.playerId,
+      studentId: row.private.studentId,
+      schoolEmail: row.private.schoolEmail,
+    })),
+  );
+
+  return {
+    created: usable.filter((r) => r.kind === 'new').length,
+    updated: usable.filter((r) => r.kind === 'update').length,
+    playerIds: usable.map((r) => r.playerId),
+  };
 }
 
 /**
@@ -290,9 +404,17 @@ export function updateRubric(playerId, rubricPatch) {
   pushToCloud(updated);
 }
 
+/**
+ * Retire a player. A soft delete, which is what 0008 built `deleted_at` for:
+ * a season of assessments cannot be re-scored, and a hard delete cascades
+ * into their games, analyses, puzzles and skill history. The row leaves the
+ * roster; nothing else moves.
+ *
+ * Undo from SQL: update players set deleted_at = null where player_id = ...
+ */
 export function removePlayer(playerId) {
   store.set((players) => players.filter((p) => p.playerId !== playerId));
-  deleteFromCloud(playerId);
+  retireInCloud(playerId);
 }
 
 /** Called when a trainee solves a puzzle — writes the result onto their row. */

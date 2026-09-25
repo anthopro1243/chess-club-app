@@ -6,6 +6,8 @@ import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, remo
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { useAccount } from '../data/accountStore.js';
 import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
+import { usePlayerPrivate } from '../data/playerPrivateStore.js';
+import RosterImportModal from '../components/RosterImportModal.jsx';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
 
@@ -27,6 +29,8 @@ export default function RosterPage() {
   const cloud = useCloudStatus();
   const account = useAccount();
   const coachNotes = useCoachNotes();
+  const privateFields = usePlayerPrivate();
+  const [importing, setImporting] = useState(false);
   const [selectedId, setSelectedId] = useState(players[0]?.playerId ?? null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -116,6 +120,11 @@ export default function RosterPage() {
           <h2>Roster</h2>
           <div className="panel-header-actions">
             <span className="badge">{players.length} players</span>
+            {account.isCoach && (
+              <button type="button" className="link-button" onClick={() => setImporting(true)}>
+                Import CSV
+              </button>
+            )}
             <button type="button" className="link-button" onClick={() => setAdding((v) => !v)}>
               {adding ? 'Cancel' : '+ Add player'}
             </button>
@@ -385,6 +394,10 @@ export default function RosterPage() {
                   <dd>{selected.grade || '—'}</dd>
                 </div>
                 <div>
+                  <dt>Experience</dt>
+                  <dd>{selected.experience || '—'}</dd>
+                </div>
+                <div>
                   <dt>Style</dt>
                   <dd>{selected.style || '—'}</dd>
                 </div>
@@ -392,6 +405,27 @@ export default function RosterPage() {
                   <dt>Openings</dt>
                   <dd>{selected.preferredOpenings.join(', ') || '—'}</dd>
                 </div>
+                {/* Coach-only. player_private refuses a player account outright,
+                    so for them this block has nothing to render - it is not
+                    merely hidden. */}
+                {account.isCoach && privateFields[selected.playerId] && (
+                  <>
+                    <div>
+                      <dt>Student ID</dt>
+                      <dd>{privateFields[selected.playerId].studentId || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>School email</dt>
+                      <dd>{privateFields[selected.playerId].schoolEmail || '—'}</dd>
+                    </div>
+                  </>
+                )}
+                {account.isCoach && selected.guardianEmail && (
+                  <div>
+                    <dt>Guardian email</dt>
+                    <dd>{selected.guardianEmail}</dd>
+                  </div>
+                )}
               </dl>
 
               <h3>Skill assessment</h3>
@@ -482,6 +516,15 @@ export default function RosterPage() {
             </>
           )}
         </section>
+      )}
+      {importing && (
+        <RosterImportModal
+          players={players}
+          onClose={() => setImporting(false)}
+          onImported={(outcome) => {
+            if (outcome.playerIds.length) setSelectedId(outcome.playerIds[0]);
+          }}
+        />
       )}
     </div>
   );
