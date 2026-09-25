@@ -1926,10 +1926,11 @@ tr.clickable:hover { background: rgba(255,255,255,0.04); }
   vertical-align: top;
 }
 
-.import-reason {
+.import-preview .roster-table td.import-reason {
   color: var(--text-muted);
   font-size: 0.85rem;
-  min-width: 220px;
+  min-width: 240px;
+  white-space: normal;
 }
 
 .import-accept {

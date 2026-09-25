@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "chess-club-app-local",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_SUPABASE_URL=", "VITE_SUPABASE_ANON_KEY=", "npx", "vite", "--port", "5174", "--strictPort", "--open", "false"],
+      "port": 5174
     }
   ]
 }
