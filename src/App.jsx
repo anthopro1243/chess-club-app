@@ -13,6 +13,9 @@ import { supabase, isSupabaseConfigured } from './data/supabaseClient.js';
 import { useAccount } from './data/accountStore.js';
 import { useSyncError, clearSyncError } from './data/syncStatus.js';
 import { useAnalysisQueue } from './analysis/useAnalysisQueue.js';
+import { useAutoSync } from './data/useAutoSync.js';
+import { useMyProfile } from './data/rosterStore.js';
+import BackgroundActivity from './components/BackgroundActivity.jsx';
 
 const ROUTES = [
   { id: 'home', label: 'Club' },
@@ -59,7 +62,14 @@ export default function App() {
 
   // Drains the analysis queue while the app is open, so no game waits on a
   // human noticing it. The coach's batch button remains as a fallback.
-  useAnalysisQueue({ enabled: !!account?.isApproved });
+  // The viewer's own games go first: theirs is the analysis someone is
+  // waiting to read. `publish` feeds the corner indicator.
+  const me = useMyProfile();
+  useAnalysisQueue({ enabled: !!account?.isApproved, preferPlayerId: me?.playerId ?? null, publish: true });
+
+  // Linked Chess.com / Lichess accounts sync themselves on open (the viewer's
+  // own only, and at most every 30 minutes). The Sync button still works.
+  useAutoSync({ enabled: !!account?.isApproved });
 
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 
@@ -211,6 +221,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      {!locked && <BackgroundActivity />}
 
       <footer className="footer">
         <span>Chess Club app, v0.1</span>

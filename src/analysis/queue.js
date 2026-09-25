@@ -16,6 +16,7 @@
 import { supabase, isSupabaseConfigured } from '../data/supabaseClient.js';
 import { reportSyncError } from '../data/syncStatus.js';
 import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../data/retiredPlayers.js';
+import { readyForRetry, viewerFirst } from '../data/autoPolicy.js';
 
 export const STALE_MINUTES = 15;
 export const MAX_ATTEMPTS = 3;
@@ -49,12 +50,12 @@ export async function queueCounts() {
  * racing for the same row cannot both win: the second one updates zero rows
  * and moves on.
  */
-export async function claimNext({ playerId = null } = {}) {
+export async function claimNext({ playerId = null, preferPlayerId = null } = {}) {
   if (!isSupabaseConfigured) return null;
 
   let find = supabase
     .from('games')
-    .select('id, pgn, white_player_id, black_player_id, played_at, mode, analysis_attempts')
+    .select('id, pgn, white_player_id, black_player_id, played_at, mode, analysis_attempts, analysis_updated_at')
     .is('deleted_at', null)
     .not('pgn', 'is', null)
     .lt('analysis_attempts', MAX_ATTEMPTS)
@@ -78,7 +79,14 @@ export async function claimNext({ playerId = null } = {}) {
   const { analyse, skip } = partitionQueueCandidates(data, await retiredPlayerIds());
   await markSkipped(skip.map((g) => g.id));
 
-  for (const candidate of analyse) {
+  // A game that just failed waits out a backoff before it is tried again, so
+  // a transient fault (a dropped connection, a busy engine) gets time to
+  // clear instead of burning all MAX_ATTEMPTS in a few seconds. The viewer's
+  // own games go first: their analysis is the one somebody is waiting for.
+  const now = Date.now();
+  const ready = viewerFirst(analyse.filter((g) => readyForRetry(g, now)), preferPlayerId);
+
+  for (const candidate of ready) {
     const { data: claimed, error: claimError } = await supabase
       .from('games')
       .update({

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { buildImportPlan, importableRows, highestPlayerNumber } from '../data/rosterImport.js';
 import { applyRosterImport, getIssuedPlayerIds } from '../data/rosterStore.js';
 import { getPrivateRows } from '../data/playerPrivateStore.js';
+import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
 
 /*
  * RosterImportModal — read a Google Form CSV, show what it would do, write
@@ -101,11 +102,17 @@ export default function RosterImportModal({ players, onClose, onImported }) {
     setBusy(true);
     setReadError('');
     try {
-      const outcome = await applyRosterImport(toWrite);
+      const outcome = await withTimeout(applyRosterImport(toWrite), 60 * 1000, { label: 'Saving the roster' });
       setResult(outcome);
       onImported?.(outcome);
     } catch (error) {
-      setReadError(error.message || 'The import could not be saved.');
+      // Re-importing is safe: members that did save match on student ID and
+      // come back as Update, never as a second copy.
+      setReadError(
+        error instanceof TimeoutError
+          ? `${error.message} Close this, check the roster, and import the same file again — anything already saved will be updated, not duplicated.`
+          : error.message || 'The import could not be saved.',
+      );
     } finally {
       setBusy(false);
     }

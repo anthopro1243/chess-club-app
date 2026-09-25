@@ -1,6 +1,8 @@
+import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
+import { GAME_TIMEOUT_MS } from '../analysis/useAnalysisQueue.js';
 import { useMemo, useState } from 'react';
 import { useAnalysisForGame } from '../data/analysisStore.js';
-import { analyzeArchivedGame } from '../analysis/runner.js';
+import { analyzeArchivedGame, isBusy, resetAfterTimeout } from '../analysis/runner.js';
 import {
   playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor,
 } from '../analysis/presentation.js';
@@ -39,12 +41,27 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
   );
 
   const run = async () => {
+    // One engine serves the page. If the background queue is mid-game,
+    // starting a second analysis would interleave two conversations on it.
+    if (isBusy()) {
+      setError('the engine is busy with a game from the background queue. Try again in a minute.');
+      return;
+    }
     setRunning(true);
     setError(null);
     setProgress({ done: 0, total: 0 });
-    const result = await analyzeArchivedGame(game, {
-      onProgress: (p) => setProgress(p),
-    });
+    const controller = new AbortController();
+    let result;
+    try {
+      result = await withTimeout(
+        analyzeArchivedGame(game, { onProgress: (p) => setProgress(p), signal: controller.signal }),
+        GAME_TIMEOUT_MS,
+        { label: 'Analysing this game', onTimeout: () => controller.abort() },
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) resetAfterTimeout();
+      result = { ok: false, error: `${err.message} Press the button to try again.` };
+    }
     setRunning(false);
     setProgress(null);
     if (!result.ok) setError(result.error);

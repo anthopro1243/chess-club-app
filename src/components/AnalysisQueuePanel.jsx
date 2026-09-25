@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { queueCounts, enqueueAll } from '../analysis/queue.js';
+import { useAnalysisActivity } from '../analysis/useAnalysisQueue.js';
+import { withTimeout } from '../data/autoPolicy.js';
 
 /*
  * The coach's view of the analysis queue — a status board and a backfill
@@ -20,8 +22,14 @@ export default function AnalysisQueuePanel({ queue }) {
     };
   }, []);
 
-  // The live hook's counts win once it has them.
-  const shown = queue?.counts ?? counts;
+  // The app-wide drainer (mounted in App) is the one actually working; this
+  // page's own hook instance is disabled, so read what the drainer publishes.
+  const activity = useAnalysisActivity();
+  const running = queue?.running || !!activity.current;
+  const progress = queue?.running ? queue.progress : activity.progress;
+
+  // The live counts win once there are any.
+  const shown = activity.counts ?? queue?.counts ?? counts;
   const outstanding = (shown?.pending ?? 0) + (shown?.running ?? 0);
 
   return (
@@ -37,10 +45,10 @@ export default function AnalysisQueuePanel({ queue }) {
         pressing.
       </p>
 
-      {queue?.running && (
+      {running && (
         <p className="muted">
           Analysing now
-          {queue.progress?.total ? ` — position ${queue.progress.done} of ${queue.progress.total}` : '…'}
+          {progress?.total ? ` — position ${progress.done} of ${progress.total}` : '…'}
         </p>
       )}
 
@@ -60,10 +68,15 @@ export default function AnalysisQueuePanel({ queue }) {
           disabled={working}
           onClick={async () => {
             setWorking(true);
-            const result = await enqueueAll();
-            const next = await queueCounts();
-            setCounts(next);
-            setWorking(false);
+            let result;
+            try {
+              result = await withTimeout(enqueueAll(), 30 * 1000, { label: 'Queuing' });
+              setCounts(await withTimeout(queueCounts(), 30 * 1000, { label: 'Counting' }));
+            } catch (error) {
+              result = { ok: false, error: `${error.message} Try again.` };
+            } finally {
+              setWorking(false);
+            }
             setMessage(
               result.ok
                 ? result.queued

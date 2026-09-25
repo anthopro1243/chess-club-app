@@ -17,13 +17,52 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { claimNext, markDone, markFailed, queueCounts } from './queue.js';
-import { analyzeArchivedGame, isBusy } from './runner.js';
+import { analyzeArchivedGame, isBusy, resetAfterTimeout } from './runner.js';
 import { DEFAULT_DEPTH } from './analyzeGame.js';
+import { useStore } from '../data/store.js';
+import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
 
 const SETTLE_MS = 3500;
 const BETWEEN_MS = 1200;
+/*
+ * With nothing claimable, look again after this long. Without it a game
+ * waiting out a retry backoff would only be retried when the tab next
+ * regained focus.
+ */
+const IDLE_MS = 2 * 60 * 1000;
+/* After an unexpected error (network, a thrown query), wait this long. */
+const ERROR_MS = 30 * 1000;
+/*
+ * One game normally takes 30–60s of engine time. Five minutes is far past
+ * that; past it the engine is assumed wedged, the game is marked failed (and
+ * retried later with backoff) and a fresh engine is started.
+ */
+export const GAME_TIMEOUT_MS = 5 * 60 * 1000;
 
-export function useAnalysisQueue({ enabled = true, playerId = null } = {}) {
+/*
+ * What the background drainer is doing, for anyone who wants to show it —
+ * the small indicator in the corner, the Coach page's queue panel. Only the
+ * drainer mounted in App writes here; the Coach page's own hook instance is
+ * disabled and would otherwise always read "idle". Not persisted.
+ */
+const activity = (() => {
+  let value = { current: null, progress: null, counts: null };
+  const listeners = new Set();
+  return {
+    get: () => value,
+    set: (next) => {
+      value = next;
+      listeners.forEach((fn) => fn());
+    },
+    subscribe: (fn) => {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  };
+})();
+export const useAnalysisActivity = () => useStore(activity);
+
+export function useAnalysisQueue({ enabled = true, playerId = null, preferPlayerId = null, publish = false } = {}) {
   const [current, setCurrent] = useState(null);
   const [progress, setProgress] = useState(null);
   const [counts, setCounts] = useState(null);
@@ -65,16 +104,36 @@ export function useAnalysisQueue({ enabled = true, playerId = null } = {}) {
   }, []);
 
   useEffect(() => {
+    if (publish) activity.set({ current, progress, counts });
+  }, [publish, current, progress, counts]);
+
+  useEffect(() => {
     if (!enabled) return undefined;
     let timer = null;
+
+    const later = (ms) => {
+      timer = setTimeout(() => {
+        if (!stopped.current) setTick((n) => n + 1);
+      }, ms);
+    };
 
     const run = async () => {
       if (stopped.current || isBusy() || current) return;
       if (typeof document !== 'undefined' && document.hidden) return;
 
-      const game = await claimNext({ playerId });
+      let game = null;
+      try {
+        game = await withTimeout(claimNext({ playerId, preferPlayerId }), 30 * 1000, {
+          label: 'Checking the analysis queue',
+        });
+      } catch (error) {
+        console.warn('analysis queue:', error.message);
+        later(ERROR_MS);
+        return;
+      }
       if (!game) {
         await refreshCounts();
+        later(IDLE_MS);
         return;
       }
 
@@ -92,13 +151,24 @@ export function useAnalysisQueue({ enabled = true, playerId = null } = {}) {
         mode: game.mode,
       };
 
-      const result = await analyzeArchivedGame(record, {
-        onProgress: setProgress,
-        signal: controller.signal,
-      });
+      let result;
+      try {
+        result = await withTimeout(
+          analyzeArchivedGame(record, { onProgress: setProgress, signal: controller.signal }),
+          GAME_TIMEOUT_MS,
+          { label: 'Analysing this game', onTimeout: () => controller.abort() },
+        );
+      } catch (error) {
+        if (error instanceof TimeoutError) resetAfterTimeout();
+        result = { ok: false, error: error.message };
+      }
 
-      if (result.ok) await markDone(game.id, DEFAULT_DEPTH);
-      else await markFailed(game.id, result.error, (game.analysis_attempts ?? 0) + 1);
+      try {
+        if (result.ok) await markDone(game.id, DEFAULT_DEPTH);
+        else await markFailed(game.id, result.error, (game.analysis_attempts ?? 0) + 1);
+      } catch (error) {
+        console.warn('analysis queue:', error.message);
+      }
 
       abort.current = null;
       setCurrent(null);
@@ -110,7 +180,7 @@ export function useAnalysisQueue({ enabled = true, playerId = null } = {}) {
 
     timer = setTimeout(run, tick === 0 ? SETTLE_MS : BETWEEN_MS);
     return () => clearTimeout(timer);
-  }, [enabled, playerId, current, tick, refreshCounts]);
+  }, [enabled, playerId, preferPlayerId, current, tick, refreshCounts]);
 
   useEffect(() => {
     if (enabled) refreshCounts();

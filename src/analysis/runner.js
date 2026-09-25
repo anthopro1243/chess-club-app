@@ -37,6 +37,17 @@ export function shutdownEngine() {
 
 export const isBusy = () => busy;
 
+/*
+ * After a game overran its time limit. The engine may be wedged, so it is
+ * thrown away (the next game starts a fresh one), and `busy` is released:
+ * a hung analysis never settles, so its `finally` never runs, and without
+ * this the queue would wait on it forever.
+ */
+export function resetAfterTimeout() {
+  shutdownEngine();
+  busy = false;
+}
+
 /**
  * Analyse one archived game and persist both sides.
  *

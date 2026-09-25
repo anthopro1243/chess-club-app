@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { planPgnImport, rowProblem, recordsToImport, summarise } from '../data/pgnImportPlan.js';
 import { recordImportedGames } from '../data/gamesStore.js';
 import { enqueueGameRow } from '../analysis/queue.js';
+import { withTimeout } from '../data/autoPolicy.js';
 
 /*
  * PgnImportModal — paste or upload PGN, check who played, then archive.
@@ -65,7 +66,9 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
     setBusy(true);
     setReadError('');
     try {
-      const outcome = await recordImportedGames(toWrite);
+      // Safe to press again after a timeout: games that did save are
+      // recognised by their id and shown as already archived.
+      const outcome = await withTimeout(recordImportedGames(toWrite), 60 * 1000, { label: 'Saving the games' });
       if (!outcome.ok) {
         setReadError(`Nothing was saved: ${outcome.error}`);
         return;

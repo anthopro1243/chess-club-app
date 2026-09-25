@@ -386,9 +386,16 @@ row allocated the next id; Import wrote 3 members; re-importing the same file re
 Update with no new ids. **Not yet exercised against the live database** — that is what the Vercel
 preview is for.
 
+### Background automation (overnight branch)
+See the bullet list below and PROGRESS.md → "Item 4". Analysis still needs an open tab (§11).
+
 ### Written but NOT wired to any UI (dead code today)
 Each is complete and tested; nothing imports them:
 - ~~`src/data/pgnImport.js`~~ — **now wired** (Games page → Import PGN, overnight branch).
+- (overnight) Background behaviour: `autoPolicy.js` (backoff/timeout rules, tested),
+  `useAutoSync.js` (own linked accounts sync on open, ≤ every 30 min), `BackgroundActivity.jsx`
+  (corner note while analysing/syncing). The queue claims the viewer's own games first and backs off
+  retries; the drain loop has timeouts and can't stall on a thrown error.
 - `src/data/lichessSync.js` — a Lichess sync layer (16 tests). **Superseded in practice:** Lichess
   linking actually works through `externalSync.js` + `externalChess.js`, which is why 50 Lichess
   games exist. `lichessSync.js` is a parallel implementation nothing calls. Decide whether to wire
@@ -514,6 +521,8 @@ more than they look); one end-to-end game analysis.
     are filtered out of the Dashboard and Coach page (`src/data/retiredPlayers.js`). The queue marks
     games whose only club player is retired as `skipped`. `supabase/pending/skip-cc003-games.sql`
     does the same for the existing backlog — **written, not applied**.
+14. **Games page viewer id is always null** (`account?.playerId` does not exist; use
+    `useMyProfile()`). Staff unaffected. Found overnight, not fixed.
 13. **Guardian email is on `players`**, which approved members can read (placed there by 0008).
     The UI shows it to coaches only. Recorded as a fact; the owner has ruled security work out of
     scope for these sessions.

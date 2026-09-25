@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useMyProfile, removeConnection } from '../data/rosterStore.js';
 import { PLATFORMS } from '../data/externalChess.js';
 import { connectAccount, syncPlatform } from '../data/externalSync.js';
+import { withTimeout, retry, TimeoutError } from '../data/autoPolicy.js';
+
+/* Both sites usually answer in a second or two; past these, say so. */
+const CONNECT_TIMEOUT_MS = 20 * 1000;
+const SYNC_TIMEOUT_MS = 90 * 1000;
 import InfoTooltip from './InfoTooltip.jsx';
 
 const RATING_LABELS = [
@@ -81,7 +86,14 @@ function PlatformCard({ platform, profile }) {
     setError('');
     setBusy('connecting');
     try {
-      await connectAccount(profile.playerId, platform.key, username.trim());
+      // Linking only looks the profile up and stores the name, so it is safe
+      // to try twice; a slow or dropped request gets one automatic retry.
+      await retry(
+        () => withTimeout(connectAccount(profile.playerId, platform.key, username.trim()), CONNECT_TIMEOUT_MS, {
+          label: `Checking ${platform.label}`,
+        }),
+        { attempts: 2, backoff: () => 1500, shouldRetry: (e) => e instanceof TimeoutError || /fetch|network/i.test(e.message) },
+      );
       setUsername('');
       await runSync();
     } catch (err) {
@@ -95,9 +107,20 @@ function PlatformCard({ platform, profile }) {
     setError('');
     setBusy('syncing');
     try {
-      setResult(await syncPlatform(profile.playerId, platform.key));
+      // Not retried automatically: a sync that ran out of time may already
+      // have saved part of what it fetched. Pressing Sync again is safe —
+      // games already imported are recognised and skipped.
+      setResult(
+        await withTimeout(syncPlatform(profile.playerId, platform.key), SYNC_TIMEOUT_MS, {
+          label: `Syncing ${platform.label}`,
+        }),
+      );
     } catch (err) {
-      setError(err.message || 'Sync failed.');
+      setError(
+        err instanceof TimeoutError
+          ? `${err.message} Press Sync now to try again; games already imported will not be duplicated.`
+          : err.message || 'Sync failed.',
+      );
     } finally {
       setBusy('');
     }

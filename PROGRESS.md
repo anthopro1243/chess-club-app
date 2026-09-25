@@ -382,6 +382,21 @@ at a 375px viewport).
    integration"). Reads work. Commits are local, and are also handed over as a patch file — see the
    Morning summary.
 
+9. **Auto-sync covers only the signed-in member's own linked accounts**, at most every 30 minutes
+   per account. A coach opening the app does not sync all ~30 members (rate limits, and a slow
+   first page for everyone). The Sync button is unchanged.
+10. **Auto-retry of failed analyses stays within `MAX_ATTEMPTS` (3)**, now spaced out with a
+    backoff (2 min, 8 min, 32 min, capped at 2 h) instead of back to back. A game that fails three
+    times stays `failed` and still needs the coach's button. Retrying forever would spin on a PGN
+    that can never parse.
+11. **A failed sync is not retried within the same attempt.** A sync that timed out may already
+    have saved part of what it fetched, so it is simply due again at the next check (30 min).
+    Linking an account, which only looks the profile up, gets one automatic retry.
+12. **Auth, sign-up, password and member-approval screens were left alone**, even where they have
+    spinners (COWORK-PROMPT §4).
+13. **"Save optimistically" was already true.** Every store writes locally first and pushes after,
+    and failed pushes show the sync-error banner. I added nothing there.
+
 ### Item 2 — hide soft-deleted players everywhere
 
 - `src/data/retiredPlayers.js` (pure) + 11 tests, including negative cases (an active opponent keeps
@@ -411,3 +426,38 @@ at a 375px viewport).
   imported 2 games; re-importing the same text returned both as already archived. Checked at 1280px
   and 375px. **Not exercised against the live database.**
 - After: `npm test` 435 pass / 0 fail (255 under `node --test`), `test:engine` 15/15, build ✓.
+
+### Item 4 — make it feel seamless
+
+- `src/data/autoPolicy.js` (pure) + 15 tests: retry backoff, `readyForRetry`, viewer-first
+  ordering, which linked accounts are due for a sync, `withTimeout` (with an abort hook) and
+  `retry`, plus negative cases (still inside the backoff; recently synced; unlinked; not a sync
+  platform; `shouldRetry` stopping early; a nonsense attempt count).
+- **Background analysis, the viewer's own games first:** `claimNext({ preferPlayerId })` in
+  `queue.js`, fed by App. Backoff is applied before claiming.
+- **The drain loop can no longer stall:** the claim has a 30 s limit, and any thrown error
+  re-schedules a check in 30 s. With nothing claimable it looks again every 2 minutes, so backed-off
+  games do get retried. A game past 5 minutes is aborted, the engine is thrown away
+  (`runner.resetAfterTimeout()`), and the game is marked failed for a later retry.
+- **Sync on open:** `src/data/useAutoSync.js`, mounted in App.
+- **Progress indicator:** `src/components/BackgroundActivity.jsx`, a small note bottom-right that
+  appears only while analysing or syncing: "Analysing a game — 40% · 3 queued", "Syncing
+  Chess.com…". It fades after "Synced 3 new games", and a failed sync can be dismissed. The Coach
+  page's queue panel now reads the same live state. Before, its own disabled hook instance meant it
+  never showed "Analysing now".
+- **Timeouts with readable errors** on Connected accounts (link 20 s with one retry; sync 90 s),
+  on-demand game analysis (5 min, then abort), "Retry failed and skipped" (30 s), and both import
+  modals (60 s). Each timeout message says what to press next and why pressing it again is safe.
+- **Fixed on the way:** on-demand "Analyse this game" could start while the background queue was
+  using the same engine, which interleaves two games on one worker. It now waits and says so.
+- Verified in the backend-free local preview: all 7 pages load with no console or page errors. The
+  indicator was driven through its error, dismiss, syncing and done-then-fade states at 375px. The
+  PGN import flow still passes. **The queue, backoff and auto-sync need a real backend to
+  exercise, so they are verified by unit tests and code review only.**
+- After: `npm test` 450 pass / 0 fail (270 under `node --test`), `test:engine` 15/15, build ✓.
+
+**Found, not fixed:** `GamesPage.jsx` builds its viewer as `account?.playerId`, but `useAccount()`
+has no `playerId` field (the player row comes from `useMyProfile()`). On the club-wide Games page a
+player's viewer id is therefore always null. The analysis panel's wording/permission rules see "no
+player". Staff are unaffected, and My Games does it correctly. Left alone because it touches the
+permission rules in `presentation.js`.
