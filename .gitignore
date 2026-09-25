@@ -12,3 +12,6 @@ dist/
 # local-only: injected auth session used for browser verification
 public/__session.json
 .env.test.local
+
+# agent worktrees (local only)
+.claude/worktrees/
