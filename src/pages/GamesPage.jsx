@@ -7,6 +7,9 @@ import { useGames, removeGame, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 import LogGameForm from '../components/LogGameForm.jsx';
 import PgnImportModal from '../components/PgnImportModal.jsx';
+import ScoresheetModal from '../components/ScoresheetModal.jsx';
+import { scoresheetGapOf } from '../data/scoresheet.js';
+import '../styles/scoresheet.css';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
 
@@ -49,6 +52,7 @@ export default function GamesPage() {
   const [openId, setOpenId] = useState(null);
   const [logging, setLogging] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [entering, setEntering] = useState(false);
   const [toast, setToast] = useState('');
 
   const flash = (message) => {
@@ -75,10 +79,14 @@ export default function GamesPage() {
             <button type="button" className="link-button" onClick={() => setImporting(true)}>
               Import PGN
             </button>
+            <button type="button" className="link-button" onClick={() => setEntering(true)}>
+              Enter a scoresheet
+            </button>
           </div>
         </div>
 
         {logging && <LogGameForm />}
+        {entering && <ScoresheetModal players={players} games={games} onClose={() => setEntering(false)} />}
         {importing && (
           <PgnImportModal
             players={players}
@@ -180,6 +188,22 @@ export default function GamesPage() {
               </h2>
               <span className="badge mono">{game.result}</span>
             </div>
+            {(game.event || game.round || game.board || game.timeControl) && (
+              <p className="game-otb-tags">
+                {game.event && <span className="badge">{game.event}</span>}
+                {game.round && <span className="badge">Round {game.round}</span>}
+                {game.board && <span className="badge">Board {game.board}</span>}
+                {game.timeControl && <span className="badge mono">{game.timeControl}</span>}
+              </p>
+            )}
+            {scoresheetGapOf(game.pgn) && (
+              <p className="game-gap-note">
+                Entered from a scoresheet: {scoresheetGapOf(game.pgn)}.
+                {/\[SetUp "1"\]/.test(game.pgn)
+                  ? ' The board and the analysis start from the position set up after the gap; the readable moves before it are in the PGN\u2019s opening comment.'
+                  : ' The analysis covers the moves that could be read.'}
+              </p>
+            )}
             <GameReviewFor game={game} />
             <details className="pgn-details">
               <summary>Raw PGN</summary>

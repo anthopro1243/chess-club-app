@@ -280,13 +280,15 @@ const localToday = (nowMs) => {
  * Validate a filled-in sheet and build the archive record.
  *
  * @param {object} sheet see blankSheet()
- * @param {{roster?: Array<{playerId, name}>, now?: number}} options
+ * @param {{roster?: Array<{playerId, name}>, now?: number, checked?: object}} options
+ *   `checked` is checkSheet(sheet) when the caller already has it: the entry
+ *   screen does, and replaying 80 plies twice per move is felt on a phone.
  * @returns {{ok: false, errors: Array<{field, message, segment?, index?}>} |
  *           {ok: true, game: object, pgn: string, note: string, analysedFrom: string, analysedPlies: number}}
  *   `game` is shaped like every other gamesStore record, plus the OTB tags
  *   (event, round, board, timeControl) that 0022 adds as columns.
  */
-export function buildScoresheetGame(sheet, { roster = [], now = Date.now() } = {}) {
+export function buildScoresheetGame(sheet, { roster = [], now = Date.now(), checked: prechecked = null } = {}) {
   const errors = [];
   const fail = (field, message, extra = {}) => errors.push({ field, message, ...extra });
   const byId = new Map((roster || []).map((p) => [p.playerId, p]));
@@ -328,7 +330,7 @@ export function buildScoresheetGame(sheet, { roster = [], now = Date.now() } = {
   if (!RESULTS.some((r) => r.value === result)) fail('result', 'Choose the result.');
 
   // -- moves ---------------------------------------------------------------
-  const checked = checkSheet(sheet);
+  const checked = prechecked || checkSheet(sheet);
   const segs = checked.segments;
   if (!segs.length) fail('moves', 'Enter the moves.');
   if (checked.firstError) {
