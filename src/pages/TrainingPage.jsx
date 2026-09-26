@@ -12,8 +12,26 @@ import {
   useThemeAccuracy,
   attemptSummary,
 } from '../data/puzzleAttemptsStore.js';
+import { parseTrainingLink } from '../data/homework.js';
+import { useHomeworkFor } from '../data/homeworkStore.js';
+import HomeworkList from '../components/HomeworkList.jsx';
 
 const TRAINEE_KEY = 'cc-trainee';
+const PUZZLE_IDS = PUZZLES.map((p) => p.id);
+
+/*
+ * What the URL asks for: #/training?theme=fork&difficulty=easy, or a
+ * homework set as #/training?puzzles=id1,id2. Anything not in the library is
+ * dropped (homework.js → parseTrainingLink), so a stale link still lands on
+ * a working page.
+ */
+const linkFromHash = () => {
+  try {
+    return parseTrainingLink(window.location.hash, { themes: PUZZLE_THEMES, puzzleIds: PUZZLE_IDS });
+  } catch {
+    return { theme: '', difficulty: '', puzzleIds: [] };
+  }
+};
 const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
 
 const DIFFICULTIES = [
@@ -46,24 +64,24 @@ const sameMove = (a, b) =>
  * puzzle is solved once the whole line has been played out.
  */
 export default function TrainingPage() {
-  // A player arriving from their improvement plan lands pre-filtered to the
-  // theme it named, rather than on all 402 puzzles with advice to remember.
-  const [themeFilter, setThemeFilter] = useState(() => {
-    try {
-      const query = window.location.hash.split('?')[1];
-      const wanted = query ? new URLSearchParams(query).get('theme') : null;
-      return wanted && PUZZLE_THEMES.includes(wanted) ? wanted : '';
-    } catch {
-      return '';
-    }
-  });
-  const [difficultyFilter, setDifficultyFilter] = useState('');
+  // A player arriving from their improvement plan or their homework lands
+  // pre-filtered to the theme (or the exact set) it named, rather than on all
+  // 402 puzzles with advice to remember.
+  const [themeFilter, setThemeFilter] = useState(() => linkFromHash().theme);
+  const [difficultyFilter, setDifficultyFilter] = useState(() => linkFromHash().difficulty);
+  const [setIds, setSetIds] = useState(() => linkFromHash().puzzleIds);
+  const setKey = setIds.join(',');
   const difficultyTest = DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
   const filtered = useMemo(
-    () =>
-      PUZZLES.filter((p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating)),
+    () => {
+      // A homework set is exactly those puzzles, in the coach's order.
+      if (setIds.length) return setIds.map((id) => PUZZLES.find((p) => p.id === id)).filter(Boolean);
+      return PUZZLES.filter(
+        (p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating),
+      );
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [themeFilter, difficultyFilter],
+    [themeFilter, difficultyFilter, setKey],
   );
 
   /*
@@ -76,7 +94,22 @@ export default function TrainingPage() {
    */
   const [source, setSource] = useState('library');
   const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source]);
+  useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source, setKey]);
+
+  // A homework link followed while already on this page changes only the
+  // hash; the page stays mounted, so the new filter is applied here.
+  useEffect(() => {
+    const onHashChange = () => {
+      if (!window.location.hash.startsWith('#/training')) return;
+      const link = linkFromHash();
+      setThemeFilter(link.theme);
+      setDifficultyFilter(link.difficulty);
+      setSetIds(link.puzzleIds);
+      setSource('library');
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
   // Some theme + difficulty combinations have no puzzles at all — fall back
   // to a harmless placeholder so every hook below still has a real puzzle
   // to work with; the empty case is handled in the render instead.
@@ -97,6 +130,7 @@ export default function TrainingPage() {
   }, [traineeId]);
 
   const trainee = players.find((p) => p.playerId === traineeId) || null;
+  const homework = useHomeworkFor(trainee ? traineeId : '');
 
   const duePuzzles = useDuePuzzles(traineeId);
   const reviewState = useReviewSummary(traineeId);
@@ -396,6 +430,19 @@ export default function TrainingPage() {
           </select>
         </div>
 
+        {trainee && (
+          <div className="panel-block">
+            <h2>
+              Homework
+              <InfoTooltip>
+                Set by the coach. It ticks itself off as you solve puzzles here (not with a hint or
+                the answer shown) and as games reach the archive.
+              </InfoTooltip>
+            </h2>
+            <HomeworkList items={homework} emptyText={`No homework for ${trainee.name} right now.`} />
+          </div>
+        )}
+
         <div className="panel-block">
           <h2>Puzzle type</h2>
           <label className="field">
@@ -414,7 +461,10 @@ export default function TrainingPage() {
             <select
               value={themeFilter}
               disabled={source === 'mistakes'}
-              onChange={(event) => setThemeFilter(event.target.value)}
+              onChange={(event) => {
+                setSetIds([]);
+                setThemeFilter(event.target.value);
+              }}
             >
               <option value="">All themes</option>
               {PUZZLE_THEMES.map((theme) => (
@@ -426,7 +476,13 @@ export default function TrainingPage() {
           </label>
           <label className="field">
             <span>Difficulty</span>
-            <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value)}>
+            <select
+              value={difficultyFilter}
+              onChange={(event) => {
+                setSetIds([]);
+                setDifficultyFilter(event.target.value);
+              }}
+            >
               {DIFFICULTIES.map((d) => (
                 <option key={d.key} value={d.key}>
                   {d.label}
@@ -434,6 +490,14 @@ export default function TrainingPage() {
               ))}
             </select>
           </label>
+          {setIds.length > 0 && source !== 'mistakes' && (
+            <div className="hw-set-chip">
+              <span>Homework set: {filtered.length} puzzles</span>
+              <button type="button" className="link-button" onClick={() => setSetIds([])}>
+                Show all puzzles
+              </button>
+            </div>
+          )}
           <p className="hint-text">
             {source === 'mistakes'
               ? `${pool.length} of your own positions due.`
@@ -474,7 +538,10 @@ export default function TrainingPage() {
                     <button
                       type="button"
                       className="link-button"
-                      onClick={() => setThemeFilter(row.theme)}
+                      onClick={() => {
+                        setSetIds([]);
+                        setThemeFilter(row.theme);
+                      }}
                     >
                       {prettyTheme(row.theme)}
                     </button>
