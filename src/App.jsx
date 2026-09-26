@@ -67,9 +67,10 @@ export default function App() {
   const me = useMyProfile();
   useAnalysisQueue({ enabled: !!account?.isApproved, preferPlayerId: me?.playerId ?? null, publish: true });
 
-  // Linked Chess.com / Lichess accounts sync themselves on open (the viewer's
-  // own only, and at most every 30 minutes). The Sync button still works.
-  useAutoSync({ enabled: !!account?.isApproved });
+  // Linked Chess.com / Lichess accounts sync themselves on open: the viewer's
+  // own at most every 30 minutes, and in a coach's session every member's
+  // account that hasn't synced in a day, politely (clubSync.js).
+  useAutoSync({ enabled: !!account?.isApproved, isCoach: !!account?.isCoach });
 
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
 

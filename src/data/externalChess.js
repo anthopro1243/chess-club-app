@@ -41,8 +41,17 @@ export const PLATFORMS = {
   lichess: { key: 'lichess', label: 'Lichess', profileUrl: (u) => `https://lichess.org/@/${u}` },
 };
 
-/** Thrown for anything the member can act on: a typo'd username, a rate limit. */
-export class ExternalChessError extends Error {}
+/**
+ * Thrown for anything the member can act on: a typo'd username, a rate limit.
+ * `status` carries the HTTP status when there was one, so a background sweep
+ * can tell "slow down" (429) from "no such user" (404) without reading prose.
+ */
+export class ExternalChessError extends Error {
+  constructor(message, { status = null } = {}) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function getJson(url, init) {
   let response;
@@ -51,11 +60,13 @@ async function getJson(url, init) {
   } catch {
     throw new ExternalChessError('Could not reach the site. Check your connection and try again.');
   }
-  if (response.status === 404) throw new ExternalChessError('No account with that username.');
+  if (response.status === 404) throw new ExternalChessError('No account with that username.', { status: 404 });
   if (response.status === 429) {
-    throw new ExternalChessError('That site is asking us to slow down. Wait a minute and sync again.');
+    throw new ExternalChessError('That site is asking us to slow down. Wait a minute and sync again.', { status: 429 });
   }
-  if (!response.ok) throw new ExternalChessError(`That site returned an error (${response.status}).`);
+  if (!response.ok) {
+    throw new ExternalChessError(`That site returned an error (${response.status}).`, { status: response.status });
+  }
   return response;
 }
 
