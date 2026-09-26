@@ -1,0 +1,255 @@
+/* =========================================================================
+   Tournament prep — styles for the 'prep' page and its pieces.
+   Kept out of app.css so this feature merges without touching the shared
+   stylesheet. Uses only the tokens app.css defines on :root, so light and
+   dark both work with no extra rules. Everything is prefixed `prep-`.
+   ========================================================================= */
+
+.prep {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.prep-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.prep-header p {
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.prep-event-picker {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ---------- buttons -------------------------------------------------------- */
+
+.prep-btn {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.prep-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+.prep-btn.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.prep-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+  background: var(--accent);
+}
+
+.prep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ---------- deadline banner ----------------------------------------------- */
+
+.prep-banner {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+
+.prep-banner h2 {
+  margin-bottom: 8px;
+}
+
+.prep-deadlines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prep-deadline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.prep-deadline-label {
+  font-weight: 600;
+}
+
+.prep-deadline-when {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.prep-deadline-meta {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.prep-deadline.stage-soon {
+  border-color: var(--warn);
+}
+
+.prep-deadline.stage-soon .prep-deadline-when {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.prep-deadline.stage-urgent,
+.prep-deadline.stage-today {
+  border-color: var(--bad);
+}
+
+.prep-deadline.stage-urgent .prep-deadline-when,
+.prep-deadline.stage-today .prep-deadline-when {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.prep-club-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+
+.prep-club-line.stage-soon {
+  border-left-color: var(--warn);
+}
+
+.prep-club-line.stage-urgent,
+.prep-club-line.stage-today {
+  border-left-color: var(--bad);
+}
+
+/* ---------- tabs ------------------------------------------------------------ */
+
+.prep-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.prep-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.prep-tab {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prep-tab:hover {
+  color: var(--text);
+  background: var(--bg-sunken);
+}
+
+.prep-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* ---------- forms ------------------------------------------------------------ */
+
+.prep-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prep-form .text-area {
+  font-size: 0.88rem;
+}
+
+.prep-error {
+  color: var(--bad);
+  font-size: 0.78rem;
+}
+
+.prep-note {
+  color: var(--text-muted);
+  font-size: 0.83rem;
+}
+
+.prep-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.prep-facts dt {
+  color: var(--text-muted);
+  font-size: 0.83rem;
+}
+
+.prep-facts dd {
+  margin: 0;
+}
+
+.prep-default-tag {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  margin-left: 6px;
+}
+
+@media (max-width: 640px) {
+  .prep-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prep-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prep-facts dd {
+    margin-bottom: 6px;
+  }
+}
