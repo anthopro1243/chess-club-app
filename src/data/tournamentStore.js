@@ -243,25 +243,33 @@ function cloudActive() {
   return isSupabaseConfigured && cloudReady;
 }
 
+/*
+ * Cloud writes run one at a time, in the order they were made. Order matters
+ * here in a way it does not for the game archive: "undo pairing" deletes a
+ * round's boards and the next "pair round" inserts boards with the same
+ * (event, round, board) numbers. Sent in parallel, the insert can land first
+ * and hit the unique constraint. A queue costs nothing at club scale.
+ */
+let writes = Promise.resolve();
+function serial(task) {
+  writes = writes.then(task).catch(() => {});
+  return writes;
+}
+
 function push(table, rows, what) {
   if (!cloudActive() || !rows.length) return;
-  supabase
-    .from(table)
-    .upsert(rows)
-    .then(({ error }) => {
-      if (error) reportSyncError(what, error.message);
-    });
+  serial(async () => {
+    const { error } = await supabase.from(table).upsert(rows);
+    if (error) reportSyncError(what, error.message);
+  });
 }
 
 function remove(table, ids, what) {
   if (!cloudActive() || !ids.length) return;
-  supabase
-    .from(table)
-    .delete()
-    .in('id', ids)
-    .then(({ error }) => {
-      if (error) reportSyncError(what, error.message);
-    });
+  serial(async () => {
+    const { error } = await supabase.from(table).delete().in('id', ids);
+    if (error) reportSyncError(what, error.message);
+  });
 }
 
 // -- local helpers ----------------------------------------------------------
@@ -359,17 +367,17 @@ export function createTournament(fields, players) {
 
   patchState((s) => ({ ...s, tournaments: [tournament, ...s.tournaments], entrants: [...s.entrants, ...entrants] }));
   if (cloudActive()) {
-    // Entrants reference the event, so the event row has to land first.
-    supabase
-      .from('tournaments')
-      .insert(tournamentToRow(tournament))
-      .then(({ error }) => {
-        if (error) {
-          reportSyncError('that event', error.message);
-          return;
-        }
-        push('tournament_entrants', entrants.map(entrantToRow), 'the entrants');
-      });
+    // Entrants reference the event, so the event row has to land first, and
+    // there is no point sending them if it did not.
+    serial(async () => {
+      const { error } = await supabase.from('tournaments').insert(tournamentToRow(tournament));
+      if (error) {
+        reportSyncError('that event', error.message);
+        return;
+      }
+      const res = await supabase.from('tournament_entrants').upsert(entrants.map(entrantToRow));
+      if (res.error) reportSyncError('the entrants', res.error.message);
+    });
   }
   return tournament.id;
 }
@@ -537,16 +545,15 @@ export function pairNextRound(id) {
   if (cloudActive()) {
     // Rows first, then the round counter, so a reader never sees round N
     // announced with no boards in it.
-    supabase
-      .from('tournament_pairings')
-      .upsert(rows.map(pairingToRow))
-      .then(({ error }) => {
-        if (error) {
-          reportSyncError('the pairings', error.message);
-          return;
-        }
-        push('tournaments', [tournamentToRow(next)], 'that event');
-      });
+    serial(async () => {
+      const { error } = await supabase.from('tournament_pairings').upsert(rows.map(pairingToRow));
+      if (error) {
+        reportSyncError('the pairings', error.message);
+        return;
+      }
+      const res = await supabase.from('tournaments').upsert([tournamentToRow(next)]);
+      if (res.error) reportSyncError('that event', res.error.message);
+    });
   }
   return { ok: true, round: result.round, warnings: result.warnings || [] };
 }
