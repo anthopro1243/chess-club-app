@@ -6,6 +6,7 @@ import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
+import TeamToolsPanel from '../components/TeamToolsPanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from '../data/assessmentStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
@@ -164,6 +165,8 @@ export default function CoachPage() {
       <MemberApproval />
 
       <AnalysisQueuePanel queue={queue} />
+
+      <TeamToolsPanel />
 
       <section className="panel">
         <div className="panel-header">
