@@ -306,7 +306,9 @@ export default function PairingsPanel({
                   ) : (
                     <strong>{nameOf(row.white)}</strong>
                   )}
-                  <span className="badge">{BYE_LABEL[row.byeType]}</span>
+                  <span className="badge">
+                    {tournament.format === 'round-robin' && row.byeType === 'zero' ? 'Sits out this round' : BYE_LABEL[row.byeType]}
+                  </span>
                 </li>
               ))}
             </ul>

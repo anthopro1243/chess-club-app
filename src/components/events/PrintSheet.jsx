@@ -50,7 +50,9 @@ export default function PrintSheet({ mode, tournament, entrants, pairings, stand
         </table>
         {state.byes.length > 0 && (
           <p className="ev-print-foot">
-            {state.byes.map((b) => `${name(b.white)}: ${BYE_LABEL[b.byeType]}`).join(' · ')}
+            {state.byes
+              .map((b) => `${name(b.white)}: ${tournament.format === 'round-robin' && b.byeType === 'zero' ? 'sits out' : BYE_LABEL[b.byeType]}`)
+              .join(' · ')}
           </p>
         )}
       </section>
