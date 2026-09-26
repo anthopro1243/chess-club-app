@@ -6,6 +6,7 @@ import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
+import HomeworkPanel from '../components/HomeworkPanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from '../data/assessmentStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
@@ -191,6 +192,8 @@ export default function CoachPage() {
           </button>
         </div>
       </section>
+
+      <HomeworkPanel players={players} />
 
       <section className="panel">
         <div className="panel-header">

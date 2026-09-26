@@ -1,0 +1,385 @@
+/* =========================================================================
+   Homework — the coach's panel (HomeworkPanel) and a trainee's list
+   (HomeworkList). Kept out of app.css so the feature can be read, and
+   removed, in one place. Uses only the tokens app.css defines, so both
+   themes work without a second set of colours.
+   ========================================================================= */
+
+/* ---------- coach: header and form -------------------------------------- */
+
+.hw-panel .panel-header {
+  flex-wrap: wrap;
+}
+
+.hw-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.hw-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.hw-wide {
+  grid-column: 1 / -1;
+}
+
+.hw-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.hw-choice legend {
+  width: 100%;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.hw-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  /* A 44px row is a comfortable thumb target on a phone. */
+  min-height: 32px;
+}
+
+.hw-choice input[type='radio'],
+.hw-pick-list input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.hw-group-select {
+  width: 100%;
+  max-width: 320px;
+}
+
+.hw-help {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.hw-error {
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--bad);
+}
+
+.hw-inline {
+  margin-left: 8px;
+}
+
+.hw-pick-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-raised);
+  width: 100%;
+}
+
+.hw-pick-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.hw-pick-list label:hover {
+  background: var(--accent-soft);
+}
+
+.hw-pick-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hw-pick-rating {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.hw-pick-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* ---------- coach: assignment cards ------------------------------------- */
+
+.hw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hw-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--bg-raised);
+}
+
+.hw-card-past {
+  opacity: 0.8;
+}
+
+.hw-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hw-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hw-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.hw-note {
+  font-size: 0.84rem;
+  color: var(--text);
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.hw-tally {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 10px 0 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.hw-percent {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 3.2em;
+}
+
+.hw-bar {
+  display: inline-block;
+  position: relative;
+  flex: 1 1 120px;
+  min-width: 80px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.hw-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+}
+
+.hw-bar-small {
+  width: 70px;
+  min-width: 70px;
+  flex: none;
+  margin-left: 6px;
+}
+
+.hw-who summary,
+.hw-by-player summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: var(--accent);
+  padding: 4px 0;
+}
+
+.hw-by-player {
+  margin-top: 16px;
+}
+
+.hw-by-player .hint-text {
+  margin: 0;
+}
+
+.hw-player-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.hw-player-list li {
+  display: grid;
+  grid-template-columns: minmax(90px, 1.3fr) auto minmax(0, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+
+.hw-player-name {
+  overflow-wrap: anywhere;
+}
+
+.hw-fraction {
+  color: var(--text);
+}
+
+.hw-detail {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.hw-player-table td {
+  white-space: nowrap;
+}
+
+/* ---------- status pill (colour is never the only cue) ------------------- */
+
+.hw-status {
+  display: inline-block;
+  font-size: 0.74rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.hw-status-done {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.hw-status-in-progress {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.hw-status-overdue {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+/* ---------- a trainee's own list ---------------------------------------- */
+
+.hw-mine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hw-mine-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.hw-mine-item .hw-bar {
+  flex: none;
+  width: 100%;
+}
+
+.hw-mine-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.hw-mine-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.hw-go {
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.hw-go:hover {
+  text-decoration: underline;
+}
+
+.hw-mine .hw-help {
+  margin: 0;
+}
+
+/* The Training page's "homework set" pool chip. */
+.hw-set-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 640px) {
+  .hw-player-list li {
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .hw-player-list .hw-detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .hw-card {
+    padding: 10px;
+  }
+}
