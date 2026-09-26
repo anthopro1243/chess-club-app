@@ -1,0 +1,60 @@
+.announcements .announcement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.announcements textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.announcement-pin {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.announcement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.announcement-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+}
+
+.announcement-list li.pinned {
+  border-color: var(--accent);
+}
+
+.announcement-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.announcement-body {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.announcement-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.announcements .small {
+  font-size: 0.8rem;
+}

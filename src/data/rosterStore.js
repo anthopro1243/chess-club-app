@@ -54,6 +54,8 @@ function fromRow(row) {
     commitment: row.commitment || 'Casual',
     experience: row.experience || '',
     guardianEmail: row.guardian_email || '',
+    // null = not recorded, which privacy.js treats as "no release".
+    mediaRelease: row.media_release ?? null,
     ratings: row.ratings || {},
     preferredOpenings: row.preferred_openings || [],
     style: row.style || '',
@@ -82,6 +84,7 @@ function toRow(player) {
     commitment: player.commitment,
     experience: player.experience || null,
     guardian_email: player.guardianEmail || null,
+    media_release: player.mediaRelease ?? null,
     ratings: player.ratings,
     preferred_openings: player.preferredOpenings,
     style: player.style,

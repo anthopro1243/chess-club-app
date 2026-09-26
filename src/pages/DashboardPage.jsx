@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
+import AnnouncementsPanel from '../components/AnnouncementsPanel.jsx';
+import { useAccount } from '../data/accountStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
 import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
 import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
@@ -12,6 +14,7 @@ import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
 export default function DashboardPage({ onNavigate }) {
   const players = usePlayers();
   const cloud = useCloudStatus();
+  const account = useAccount();
   // The club profile now prefers real engine measurements over an untouched
   // manual rubric, and leaves a category blank rather than averaging "no data"
   // as zero - which is what made every category read a flat 2.5.
@@ -86,6 +89,8 @@ export default function DashboardPage({ onNavigate }) {
           </div>
         </div>
       </section>
+
+      <AnnouncementsPanel isCoach={!!account?.isCoach} />
 
       <section className="stat-row">
         <Stat label="Players" value={players.length} />

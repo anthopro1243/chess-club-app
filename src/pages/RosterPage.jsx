@@ -8,6 +8,7 @@ import { useAccount } from '../data/accountStore.js';
 import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
 import { usePlayerPrivate } from '../data/playerPrivateStore.js';
 import RosterImportModal from '../components/RosterImportModal.jsx';
+import { gradeSection, mediaReleaseLabel } from '../data/privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
 
@@ -213,7 +214,7 @@ export default function RosterPage() {
                   <td>{player.ratings.uscf ?? '—'}</td>
                   <td>{player.ratings.chesscomRapid ?? '—'}</td>
                   <td>
-                    <span className={`track ${player.commitment.toLowerCase()}`}>
+                    <span className={`track ${(player.commitment || 'Casual').toLowerCase()}`}>
                       {player.commitment}
                     </span>
                   </td>
@@ -424,6 +425,35 @@ export default function RosterPage() {
                   <div>
                     <dt>Guardian email</dt>
                     <dd>{selected.guardianEmail}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Section</dt>
+                  <dd>{gradeSection(selected.grade) ? `Grades ${gradeSection(selected.grade)}` : '—'}</dd>
+                </div>
+                {account.isCoach && (
+                  <div>
+                    <dt>
+                      Media release
+                      <InfoTooltip>
+                        Dallas ISD guidance: no student names or photos in anything shared outside
+                        the club without a release on file. Without one, printed pairings,
+                        standings and family summaries show initials instead of the name.
+                      </InfoTooltip>
+                    </dt>
+                    <dd>
+                      <select
+                        aria-label="Media release"
+                        value={selected.mediaRelease === true ? 'yes' : selected.mediaRelease === false ? 'no' : ''}
+                        onChange={(e) => updatePlayer(selected.playerId, {
+                          mediaRelease: e.target.value === 'yes' ? true : e.target.value === 'no' ? false : null,
+                        })}
+                      >
+                        <option value="">{mediaReleaseLabel(null)}</option>
+                        <option value="yes">{mediaReleaseLabel(true)}</option>
+                        <option value="no">{mediaReleaseLabel(false)}</option>
+                      </select>
+                    </dd>
                   </div>
                 )}
               </dl>
