@@ -1,3 +1,50 @@
+# Morning summary: autonomous run, Sat 2026-09-26 16:25 UTC → Sun 2026-09-27 12:30 UTC
+
+_Kept current during the run; the newest state is always here._
+
+**Branch:** `feature/roster-import-9cg3im` (pushed after every item). **Master and the live site are
+untouched.** Preview: `chess-club-app-git-feature-roster-import-9cg3im-chess-club2.vercel.app`
+(behind Vercel login).
+
+**How this run works:** Cowork's research (`research/FEATURE-RESEARCH.md`, 130 features) was compared
+with the app in `GAP-ANALYSIS.md` → "Cycle 2". Features are built in the order of the Oct 24 checklist,
+Musts first. Up to three agents work in parallel in isolated worktrees and I merge their work.
+
+### Live in the database (applied with the Supabase connector, verified after)
+- `supabase/pending/skip-cc003-games.sql` applied: 38 CC-003-only games skipped, 0 failed / 0 pending left.
+- `0023_media_release_and_announcements.sql` applied (`players.media_release`, `announcements` + RLS).
+- Every write path the new code uses was exercised against production **inside a rolled-back
+  transaction**: as the coach and as a player login, under real RLS. That covers the engine-assessment
+  fix (the old upsert reproduces the production error; the new path inserts, then updates), roster
+  import rows plus the private table (a duplicate student ID is refused), PGN save (a re-import can't
+  overwrite), queueing, the retired skip, and announcements (player posts refused). Nothing persisted,
+  and no test accounts were created.
+
+### Built so far (research IDs)
+F001/F114 media release + grade sections · F110 announcements · F121 noindex · F081 team-score
+projector · F082 board order · F054 time-per-move chart · F050 big-mistakes review with plain-English
+explanations (owner item 5) · F096 private player home · F043/F044 daily club sync with 429 back-off.
+
+### In progress (agents, resumed after a 17:00–21:00 UTC usage-limit pause)
+- Club Swiss (F075–F080): engine, tiebreaks, round robin and store done; UI in progress. Needs 0019.
+- Tournament prep (F070–F074, F041, F033): events/deadlines, availability poll, registration helper and
+  rules quiz done; notation trainer and readiness in progress. Needs 0021.
+- Homework (F019/F020) done; scoresheet entry (F065/F066/F068) in progress. Needs 0020 and 0022.
+
+### Blocked, logged, moved on
+- **Browser tests against the live database are blocked** by the environment's network policy
+  (`rftlozmdyetubhjcutht.supabase.co` refused by the proxy). The rolled-back SQL checks above stand in.
+  To allow it: cloud environment menu → Edit → Network access.
+- A usage limit stopped all work 17:00–21:00 UTC; the hourly wake-up resumed it.
+
+### Decisions this run (details in GAP-ANALYSIS.md → Cycle 2, D1–D4)
+D1 keep the club leaderboard for now, members see their private page first · D2 coach sessions sync all
+members daily (replaces "own accounts only") · D3 no OCR / paid AI / live games / scouting · D4 US Chess
+Swiss rules · media release unknown = no · announcements archive instead of delete · rolled-back SQL
+transactions instead of test accounts, because the browser can't reach the database.
+
+---
+
 # Evening update — 2026-09-25 (read this first)
 
 **For a gap analysis of the whole app, start with `STATE-OF-THE-APP.md`.** It lists what's built,
