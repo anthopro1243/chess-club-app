@@ -1,0 +1,1544 @@
+diff --git a/src/analysis/playerHome.js b/src/analysis/playerHome.js
+new file mode 100644
+index 0000000..7e481c4
+--- /dev/null
++++ b/src/analysis/playerHome.js
+@@ -0,0 +1,416 @@
++/*
++ * playerHome.js — the view model behind a player's own home page.
++ *
++ * Pure on purpose, like presentation.js: every rule that decides what a
++ * teenager is shown about themselves has to be testable without a browser.
++ * The page (PlayerHome.jsx) only renders what this returns; it never looks at
++ * a raw score.
++ *
++ * What it assembles, and where each piece comes from:
++ *   - the ONE priority: improvementPlan() in scoring.js, read through
++ *     playerSummary() in presentation.js. Never a ranked list of failures.
++ *   - the trend: the tracked skill rows (player_skill_scores), trend first,
++ *     and only for categories confident enough to be shown at all.
++ *   - review positions due: the player's own-game puzzles, via the same
++ *     spaced-repetition rules the Training page uses.
++ *   - homework: only when a list is handed in (the homework feature is being
++ *     built separately), so an absent list never renders as "none due".
++ *   - recent games: the last few games this player actually played.
++ *   - one next step: a single link, so the page ends in an action.
++ */
++
++import { CATEGORY_KEYS, CATEGORY_LABELS, improvementPlan } from './scoring.js';
++import {
++  canViewAnalysis, categoryLine, playerSummary, puzzleThemeFor, trendLabel,
++  PUZZLE_THEME_BY_TRAINING_THEME,
++} from './presentation.js';
++import { reviewSummary } from './spacedRepetition.js';
++
++export const RECENT_GAMES_LIMIT = 5;
++
++/*
++ * A tracked score has to have been updated at least this many times before
++ * its trend means anything. updatePlayerScores() records trend 0 on the very
++ * first game, and "steady" after one game would describe a movement nobody
++ * has measured.
++ */
++export const MIN_GAMES_FOR_TREND = 2;
++
++/** The note notation carries, so it reads "not measurable" rather than "not enough games". */
++const NOTATION_NOTE = 'Not measurable from PGN — comes from SAN entry and scoresheet checks.';
++
++/*
++ * Only these confidences may ever become a number on a player's screen.
++ * describeScore() hides 'low' and 'none'; a stored row with a missing or
++ * misspelt confidence would otherwise slip past it and show as a fact. A
++ * whitelist, for the same reason canViewAnalysis() is one.
++ */
++const SHOWABLE_CONFIDENCE = new Set(['medium', 'high']);
++const KNOWN_CONFIDENCE = new Set(['none', 'low', 'medium', 'high']);
++
++/*
++ * Where a priority with no puzzle theme should send the player. The plan's
++ * advice for these categories is about playing (a per-move budget, playing on
++ * from worse positions) or about daily mixed puzzles, not a themed drill.
++ */
++const ACTION_WITHOUT_THEME = Object.freeze({
++  tacticalVision: { href: '#/training', label: 'Do some puzzles' },
++  timeManagement: { href: '#/play', label: 'Play a game with the clock on' },
++  psychologicalResilience: { href: '#/play', label: 'Play on against the engine' },
++});
++
++const PUZZLE_THEME_KEYS = new Set(Object.values(PUZZLE_THEME_BY_TRAINING_THEME));
++
++const toTime = (value) => {
++  if (value == null || value === '') return null;
++  // A bare date means "due by the end of that day", in the viewer's own time
++  // zone. new Date('2026-10-01') would read it as UTC midnight, which in
++  // Dallas is the evening before, and call homework overdue a day early.
++  const text = String(value);
++  const t = /^\d{4}-\d{2}-\d{2}$/.test(text)
++    ? new Date(`${text}T23:59:59`).getTime()
++    : new Date(text).getTime();
++  return Number.isNaN(t) ? null : t;
++};
++
++const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
++
++/** The player's side, result and outcome in one game, from their point of view. */
++export function gameFromPlayerSide(game, playerId) {
++  const asWhite = game.whitePlayerId === playerId;
++  const side = asWhite ? 'w' : 'b';
++  let outcome = 'unfinished';
++  if (game.result === '1/2-1/2') outcome = 'draw';
++  else if (game.result === '1-0') outcome = asWhite ? 'win' : 'loss';
++  else if (game.result === '0-1') outcome = asWhite ? 'loss' : 'win';
++  return {
++    side,
++    colour: asWhite ? 'White' : 'Black',
++    opponent: (asWhite ? game.blackName : game.whiteName) || 'Opponent',
++    outcome,
++    outcomeLabel: { win: 'Won', loss: 'Lost', draw: 'Draw', unfinished: 'Unfinished' }[outcome],
++  };
++}
++
++/**
++ * Skill rows (analysisStore's shape) for one player, as the scores map that
++ * improvementPlan() and presentation.js read. Other players' rows are
++ * dropped here, not trusted to have been filtered upstream.
++ */
++export function scoresFromSkillRows(skillRows = [], playerId) {
++  const scores = {};
++  const trends = {};
++  for (const row of skillRows || []) {
++    if (!row || row.playerId !== playerId || !CATEGORY_KEYS.includes(row.category)) continue;
++    const score = row.score == null || Number.isNaN(Number(row.score)) ? null : Number(row.score);
++    const confidence = KNOWN_CONFIDENCE.has(row.confidence) ? row.confidence : 'none';
++    scores[row.category] = {
++      score,
++      confidence,
++      measured: score != null,
++      n: row.observations ?? 0,
++    };
++    if (
++      score != null &&
++      SHOWABLE_CONFIDENCE.has(confidence) &&
++      (row.games ?? 0) >= MIN_GAMES_FOR_TREND &&
++      row.trend != null &&
++      !Number.isNaN(Number(row.trend))
++    ) {
++      trends[row.category] = Number(row.trend);
++    }
++  }
++  // Notation is never measured from games. Say so, rather than letting it
++  // read as "not enough games yet" and imply more games would fill it in.
++  if (!scores.notation) {
++    scores.notation = { score: null, confidence: 'none', measured: false, n: 0, note: NOTATION_NOTE };
++  }
++  return { scores, trends };
++}
++
++/** Motif counts summed over this player's own analysed sides. */
++export function motifTotals(analyses = []) {
++  const totals = {};
++  for (const a of analyses) {
++    for (const [motif, count] of Object.entries(a.motifCounts || {})) {
++      const n = Number(count) || 0;
++      if (n > 0) totals[motif] = (totals[motif] || 0) + n;
++    }
++  }
++  return totals;
++}
++
++/**
++ * One category, trend first. The number (`level`) is present ONLY when
++ * presentation.js allows it; a hidden score carries no number at all, so
++ * nothing downstream can render one by mistake.
++ */
++function categoryView(key, entry, trend) {
++  const line = categoryLine(key, entry, trend);
++  if (!line.showNumber) {
++    return {
++      key,
++      label: line.label,
++      showNumber: false,
++      level: null,
++      trend: null,
++      trendText: null,
++      text: line.text,
++      confidence: line.confidence,
++    };
++  }
++  const movement = trendLabel(trend);
++  return {
++    key,
++    label: line.label,
++    showNumber: true,
++    level: line.display,
++    trend: movement ? Math.round(trend) : null,
++    trendText: movement,
++    text: line.text,
++    confidence: line.confidence,
++  };
++}
++
++/** The headline trend across every category confident enough to show. */
++export function trendOverview(categories) {
++  const movers = categories.filter((c) => c.showNumber && c.trend != null);
++  if (!movers.length) {
++    return { hasTrend: false, headline: null, biggestGain: null, up: 0, steady: 0, down: 0 };
++  }
++  const up = movers.filter((c) => c.trend > 0);
++  const down = movers.filter((c) => c.trend < 0);
++  const steady = movers.filter((c) => c.trend === 0);
++  const parts = [];
++  if (up.length) parts.push(`up in ${plural(up.length, 'area')}`);
++  if (steady.length) parts.push(`steady in ${steady.length}`);
++  if (down.length) parts.push(`down in ${down.length}`);
++  const joined = parts.length > 1
++    ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
++    : parts[0];
++  const best = up.sort((a, b) => b.trend - a.trend)[0] ?? null;
++  return {
++    hasTrend: true,
++    headline: `${joined.charAt(0).toUpperCase()}${joined.slice(1)} over recent games.`,
++    // Only the biggest GAIN is singled out. The biggest drop is what the
++    // priority is for; naming it again here would be the second verdict.
++    biggestGain: best ? { key: best.key, label: best.label, text: `${best.label}, ${best.trendText}` } : null,
++    up: up.length,
++    steady: steady.length,
++    down: down.length,
++  };
++}
++
++/** Where the priority's "do it now" button goes, or null when nothing fits. */
++function priorityAction(priority) {
++  const puzzleTheme = puzzleThemeFor(priority.trainingTheme);
++  if (puzzleTheme) {
++    return {
++      href: `#/training?theme=${puzzleTheme}`,
++      label: `Practise ${priority.trainingTheme.toLowerCase()} puzzles`,
++    };
++  }
++  return ACTION_WITHOUT_THEME[priority.category] ?? null;
++}
++
++/*
++ * Only in-app hash routes may come through as a link. The homework list comes
++ * from another module, and a stray "javascript:" href rendered into an <a>
++ * would run on click.
++ */
++const safeHref = (href) => (typeof href === 'string' && href.startsWith('#/') ? href : null);
++
++function homeworkHref(item) {
++  const own = safeHref(item.href);
++  if (own) return own;
++  if (item.theme) {
++    const key = puzzleThemeFor(item.theme) ?? (PUZZLE_THEME_KEYS.has(item.theme) ? item.theme : null);
++    if (key) return `#/training?theme=${key}`;
++  }
++  return '#/training';
++}
++
++/**
++ * Homework still to do, soonest first.
++ *
++ * Expected item shape (the homework feature will adapt to it, or map onto
++ * it): { id, title, dueAt (ISO or YYYY-MM-DD), done?, theme?, href?, playerId? }.
++ * `theme` may be a training-theme label ("Fork") or a puzzle key ("fork").
++ */
++export function homeworkView(homework, playerId, now = Date.now()) {
++  if (!Array.isArray(homework)) return null;
++  const items = homework
++    .filter((item) => item && !item.done && (item.playerId == null || item.playerId === playerId))
++    .map((item) => {
++      const dueTime = toTime(item.dueAt);
++      return {
++        id: item.id ?? `${item.title}|${item.dueAt}`,
++        title: item.title || 'Homework',
++        dueAt: item.dueAt ?? null,
++        dueTime,
++        overdue: dueTime != null && dueTime < now,
++        href: homeworkHref(item),
++      };
++    })
++    .sort((a, b) => (a.dueTime ?? Infinity) - (b.dueTime ?? Infinity));
++  return {
++    items,
++    dueCount: items.length,
++    overdueCount: items.filter((i) => i.overdue).length,
++  };
++}
++
++/** The last few games this player played, newest first, with accuracy where analysed. */
++export function recentGamesFor(games = [], analyses = [], playerId, limit = RECENT_GAMES_LIMIT) {
++  const mine = (games || []).filter(
++    (g) => g && playerId && (g.whitePlayerId === playerId || g.blackPlayerId === playerId),
++  );
++  mine.sort((a, b) => (toTime(b.playedAt) ?? 0) - (toTime(a.playedAt) ?? 0));
++  return mine.slice(0, limit).map((game) => {
++    const view = gameFromPlayerSide(game, playerId);
++    // Only this player's own side, and only a row that says it is theirs:
++    // the opponent's accuracy is the opponent's analysis.
++    const row = analyses.find(
++      (a) => a.gameId === game.id && a.side === view.side && a.playerId === playerId,
++    );
++    const accuracy = row?.accuracy == null || Number.isNaN(Number(row.accuracy))
++      ? null
++      : Math.round(Number(row.accuracy));
++    return {
++      id: game.id,
++      date: String(game.playedAt ?? '').slice(0, 10),
++      mode: game.mode || 'human',
++      ...view,
++      analysed: !!row,
++      accuracy,
++    };
++  });
++}
++
++/*
++ * The single next step. The coach's homework comes first (the engine
++ * proposes, the coach disposes), then the plan's drill, then the player's own
++ * mistakes due for review, then their games, and a new member is sent to
++ * play one.
++ */
++function nextStepFor({ homework, priority, reviews, gamesCount }) {
++  const firstHomework = homework?.items?.[0];
++  if (firstHomework) {
++    return { href: firstHomework.href, label: `Homework: ${firstHomework.title}`, reason: 'homework' };
++  }
++  if (priority?.action) {
++    return { href: priority.action.href, label: priority.action.label, reason: 'priority' };
++  }
++  if (reviews.due > 0) {
++    return {
++      href: '#/training',
++      label: `Review ${plural(reviews.due, 'position')} from your games`,
++      reason: 'reviews',
++    };
++  }
++  if (gamesCount > 0) return { href: '#/my-games', label: 'Look through your games', reason: 'games' };
++  return { href: '#/play', label: 'Play a game', reason: 'new' };
++}
++
++/**
++ * Build the whole home page for one player.
++ *
++ * @param {object} input
++ * @param {object} input.player     the roster row ({ playerId, name, deletedAt? })
++ * @param {object} input.viewer     { role, playerId } — checked with canViewAnalysis()
++ * @param {Array}  input.skillRows  analysisStore skill rows (anyone's; filtered here)
++ * @param {Array}  input.analyses   analysisStore analysis rows (anyone's; filtered here)
++ * @param {Array}  input.games      gamesStore rows (anyone's; filtered here)
++ * @param {Array}  input.ownPuzzles ownPuzzleStore rows, in any state (anyone's; filtered here)
++ * @param {Array}  [input.homework] optional; absent means "do not show the block"
++ * @param {number} [input.now]      epoch ms, injected so tests need not wait
++ */
++export function buildPlayerHome({
++  player,
++  viewer,
++  skillRows = [],
++  analyses = [],
++  games = [],
++  ownPuzzles = [],
++  homework,
++  now = Date.now(),
++  recentLimit = RECENT_GAMES_LIMIT,
++} = {}) {
++  const playerId = player?.playerId ?? null;
++  if (!playerId) return { available: false, reason: 'no-player' };
++  // A retired member keeps their rows (0008), but has no home page to show.
++  if (player.deletedAt) return { available: false, reason: 'retired' };
++  // Same rule as every analysis view: a player sees their own, staff see all,
++  // anyone else sees nothing. Checked here so a wrong prop cannot leak it.
++  if (!canViewAnalysis(viewer, playerId)) return { available: false, reason: 'not-allowed' };
++
++  const mineAnalysed = (analyses || []).filter((a) => a && a.playerId === playerId);
++  const analysedGameIds = new Set(mineAnalysed.map((a) => a.gameId));
++
++  const { scores, trends } = scoresFromSkillRows(skillRows, playerId);
++  const categories = CATEGORY_KEYS.map((key) => categoryView(key, scores[key], trends[key] ?? null));
++
++  /*
++   * The priority needs evidence from this player's own analysed games. With
++   * none in hand there is nothing to base one on, and a coach's manual rubric
++   * is deliberately not consulted: it is the coach's judgement, shown on the
++   * Roster page, not an engine finding to lecture the player with.
++   *
++   * Only categories confident enough to be SHOWN may become the priority.
++   * improvementPlan() down-weights a low-confidence score but can still rank
++   * it first, and "work on endgame technique" beside "endgame technique: not
++   * enough games yet" tells a player two contradictory things.
++   */
++  let priority = null;
++  if (mineAnalysed.length) {
++    const confident = Object.fromEntries(
++      Object.entries(scores).filter(([, entry]) => SHOWABLE_CONFIDENCE.has(entry.confidence)),
++    );
++    const plan = improvementPlan(confident, motifTotals(mineAnalysed));
++    const summary = playerSummary(scores, plan, trends);
++    const top = plan.priorities[0];
++    if (summary.priority && top) {
++      priority = {
++        category: summary.priority.category,
++        label: summary.priority.label ?? CATEGORY_LABELS[summary.priority.category],
++        // improvementPlan() words its advice as `why`; playerSummary() reads
++        // `advice`, which the plan never sets, so take the words from the plan.
++        advice: summary.priority.advice ?? top.why ?? null,
++        trainingTheme: summary.priority.trainingTheme,
++      };
++      priority.action = priorityAction(priority);
++    }
++  }
++
++  const mineGames = (games || []).filter(
++    (g) => g && (g.whitePlayerId === playerId || g.blackPlayerId === playerId),
++  );
++  const minePuzzles = (ownPuzzles || []).filter((p) => p && p.playerId === playerId);
++  const review = reviewSummary(minePuzzles, now);
++  const reviews = {
++    due: review.due,
++    active: review.active,
++    nextDueAt: review.nextDueAt,
++    href: '#/training',
++  };
++
++  const homeworkBlock = homeworkView(homework, playerId, now);
++  const recentGames = recentGamesFor(mineGames, mineAnalysed, playerId, recentLimit);
++
++  return {
++    available: true,
++    playerId,
++    name: player.name || '',
++    isNewMember: mineGames.length === 0 && mineAnalysed.length === 0,
++    gamesCount: mineGames.length,
++    analysedCount: analysedGameIds.size,
++    priority,
++    trend: trendOverview(categories),
++    categories,
++    measuredCount: categories.filter((c) => c.showNumber).length,
++    reviews,
++    homework: homeworkBlock,
++    recentGames,
++    nextStep: nextStepFor({ homework: homeworkBlock, priority, reviews, gamesCount: mineGames.length }),
++  };
++}
+diff --git a/src/analysis/playerHome.test.js b/src/analysis/playerHome.test.js
+new file mode 100644
+index 0000000..96d6b76
+--- /dev/null
++++ b/src/analysis/playerHome.test.js
+@@ -0,0 +1,461 @@
++/*
++ * The player's own home page. What these pin down, in order of how much harm
++ * getting them wrong would do:
++ *   1. nobody sees another player's data, and a retired member has no page;
++ *   2. a low-confidence score never reaches the screen as a number;
++ *   3. no priority is invented without the player's own analysed games;
++ *   4. the trend leads, and only where a trend has actually been measured.
++ */
++
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {
++  buildPlayerHome, scoresFromSkillRows, homeworkView, recentGamesFor, gameFromPlayerSide,
++  trendOverview, motifTotals, MIN_GAMES_FOR_TREND,
++} from './playerHome.js';
++import { NOT_ENOUGH, NOT_MEASURABLE } from './presentation.js';
++
++const NOW = Date.parse('2026-11-10T18:00:00Z');
++const DAY = 86400000;
++
++const alice = { playerId: 'CC-010', name: 'Alice' };
++const bob = { playerId: 'CC-011', name: 'Bob' };
++const aliceViewer = { role: 'player', playerId: 'CC-010' };
++const coachViewer = { role: 'coach', playerId: 'CC-002' };
++
++const skill = (playerId, category, score, confidence, games, trend, observations = 30) => ({
++  playerId, category, score, confidence, games, trend, observations, source: 'engine',
++});
++
++const ALICE_SKILLS = [
++  skill('CC-010', 'tacticalVision', 62, 'medium', 6, 4),
++  skill('CC-010', 'boardVision', 45, 'high', 8, 9, 80),
++  skill('CC-010', 'openingKnowledge', 60, 'medium', 5, -3),
++  skill('CC-010', 'endgameTechnique', 20, 'low', 3, -10, 4),
++  skill('CC-010', 'timeManagement', 70, 'medium', 1, 0),
++];
++
++// Bob is weaker everywhere; none of it may leak into Alice's page.
++const BOB_SKILLS = [
++  skill('CC-011', 'tacticalVision', 12, 'high', 9, -20, 90),
++  skill('CC-011', 'positionalUnderstanding', 15, 'high', 9, -15, 90),
++];
++
++const game = (id, white, black, result, playedAt, extra = {}) => ({
++  id,
++  whitePlayerId: white,
++  blackPlayerId: black,
++  whiteName: white === 'CC-010' ? 'Alice' : white === 'CC-011' ? 'Bob' : 'Guest',
++  blackName: black === 'CC-010' ? 'Alice' : black === 'CC-011' ? 'Bob' : 'Guest',
++  result,
++  playedAt,
++  mode: 'human',
++  ...extra,
++});
++
++const analysis = (gameId, playerId, side, accuracy, motifCounts = {}) => ({
++  gameId, playerId, side, accuracy, motifCounts,
++});
++
++const GAMES = [
++  game('g1', 'CC-010', '', '1-0', '2026-11-01T18:00:00Z'),
++  game('g2', '', 'CC-010', '1-0', '2026-11-02T18:00:00Z'),
++  game('g3', 'CC-010', 'CC-011', '1/2-1/2', '2026-11-03T18:00:00Z'),
++  game('g4', 'CC-011', 'CC-010', '1-0', '2026-11-04T18:00:00Z'),
++  game('g5', 'CC-010', '', '*', '2026-11-05T18:00:00Z'),
++  game('g6', 'CC-010', '', '0-1', '2026-11-06T18:00:00Z'),
++  // Bob's game with a guest: not Alice's, must never appear on her page.
++  game('g7', 'CC-011', '', '1-0', '2026-11-09T18:00:00Z'),
++];
++
++const ANALYSES = [
++  analysis('g6', 'CC-010', 'w', 71.4, { hangingPiece: 2 }),
++  analysis('g3', 'CC-010', 'w', 64.6, { hangingPiece: 2 }),
++  // Bob's side of the shared game: his accuracy, not Alice's.
++  analysis('g3', 'CC-011', 'b', 88, { fork: 9 }),
++  analysis('g7', 'CC-011', 'w', 90, { fork: 9 }),
++];
++
++const ownPuzzle = (playerId, dueAt, extra = {}) => ({
++  playerId, fen: `${playerId}-${dueAt}`, solution: 'e2e4', dueAt, retired: false, ...extra,
++});
++
++const PUZZLES = [
++  ownPuzzle('CC-010', new Date(NOW - DAY).toISOString()),
++  ownPuzzle('CC-010', new Date(NOW - 2 * DAY).toISOString()),
++  ownPuzzle('CC-010', new Date(NOW + 3 * DAY).toISOString()),
++  ownPuzzle('CC-010', new Date(NOW - DAY).toISOString(), { retired: true, fen: 'retired' }),
++  ownPuzzle('CC-011', new Date(NOW - DAY).toISOString()),
++];
++
++const aliceHome = (overrides = {}) => buildPlayerHome({
++  player: alice,
++  viewer: aliceViewer,
++  skillRows: [...ALICE_SKILLS, ...BOB_SKILLS],
++  analyses: ANALYSES,
++  games: GAMES,
++  ownPuzzles: PUZZLES,
++  now: NOW,
++  ...overrides,
++});
++
++/* ── who may see the page ────────────────────────────────────────────────── */
++
++test('a player sees their own home page', () => {
++  const home = aliceHome();
++  assert.equal(home.available, true);
++  assert.equal(home.playerId, 'CC-010');
++});
++
++test('a player may NEVER be shown another player\'s home page', () => {
++  const home = buildPlayerHome({ player: bob, viewer: aliceViewer, skillRows: BOB_SKILLS, now: NOW });
++  assert.deepEqual(home, { available: false, reason: 'not-allowed' });
++});
++
++test('no viewer, or a role nobody has thought of, sees nothing', () => {
++  assert.equal(aliceHome({ viewer: null }).available, false);
++  assert.equal(aliceHome({ viewer: { role: 'parent', playerId: 'CC-010' } }).available, false);
++  assert.equal(aliceHome({ viewer: { role: 'player', playerId: null } }).available, false);
++});
++
++test('a coach may preview a player\'s page', () => {
++  assert.equal(aliceHome({ viewer: coachViewer }).available, true);
++});
++
++test('a retired member has no home page, whatever rows still exist', () => {
++  const home = aliceHome({ player: { ...alice, deletedAt: '2026-10-01T00:00:00Z' } });
++  assert.deepEqual(home, { available: false, reason: 'retired' });
++});
++
++test('no player at all is not an error, just nothing to show', () => {
++  assert.deepEqual(buildPlayerHome({ player: null, viewer: coachViewer }), { available: false, reason: 'no-player' });
++  assert.deepEqual(buildPlayerHome(), { available: false, reason: 'no-player' });
++});
++
++/* ── the one priority ────────────────────────────────────────────────────── */
++
++test('exactly one priority, from improvementPlan, with its advice and drill', () => {
++  const { priority } = aliceHome();
++  // boardVision 45 at high confidence outranks tactics 62 at medium.
++  assert.equal(priority.category, 'boardVision');
++  assert.equal(priority.label, 'Board vision');
++  assert.equal(priority.trainingTheme, 'Hanging Piece');
++  // Two hanging pieces in each of two games: 4 summed, over the plan's
++  // threshold of 3, so the concrete "this keeps happening" advice is used.
++  assert.match(priority.advice, /left undefended/);
++  assert.deepEqual(priority.action, {
++    href: '#/training?theme=hangingPiece',
++    label: 'Practise hanging piece puzzles',
++  });
++  assert.ok(!('score' in priority), 'the priority carries no number');
++  assert.ok(!Array.isArray(priority), 'one priority, not a list');
++});
++
++test('no analyses: no priority is invented, even with skill rows on file', () => {
++  const home = aliceHome({ analyses: [] });
++  assert.equal(home.priority, null);
++  assert.equal(home.analysedCount, 0);
++});
++
++test('a coach\'s manual rubric is never turned into a priority', () => {
++  const home = buildPlayerHome({
++    player: { ...alice, rubric: { tactics: 1, boardVision: 1, endgame: 1 } },
++    viewer: aliceViewer,
++    games: GAMES,
++    now: NOW,
++  });
++  assert.equal(home.priority, null);
++});
++
++test('analyses but no scored categories yet: still no priority', () => {
++  assert.equal(aliceHome({ skillRows: [] }).priority, null);
++});
++
++test('only another player\'s analyses: no priority for this one', () => {
++  const home = aliceHome({ analyses: ANALYSES.filter((a) => a.playerId === 'CC-011') });
++  assert.equal(home.priority, null);
++});
++
++test('a low-confidence category is never named as the priority', () => {
++  const home = aliceHome({
++    skillRows: [
++      skill('CC-010', 'endgameTechnique', 5, 'low', 3, 0, 4),
++      skill('CC-010', 'tacticalVision', 80, 'high', 9, 2, 60),
++    ],
++  });
++  // Unfiltered, improvementPlan would rank the endgame 5 first.
++  assert.equal(home.priority.category, 'tacticalVision');
++});
++
++test('only low-confidence categories: no priority yet', () => {
++  const home = aliceHome({
++    skillRows: [skill('CC-010', 'endgameTechnique', 5, 'low', 3, 0, 4)],
++  });
++  assert.equal(home.priority, null);
++});
++
++test('a frequent motif gives the concrete version of the drill', () => {
++  const home = aliceHome({
++    skillRows: [skill('CC-010', 'tacticalVision', 40, 'high', 9, -2, 60)],
++    analyses: [
++      analysis('g1', 'CC-010', 'w', 60, { fork: 2 }),
++      analysis('g6', 'CC-010', 'w', 58, { fork: 2, hangingPiece: 1 }),
++    ],
++  });
++  assert.equal(home.priority.trainingTheme, 'Fork');
++  assert.equal(home.priority.action.href, '#/training?theme=fork');
++});
++
++test('a priority with no puzzle theme sends the player somewhere that fits', () => {
++  const home = aliceHome({ skillRows: [skill('CC-010', 'timeManagement', 30, 'high', 9, 0, 60)] });
++  assert.equal(home.priority.category, 'timeManagement');
++  assert.equal(home.priority.trainingTheme, null);
++  assert.equal(home.priority.action.href, '#/play');
++});
++
++test('motifTotals sums only what it is given, and ignores junk counts', () => {
++  assert.deepEqual(motifTotals([{ motifCounts: { fork: 2 } }, { motifCounts: { fork: 1, pin: 'x' } }, {}]), { fork: 3 });
++});
++
++/* ── never a low-confidence number ───────────────────────────────────────── */
++
++test('a low-confidence score is words, and carries no number at all', () => {
++  const endgame = aliceHome().categories.find((c) => c.key === 'endgameTechnique');
++  assert.equal(endgame.showNumber, false);
++  assert.equal(endgame.text, NOT_ENOUGH);
++  assert.equal(endgame.level, null);
++  assert.equal(endgame.trend, null, 'a hidden score does not get a trend glued on');
++  assert.ok(!JSON.stringify(endgame).includes('20'), 'the score 20 must not be anywhere in the object');
++  assert.ok(!JSON.stringify(endgame).includes('-10'), 'nor its trend');
++});
++
++test('a row with a missing or unknown confidence is treated as not enough, not shown', () => {
++  const home = aliceHome({
++    skillRows: [
++      { playerId: 'CC-010', category: 'boardVision', score: 33, games: 5, trend: 2 },
++      { playerId: 'CC-010', category: 'tacticalVision', score: 44, confidence: 'certain', games: 5, trend: 2 },
++    ],
++  });
++  for (const key of ['boardVision', 'tacticalVision']) {
++    const row = home.categories.find((c) => c.key === key);
++    assert.equal(row.showNumber, false, key);
++    assert.equal(row.level, null, key);
++  }
++  assert.equal(home.priority, null, 'and neither becomes the priority');
++});
++
++test('medium and high confidence scores are shown, trend first', () => {
++  const board = aliceHome().categories.find((c) => c.key === 'boardVision');
++  assert.equal(board.showNumber, true);
++  assert.equal(board.level, '45');
++  assert.equal(board.trendText, 'up 9');
++  assert.equal(board.text, '45, up 9 over recent games');
++});
++
++test('notation reads as unmeasurable, not "not enough games"', () => {
++  const notation = aliceHome().categories.find((c) => c.key === 'notation');
++  assert.equal(notation.text, NOT_MEASURABLE);
++  assert.equal(notation.showNumber, false);
++});
++
++test('all eight categories are listed, and only confident ones count as measured', () => {
++  const home = aliceHome();
++  assert.equal(home.categories.length, 8);
++  assert.equal(home.measuredCount, 4); // tactics, board vision, opening, time
++});
++
++test('another player\'s skill rows never fill in this player\'s categories', () => {
++  const positional = aliceHome().categories.find((c) => c.key === 'positionalUnderstanding');
++  assert.equal(positional.showNumber, false);
++  assert.equal(positional.text, NOT_ENOUGH);
++});
++
++/* ── the trend ───────────────────────────────────────────────────────────── */
++
++test('a trend needs at least two tracked games', () => {
++  assert.equal(MIN_GAMES_FOR_TREND, 2);
++  const time = aliceHome().categories.find((c) => c.key === 'timeManagement');
++  assert.equal(time.showNumber, true);
++  assert.equal(time.trendText, null, 'one game is not a trend, not even "steady"');
++  assert.equal(time.text, '70');
++});
++
++test('the trend headline counts movement across confident categories only', () => {
++  const { trend } = aliceHome();
++  assert.equal(trend.hasTrend, true);
++  assert.equal(trend.up, 2); // board vision, tactics
++  assert.equal(trend.down, 1); // opening; the low-confidence endgame drop is not counted
++  assert.equal(trend.steady, 0);
++  assert.equal(trend.headline, 'Up in 2 areas and down in 1 over recent games.');
++  assert.equal(trend.biggestGain.text, 'Board vision, up 9');
++});
++
++test('no measured trend: no headline, no invented "steady"', () => {
++  const home = aliceHome({ skillRows: [skill('CC-010', 'boardVision', 50, 'high', 1, 0)] });
++  assert.equal(home.trend.hasTrend, false);
++  assert.equal(home.trend.headline, null);
++});
++
++test('trendOverview never names a biggest drop', () => {
++  const t = trendOverview([
++    { key: 'a', label: 'A', showNumber: true, trend: -12, trendText: 'down 12' },
++    { key: 'b', label: 'B', showNumber: true, trend: 0, trendText: 'steady' },
++  ]);
++  assert.equal(t.biggestGain, null);
++  assert.equal(t.headline, 'Steady in 1 and down in 1 over recent games.');
++});
++
++test('scoresFromSkillRows drops other players and unknown categories', () => {
++  const { scores, trends } = scoresFromSkillRows([
++    ...BOB_SKILLS,
++    { playerId: 'CC-010', category: 'invented', score: 10, confidence: 'high', games: 5, trend: 3 },
++  ], 'CC-010');
++  assert.deepEqual(Object.keys(scores), ['notation']);
++  assert.deepEqual(trends, {});
++});
++
++/* ── review positions due ────────────────────────────────────────────────── */
++
++test('review count: only this player\'s positions, due now, not retired', () => {
++  const { reviews } = aliceHome();
++  assert.equal(reviews.due, 2);
++  assert.equal(reviews.active, 3);
++  assert.equal(reviews.href, '#/training');
++});
++
++test('no own-game puzzles: nothing due, not an error', () => {
++  assert.equal(aliceHome({ ownPuzzles: undefined }).reviews.due, 0);
++});
++
++/* ── recent games ────────────────────────────────────────────────────────── */
++
++test('recent games: the last five of this player\'s, newest first', () => {
++  const { recentGames, gamesCount } = aliceHome();
++  assert.equal(gamesCount, 6);
++  assert.deepEqual(recentGames.map((g) => g.id), ['g6', 'g5', 'g4', 'g3', 'g2']);
++  assert.ok(!recentGames.some((g) => g.id === 'g7'), 'Bob\'s game is not on Alice\'s page');
++});
++
++test('results read from the player\'s side of the board', () => {
++  const byId = Object.fromEntries(aliceHome().recentGames.map((g) => [g.id, g]));
++  assert.equal(byId.g6.outcome, 'loss'); // 0-1 as White
++  assert.equal(byId.g4.outcome, 'loss'); // 1-0 as Black
++  assert.equal(byId.g2.outcome, 'loss');
++  assert.equal(byId.g3.outcome, 'draw');
++  assert.equal(byId.g5.outcomeLabel, 'Unfinished');
++  assert.equal(byId.g4.colour, 'Black');
++  assert.equal(byId.g4.opponent, 'Bob');
++  assert.equal(gameFromPlayerSide(game('x', '', 'CC-010', '0-1', null), 'CC-010').outcome, 'win');
++});
++
++test('accuracy is the player\'s own side only, rounded, and absent when not analysed', () => {
++  const byId = Object.fromEntries(aliceHome().recentGames.map((g) => [g.id, g]));
++  assert.equal(byId.g6.accuracy, 71);
++  assert.equal(byId.g3.accuracy, 65, 'Alice\'s 64.6, not Bob\'s 88 from the same game');
++  assert.equal(byId.g5.analysed, false);
++  assert.equal(byId.g5.accuracy, null);
++});
++
++test('an analysis row for the right side but another player is not borrowed', () => {
++  const games = recentGamesFor(
++    [game('z', 'CC-010', 'CC-011', '1-0', '2026-11-01T00:00:00Z')],
++    [analysis('z', 'CC-011', 'w', 99)],
++    'CC-010',
++  );
++  assert.equal(games[0].analysed, false);
++  assert.equal(games[0].accuracy, null);
++});
++
++test('a game against a retired member is still the player\'s own game', () => {
++  // Retirement hides the retired member; it does not erase who they played.
++  const home = aliceHome({ games: [game('r1', 'CC-010', 'CC-003', '1-0', '2026-11-01T00:00:00Z')] });
++  assert.deepEqual(home.recentGames.map((g) => g.id), ['r1']);
++});
++
++/* ── homework (optional) ─────────────────────────────────────────────────── */
++
++test('no homework list given: no homework block at all', () => {
++  assert.equal(aliceHome().homework, null);
++  assert.equal(homeworkView(undefined, 'CC-010', NOW), null);
++});
++
++test('an empty homework list is a block with nothing due', () => {
++  assert.deepEqual(aliceHome({ homework: [] }).homework, { items: [], dueCount: 0, overdueCount: 0 });
++});
++
++test('homework: done and other players\' items dropped, soonest first, overdue flagged', () => {
++  const view = homeworkView([
++    { id: 'h1', title: 'Forks set', dueAt: new Date(NOW + 3 * DAY).toISOString(), theme: 'Fork' },
++    { id: 'h2', title: 'Back rank', dueAt: new Date(NOW - DAY).toISOString(), theme: 'backRankMate' },
++    { id: 'h3', title: 'Done already', dueAt: new Date(NOW - DAY).toISOString(), done: true },
++    { id: 'h4', title: 'Bob only', dueAt: new Date(NOW).toISOString(), playerId: 'CC-011' },
++    { id: 'h5', title: 'Whenever', theme: 'Invented theme' },
++  ], 'CC-010', NOW);
++  assert.deepEqual(view.items.map((i) => i.id), ['h2', 'h1', 'h5']);
++  assert.equal(view.overdueCount, 1);
++  assert.equal(view.items[0].href, '#/training?theme=backRankMate');
++  assert.equal(view.items[1].href, '#/training?theme=fork');
++  assert.equal(view.items[2].href, '#/training', 'an unknown theme goes to the unfiltered page');
++});
++
++test('a bare due date counts as due by the end of that day, in local time', () => {
++  // Built from NOW in the machine's own zone, so this holds in Dallas and in CI.
++  const localDate = (t) => {
++    const d = new Date(t);
++    const pad = (n) => String(n).padStart(2, '0');
++    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
++  };
++  const view = homeworkView([
++    { id: 'today', title: 'Today', dueAt: localDate(NOW) },
++    { id: 'yesterday', title: 'Yesterday', dueAt: localDate(NOW - DAY) },
++  ], 'CC-010', NOW);
++  const byId = Object.fromEntries(view.items.map((i) => [i.id, i]));
++  assert.equal(byId.today.overdue, false);
++  assert.equal(byId.yesterday.overdue, true);
++});
++
++test('homework hrefs are in-app routes only', () => {
++  const view = homeworkView([
++    { id: 'bad', title: 'x', href: 'javascript:alert(1)' },
++    { id: 'ext', title: 'y', href: 'https://example.com' },
++    { id: 'ok', title: 'z', href: '#/my-games' },
++  ], 'CC-010', NOW);
++  const byId = Object.fromEntries(view.items.map((i) => [i.id, i.href]));
++  assert.equal(byId.bad, '#/training');
++  assert.equal(byId.ext, '#/training');
++  assert.equal(byId.ok, '#/my-games');
++});
++
++/* ── the next step ───────────────────────────────────────────────────────── */
++
++test('next step: the coach\'s homework comes before the engine\'s drill', () => {
++  const home = aliceHome({ homework: [{ id: 'h', title: 'Pins', dueAt: '2026-11-12', theme: 'Pin' }] });
++  assert.deepEqual(home.nextStep, { href: '#/training?theme=pin', label: 'Homework: Pins', reason: 'homework' });
++});
++
++test('next step: the priority drill when there is one', () => {
++  assert.equal(aliceHome().nextStep.href, '#/training?theme=hangingPiece');
++  assert.equal(aliceHome().nextStep.reason, 'priority');
++});
++
++test('next step: review positions when there is no priority', () => {
++  const step = aliceHome({ analyses: [] }).nextStep;
++  assert.equal(step.reason, 'reviews');
++  assert.equal(step.label, 'Review 2 positions from your games');
++});
++
++test('next step: their games when nothing is due and there is no priority', () => {
++  assert.equal(aliceHome({ analyses: [], ownPuzzles: [] }).nextStep.href, '#/my-games');
++});
++
++test('a brand-new member: empty everything, and sent to play a game', () => {
++  const home = buildPlayerHome({ player: { playerId: 'CC-020', name: 'New' }, viewer: { role: 'player', playerId: 'CC-020' }, games: GAMES, analyses: ANALYSES, skillRows: ALICE_SKILLS, ownPuzzles: PUZZLES, now: NOW });
++  assert.equal(home.available, true);
++  assert.equal(home.isNewMember, true);
++  assert.equal(home.gamesCount, 0);
++  assert.deepEqual(home.recentGames, []);
++  assert.equal(home.priority, null);
++  assert.equal(home.reviews.due, 0);
++  assert.equal(home.measuredCount, 0);
++  assert.deepEqual(home.nextStep, { href: '#/play', label: 'Play a game', reason: 'new' });
++});
+diff --git a/src/components/PlayerHome.jsx b/src/components/PlayerHome.jsx
+new file mode 100644
+index 0000000..21e0404
+--- /dev/null
++++ b/src/components/PlayerHome.jsx
+@@ -0,0 +1,239 @@
++import { useMemo, useState } from 'react';
++import { usePlayers } from '../data/rosterStore.js';
++import { useAnalyses, useSkillScores } from '../data/analysisStore.js';
++import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
++import { useOwnPuzzlesFor } from '../data/ownPuzzleStore.js';
++import { buildPlayerHome } from '../analysis/playerHome.js';
++import '../styles/playerHome.css';
++
++/*
++ * PlayerHome — one player's own page, at the top of the Club page.
++ *
++ * Everything shown here is decided by buildPlayerHome() in
++ * src/analysis/playerHome.js, which is unit-tested: who may see it, which
++ * scores may appear as numbers, what the one priority is. This component
++ * only lays it out. It never reads a raw score, so it cannot show a
++ * low-confidence one by accident.
++ *
++ * `homework` is optional. The homework feature is being built separately;
++ * until it passes a list in, the block does not render at all, rather than
++ * telling a player they have nothing due when nobody has looked.
++ */
++export default function PlayerHome({ playerId, viewer, homework, preview = false }) {
++  const players = usePlayers();
++  const skillRows = useSkillScores();
++  const analyses = useAnalyses();
++  const games = useGames();
++  const ownPuzzles = useOwnPuzzlesFor(playerId);
++  // Fixed for the visit: "due now" should not shift under the player while
++  // they read the page, and a fresh value every render would defeat useMemo.
++  const [now] = useState(() => Date.now());
++
++  const player = players.find((p) => p.playerId === playerId) ?? null;
++  const home = useMemo(
++    () => buildPlayerHome({ player, viewer, skillRows, analyses, games, ownPuzzles, homework, now }),
++    [player, viewer, skillRows, analyses, games, ownPuzzles, homework, now],
++  );
++
++  if (!home.available) return null;
++
++  const firstName = home.name.split(' ')[0] || 'there';
++
++  return (
++    <section className="panel player-home" aria-label="Your home page">
++      <div className="panel-header ph-header">
++        <div>
++          <h2>{preview ? `${home.name}'s home page` : `Hi, ${firstName}`}</h2>
++          {preview && (
++            <p className="muted small ph-preview-note">
++              Local preview: what {firstName} sees when signed in. Nothing here is saved.
++            </p>
++          )}
++        </div>
++        {/*
++          The one next step. When it IS the priority's drill, the button in
++          the priority card is that step, so it is not repeated up here.
++        */}
++        {home.nextStep.reason !== 'priority' && (
++          <a className="ph-action primary ph-next" href={home.nextStep.href}>
++            {home.nextStep.label}
++          </a>
++        )}
++      </div>
++
++      {home.isNewMember ? (
++        <NewMember firstName={firstName} />
++      ) : (
++        <div className={`ph-grid ${home.homework ? 'has-homework' : ''}`}>
++          <Priority
++            priority={home.priority}
++            analysedCount={home.analysedCount}
++            isNextStep={home.nextStep.reason === 'priority'}
++          />
++          <Trend trend={home.trend} categories={home.categories} analysedCount={home.analysedCount} />
++          <Reviews reviews={home.reviews} />
++          {home.homework && <Homework homework={home.homework} />}
++          <RecentGames games={home.recentGames} total={home.gamesCount} />
++        </div>
++      )}
++    </section>
++  );
++}
++
++function NewMember({ firstName }) {
++  return (
++    <div className="ph-empty">
++      <p>
++        Welcome, {firstName}. There are no games on your page yet, so there is nothing to measure.
++      </p>
++      <p className="muted">
++        Link Chess.com or Lichess in your account menu, or play a game here. Once a few games are
++        analysed, this page shows the one thing to work on, how you are trending, and your own
++        mistakes to review.
++      </p>
++      <div className="ph-actions">
++        <a className="ph-action" href="#/training">Or try some puzzles</a>
++      </div>
++    </div>
++  );
++}
++
++function Priority({ priority, analysedCount, isNextStep }) {
++  return (
++    <div className="ph-card ph-priority">
++      <h3>Your one thing to work on</h3>
++      {priority ? (
++        <>
++          <p className="ph-priority-label">{priority.label}</p>
++          {priority.advice && <p className="muted">{priority.advice}</p>}
++          {priority.action && (
++            <a className={`ph-action ${isNextStep ? 'primary' : ''}`} href={priority.action.href}>
++              {priority.action.label}
++            </a>
++          )}
++        </>
++      ) : (
++        <p className="muted">
++          {analysedCount
++            ? 'Not enough games yet to pick one. It appears after a few more of your games are analysed.'
++            : 'It appears once your games have been analysed. That happens on its own while the app is open.'}
++        </p>
++      )}
++    </div>
++  );
++}
++
++/*
++ * Trend before level: the movement is the first thing in each row and the
++ * headline is only movement. A category that is not confident enough reads
++ * as words, with no number and no trend.
++ */
++function Trend({ trend, categories, analysedCount }) {
++  return (
++    <div className="ph-card ph-trend">
++      <h3>How you are trending</h3>
++      <p className="ph-trend-headline">
++        {trend.headline ?? (analysedCount
++          ? 'Not enough games yet to show a trend.'
++          : 'Your trend appears once your games have been analysed.')}
++      </p>
++      {trend.biggestGain && <p className="muted small">Biggest gain: {trend.biggestGain.text}.</p>}
++      <ul className="ph-categories">
++        {categories.map((c) => (
++          <li key={c.key} className={c.showNumber ? '' : 'ph-hidden'}>
++            <span className="ph-cat-label">{c.label}</span>
++            {c.showNumber ? (
++              <>
++                <span className={`ph-trend-chip ${trendClass(c.trend)}`}>
++                  {c.trendText ?? 'new'}
++                </span>
++                <span className="ph-level mono">{c.level}</span>
++              </>
++            ) : (
++              <span className="ph-words muted">{c.text}</span>
++            )}
++          </li>
++        ))}
++      </ul>
++    </div>
++  );
++}
++
++const trendClass = (n) => (n == null ? 'none' : n > 0 ? 'up' : n < 0 ? 'down' : 'steady');
++
++function Reviews({ reviews }) {
++  return (
++    <div className="ph-card ph-reviews">
++      <h3>Review positions due</h3>
++      <p className="ph-count">
++        <span className="mono">{reviews.due}</span>{' '}
++        {reviews.due === 1 ? 'position' : 'positions'} from your own games
++      </p>
++      {reviews.due > 0 ? (
++        <>
++          <p className="muted small">
++            On Training, pick yourself as the trainee and choose &ldquo;Your mistakes&rdquo;.
++          </p>
++          <a className="ph-action" href={reviews.href}>Review them</a>
++        </>
++      ) : (
++        <p className="muted small">
++          {reviews.active
++            ? `Nothing due right now. ${reviews.active} on your list will come back on schedule.`
++            : 'Positions you get wrong in analysed games land here to practise again.'}
++        </p>
++      )}
++    </div>
++  );
++}
++
++function Homework({ homework }) {
++  return (
++    <div className="ph-card ph-homework">
++      <h3>Homework due</h3>
++      {homework.items.length === 0 ? (
++        <p className="muted small">Nothing assigned right now.</p>
++      ) : (
++        <ul className="ph-list">
++          {homework.items.map((item) => (
++            <li key={item.id}>
++              <a href={item.href}>{item.title}</a>
++              {item.dueAt && (
++                <span className={`small ${item.overdue ? 'ph-overdue' : 'muted'}`}>
++                  {item.overdue ? 'overdue' : `due ${String(item.dueAt).slice(0, 10)}`}
++                </span>
++              )}
++            </li>
++          ))}
++        </ul>
++      )}
++    </div>
++  );
++}
++
++function RecentGames({ games, total }) {
++  return (
++    <div className="ph-card ph-games">
++      <h3>Recent games</h3>
++      <ul className="ph-list">
++        {games.map((g) => (
++          <li key={g.id}>
++            <span className={`ph-outcome ${g.outcome}`}>{g.outcomeLabel}</span>
++            <span className="ph-game-main">
++              <span className="ph-opponent">vs {g.opponent}</span>
++              <span className="ph-game-meta muted small">
++                {g.colour} · {GAME_MODE_LABEL[g.mode] || g.mode} · {g.date}
++              </span>
++            </span>
++            <span className="ph-accuracy mono small">
++              {g.accuracy != null ? `${g.accuracy}% accuracy` : <span className="muted">not analysed yet</span>}
++            </span>
++          </li>
++        ))}
++      </ul>
++      <a className="ph-more" href="#/my-games">
++        {total > games.length ? `All ${total} of your games` : 'Open your games'}
++      </a>
++    </div>
++  );
++}
+diff --git a/src/pages/DashboardPage.jsx b/src/pages/DashboardPage.jsx
+index 9b9efb9..09c42e8 100644
+--- a/src/pages/DashboardPage.jsx
++++ b/src/pages/DashboardPage.jsx
+@@ -1,6 +1,9 @@
+-import { useMemo } from 'react';
+-import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
++import { useMemo, useState } from 'react';
++import { usePlayers, useCloudStatus, useMyProfile } from '../data/rosterStore.js';
++import { useAccount } from '../data/accountStore.js';
++import { isSupabaseConfigured } from '../data/supabaseClient.js';
+ import InfoTooltip from '../components/InfoTooltip.jsx';
++import PlayerHome from '../components/PlayerHome.jsx';
+ import { useSkillScores } from '../data/analysisStore.js';
+ import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
+ import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
+@@ -12,6 +15,29 @@ import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
+ export default function DashboardPage({ onNavigate }) {
+   const players = usePlayers();
+   const cloud = useCloudStatus();
++
++  /*
++   * The signed-in member's own page sits above the club view. It needs a
++   * linked roster row: an account that has not claimed one has no games or
++   * scores to show, and the account menu already offers the claim.
++   */
++  const me = useMyProfile();
++  const account = useAccount();
++  const myViewer = useMemo(
++    () => (me ? { role: account.role, playerId: me.playerId } : null),
++    [me, account.role],
++  );
++
++  /*
++   * Local mode has no accounts, so no signed-in player: the one local user is
++   * the coach (accountStore's LOCAL_ADMIN). Rather than faking a sign-in, the
++   * coach can preview any roster member's page. Local only - with a backend,
++   * each member sees their own page when they sign in.
++   */
++  const canPreview = !isSupabaseConfigured && account.isCoach;
++  const [previewId, setPreviewId] = useState('');
++  const previewViewer = useMemo(() => ({ role: account.role, playerId: null }), [account.role]);
++  const previewing = canPreview && players.some((p) => p.playerId === previewId);
+   // The club profile now prefers real engine measurements over an untouched
+   // manual rubric, and leaves a category blank rather than averaging "no data"
+   // as zero - which is what made every category read a flat 2.5.
+@@ -69,6 +95,31 @@ export default function DashboardPage({ onNavigate }) {
+ 
+   return (
+     <div className="dashboard">
++      {isSupabaseConfigured && me && account.isApproved && (
++        <PlayerHome playerId={me.playerId} viewer={myViewer} />
++      )}
++
++      {canPreview && players.length > 0 && (
++        <section className="panel ph-preview-picker" aria-label="Preview a player's home page">
++          <label htmlFor="ph-preview-select" className="muted small">
++            Local mode: preview a player&rsquo;s home page as
++          </label>
++          <select
++            id="ph-preview-select"
++            value={previewing ? previewId : ''}
++            onChange={(event) => setPreviewId(event.target.value)}
++          >
++            <option value="">No one (club view only)</option>
++            {players.map((p) => (
++              <option key={p.playerId} value={p.playerId}>
++                {p.name} ({p.playerId})
++              </option>
++            ))}
++          </select>
++        </section>
++      )}
++      {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
++
+       <section className="hero">
+         <div>
+           <h1>Chess Club</h1>
+diff --git a/src/styles/playerHome.css b/src/styles/playerHome.css
+new file mode 100644
+index 0000000..bfe7719
+--- /dev/null
++++ b/src/styles/playerHome.css
+@@ -0,0 +1,326 @@
++/* =========================================================================
++   Player home — the signed-in player's own block at the top of the Club page.
++   Its own file so it merges cleanly beside other features' styles; every
++   colour comes from the tokens in app.css, so light and dark both work.
++   ========================================================================= */
++
++.player-home {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++  border-color: var(--border-strong);
++}
++
++.ph-header {
++  align-items: flex-start;
++  flex-wrap: wrap;
++}
++
++.ph-header h2 {
++  font-size: 1.25rem;
++}
++
++.ph-preview-note {
++  margin: 4px 0 0;
++}
++
++/* Anchors dressed as buttons: they carry real hash routes (#/training?theme=…),
++   so middle-click and "copy link" work, and there is no click handler to break. */
++.ph-action {
++  display: inline-block;
++  padding: 8px 14px;
++  border-radius: 8px;
++  border: 1px solid var(--border);
++  background: var(--bg-sunken);
++  color: var(--text);
++  font-size: 0.88rem;
++  font-weight: 600;
++  text-decoration: none;
++  line-height: 1.3;
++  transition: background 0.12s, border-color 0.12s;
++}
++
++.ph-action:hover {
++  border-color: var(--border-strong);
++  background: var(--bg-raised);
++}
++
++.ph-action.primary {
++  background: var(--accent);
++  border-color: var(--accent);
++  color: var(--accent-text);
++}
++
++.ph-action.primary:hover {
++  filter: brightness(1.07);
++}
++
++.ph-action:focus-visible,
++.ph-more:focus-visible,
++.ph-list a:focus-visible {
++  outline: 2px solid var(--accent);
++  outline-offset: 2px;
++}
++
++.ph-actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 10px;
++  margin-top: 12px;
++}
++
++.ph-grid {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  grid-template-areas:
++    'priority trend'
++    'reviews trend'
++    'games games';
++  gap: 14px;
++  align-items: start;
++}
++
++/* Only when the homework feature hands a list in; otherwise no empty row. */
++.ph-grid.has-homework {
++  grid-template-areas:
++    'priority trend'
++    'reviews trend'
++    'homework trend'
++    'games games';
++}
++
++.ph-priority { grid-area: priority; }
++.ph-trend { grid-area: trend; }
++.ph-reviews { grid-area: reviews; }
++.ph-homework { grid-area: homework; }
++.ph-games { grid-area: games; }
++
++.ph-card {
++  background: var(--bg-sunken);
++  border: 1px solid var(--border);
++  border-radius: var(--radius);
++  padding: 14px 16px;
++  min-width: 0;
++}
++
++.ph-card h3 {
++  margin-top: 0;
++  margin-bottom: 8px;
++}
++
++/* The priority and the trend are the page; they get the wide slots. */
++.ph-priority {
++  border-left: 3px solid var(--accent);
++}
++
++.ph-priority-label {
++  font-size: 1.15rem;
++  font-weight: 650;
++  margin: 0 0 4px;
++}
++
++.ph-priority .ph-action {
++  margin-top: 6px;
++}
++
++.ph-trend-headline {
++  font-weight: 600;
++  margin: 0 0 4px;
++}
++
++.ph-categories {
++  list-style: none;
++  margin: 10px 0 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.ph-categories li {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) auto auto;
++  align-items: center;
++  gap: 8px;
++  font-size: 0.9rem;
++}
++
++.ph-categories li.ph-hidden {
++  grid-template-columns: minmax(0, 1fr) auto;
++}
++
++.ph-cat-label {
++  min-width: 0;
++}
++
++.ph-words {
++  font-size: 0.8rem;
++  text-align: right;
++}
++
++.ph-level {
++  min-width: 3ch;
++  text-align: right;
++  color: var(--text-muted);
++}
++
++.ph-trend-chip {
++  font-size: 0.76rem;
++  font-weight: 600;
++  padding: 1px 8px;
++  border-radius: 999px;
++  border: 1px solid var(--border);
++  white-space: nowrap;
++}
++
++/* Colour is never the only signal: the chip always says "up", "down" or "steady". */
++.ph-trend-chip.up {
++  color: var(--good);
++  border-color: var(--good);
++}
++
++.ph-trend-chip.down {
++  color: var(--warn);
++  border-color: var(--warn);
++}
++
++.ph-trend-chip.steady,
++.ph-trend-chip.none {
++  color: var(--text-muted);
++}
++
++.ph-count {
++  margin: 0;
++  font-size: 1rem;
++}
++
++.ph-count .mono {
++  font-size: 1.5rem;
++  font-weight: 650;
++}
++
++.ph-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.ph-list li {
++  display: flex;
++  align-items: baseline;
++  gap: 8px;
++  flex-wrap: wrap;
++}
++
++.ph-list a,
++.ph-more {
++  color: var(--accent);
++  text-decoration: none;
++}
++
++.ph-list a:hover,
++.ph-more:hover {
++  text-decoration: underline;
++}
++
++.ph-more {
++  display: inline-block;
++  margin-top: 10px;
++  font-size: 0.85rem;
++}
++
++.ph-overdue {
++  color: var(--bad);
++  font-weight: 600;
++}
++
++.ph-games li {
++  flex-wrap: nowrap;
++  padding: 6px 0;
++  border-top: 1px solid var(--border);
++}
++
++.ph-games li:first-child {
++  border-top: 0;
++  padding-top: 0;
++}
++
++.ph-outcome {
++  flex: none;
++  width: 8.5ch;
++  font-size: 0.8rem;
++  font-weight: 600;
++}
++
++/* A loss is not painted red: this is a teenager's own page, and the result
++   is already in words. */
++.ph-outcome.win { color: var(--good); }
++.ph-outcome.loss,
++.ph-outcome.draw,
++.ph-outcome.unfinished { color: var(--text-muted); }
++
++.ph-game-main {
++  flex: 1;
++  min-width: 0;
++}
++
++/* Online usernames run long; break inside the name, never push the page wide. */
++.ph-opponent {
++  display: block;
++  overflow-wrap: anywhere;
++}
++
++.ph-game-meta {
++  display: block;
++}
++
++.ph-accuracy {
++  flex: none;
++  text-align: right;
++}
++
++.ph-empty p:first-child {
++  margin-top: 0;
++}
++
++/* The coach's local "Preview as" picker on the Club page. */
++.ph-preview-picker {
++  display: flex;
++  align-items: center;
++  flex-wrap: wrap;
++  gap: 8px 12px;
++}
++
++.ph-preview-picker select {
++  max-width: 100%;
++}
++
++@media (max-width: 760px) {
++  .ph-grid,
++  .ph-grid.has-homework {
++    grid-template-columns: minmax(0, 1fr);
++    grid-template-areas: none;
++  }
++
++  .ph-grid > * {
++    grid-area: auto;
++  }
++
++  .ph-games li {
++    flex-wrap: wrap;
++  }
++
++  .ph-accuracy {
++    flex-basis: 100%;
++    text-align: left;
++    padding-left: calc(8.5ch + 8px);
++  }
++
++  .ph-next {
++    width: 100%;
++    text-align: center;
++  }
++}

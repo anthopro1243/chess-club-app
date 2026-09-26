@@ -1,0 +1,1783 @@
+diff --git a/src/components/HomeworkPanel.jsx b/src/components/HomeworkPanel.jsx
+new file mode 100644
+index 0000000..35de1f2
+--- /dev/null
++++ b/src/components/HomeworkPanel.jsx
+@@ -0,0 +1,388 @@
++import { useMemo, useState } from 'react';
++import InfoTooltip from './InfoTooltip.jsx';
++import HomeworkStatus from './HomeworkStatus.jsx';
++import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
++import {
++  DEFAULT_REQUIRED,
++  HOMEWORK_DIFFICULTIES,
++  MAX_REQUIRED,
++  NOTE_MAX,
++  assignmentReport,
++  assignmentTitle,
++  buildAssignment,
++  defaultDueDate,
++  dueAtFromDate,
++  localDateString,
++  orderAssignments,
++  puzzlesMatching,
++  themeLabel,
++} from '../data/homework.js';
++import { useAssignments, saveAssignment, removeAssignment, newHomeworkId } from '../data/homeworkStore.js';
++import { useAttempts } from '../data/puzzleAttemptsStore.js';
++import '../styles/homework.css';
++
++const blankDraft = () => ({
++  kind: 'theme',
++  theme: '',
++  difficulty: '',
++  requiredCount: DEFAULT_REQUIRED,
++  puzzleIds: [],
++  audience: 'club',
++  playerIds: [],
++  dueDate: defaultDueDate(),
++  note: '',
++});
++
++const shortDate = (iso) =>
++  iso
++    ? new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
++    : '—';
++
++const themeCounts = new Map(PUZZLE_THEMES.map((t) => [t, puzzlesMatching(PUZZLES, { theme: t }).length]));
++
++/**
++ * HomeworkPanel — set homework, and see who has done it.
++ *
++ * Coach page only. Setting homework writes an assignment; nothing is written
++ * when a trainee does it, because completion is read straight off their
++ * puzzle attempts (homework.js). So the "who has done it" list below is live:
++ * it moves the moment a trainee finishes a puzzle on the Training page.
++ */
++export default function HomeworkPanel({ players }) {
++  const assignments = useAssignments();
++  const attempts = useAttempts();
++  const [open, setOpen] = useState(false);
++  const [draft, setDraft] = useState(blankDraft);
++  const [errors, setErrors] = useState([]);
++  const [busy, setBusy] = useState(false);
++  const [notice, setNotice] = useState('');
++
++  const activePlayers = useMemo(() => players.filter((p) => !p.deletedAt), [players]);
++  const update = (patch) => setDraft((d) => ({ ...d, ...patch }));
++
++  const matching = useMemo(
++    () => (draft.theme ? puzzlesMatching(PUZZLES, { theme: draft.theme, difficulty: draft.difficulty }) : []),
++    [draft.theme, draft.difficulty],
++  );
++  const bandCounts = useMemo(
++    () =>
++      Object.fromEntries(
++        HOMEWORK_DIFFICULTIES.map((d) => [
++          d.key,
++          draft.theme ? puzzlesMatching(PUZZLES, { theme: draft.theme, difficulty: d.key }).length : null,
++        ]),
++      ),
++    [draft.theme],
++  );
++
++  // Every report walks the attempt list, so they are rebuilt when attempts,
++  // assignments or the roster change, not on every keystroke in the form.
++  // `now` is taken at that moment for the same reason.
++  const { ordered, reports, now } = useMemo(() => {
++    const at = Date.now();
++    const list = orderAssignments(assignments, { now: at });
++    return {
++      ordered: list,
++      reports: Object.fromEntries(list.map((a) => [a.id, assignmentReport(a, attempts, activePlayers, { now: at })])),
++      now: at,
++    };
++  }, [assignments, attempts, activePlayers]);
++  const running = ordered.filter((a) => Date.parse(a.dueAt) >= now).length;
++
++  const errorFor = (field) => errors.filter((e) => e.field === field).map((e) => e.message).join(' ');
++
++  const togglePlayer = (playerId) =>
++    update({
++      playerIds: draft.playerIds.includes(playerId)
++        ? draft.playerIds.filter((id) => id !== playerId)
++        : [...draft.playerIds, playerId],
++    });
++
++  const togglePuzzle = (puzzleId) =>
++    update({
++      puzzleIds: draft.puzzleIds.includes(puzzleId)
++        ? draft.puzzleIds.filter((id) => id !== puzzleId)
++        : [...draft.puzzleIds, puzzleId],
++    });
++
++  const submit = async (event) => {
++    event.preventDefault();
++    const result = buildAssignment(
++      { ...draft, dueAt: dueAtFromDate(draft.dueDate) },
++      { themes: PUZZLE_THEMES, puzzles: PUZZLES, players: activePlayers, now: new Date(), id: newHomeworkId() },
++    );
++    if (!result.ok) {
++      setErrors(result.errors);
++      return;
++    }
++    setBusy(true);
++    const saved = await saveAssignment(result.assignment);
++    setBusy(false);
++    if (!saved.ok) {
++      setErrors([{ field: 'save', message: `Not saved: ${saved.error}` }]);
++      return;
++    }
++    setErrors([]);
++    setDraft(blankDraft());
++    setOpen(false);
++    setNotice(`Set: ${assignmentTitle(result.assignment)}, due ${shortDate(result.assignment.dueAt)}.`);
++  };
++
++  const remove = (assignment) => {
++    // Attempts stay either way; this only takes the assignment off everyone's list.
++    if (!window.confirm(`Remove "${assignmentTitle(assignment)}"? Trainees' puzzle attempts are kept.`)) return;
++    removeAssignment(assignment.id);
++  };
++
++  return (
++    <section className="panel hw-panel">
++      <div className="panel-header">
++        <h2>
++          Homework
++          <InfoTooltip>
++            Set a theme or a fixed set of puzzles with a due date. Progress comes straight from
++            what each trainee solves on the Training page: only attempts made after the homework
++            was set count, each puzzle once, and a hint or a shown answer does not count as solved.
++            Work finished after the due date still counts, marked late.
++          </InfoTooltip>
++        </h2>
++        <span className="panel-header-actions">
++          <span className="badge">{running} running</span>
++          {!open && (
++            <button
++              type="button"
++              className="primary hw-new"
++              onClick={() => {
++                setOpen(true);
++                setNotice('');
++              }}
++            >
++              New homework
++            </button>
++          )}
++        </span>
++      </div>
++
++      {notice && <p className="hw-notice">{notice}</p>}
++
++      {open && (
++        <form className="hw-form" onSubmit={submit} noValidate>
++          <fieldset className="hw-choice hw-wide">
++            <legend>What to practise</legend>
++            <label>
++              <input type="radio" name="hw-kind" checked={draft.kind === 'theme'} onChange={() => update({ kind: 'theme' })} />
++              Any puzzles on a theme
++            </label>
++            <label>
++              <input type="radio" name="hw-kind" checked={draft.kind === 'set'} onChange={() => update({ kind: 'set' })} />
++              A fixed set of puzzles
++            </label>
++          </fieldset>
++
++          <label className="field">
++            <span>Theme</span>
++            <select value={draft.theme} onChange={(e) => update({ theme: e.target.value })} aria-label="Theme">
++              <option value="">Choose a theme…</option>
++              {PUZZLE_THEMES.map((t) => (
++                <option key={t} value={t}>
++                  {themeLabel(t)} ({themeCounts.get(t)})
++                </option>
++              ))}
++            </select>
++            {errorFor('theme') && <em className="hw-error">{errorFor('theme')}</em>}
++          </label>
++
++          <label className="field">
++            <span>Difficulty</span>
++            <select value={draft.difficulty} onChange={(e) => update({ difficulty: e.target.value })} aria-label="Difficulty">
++              <option value="">Any difficulty</option>
++              {HOMEWORK_DIFFICULTIES.map((d) => (
++                <option key={d.key} value={d.key} disabled={bandCounts[d.key] === 0}>
++                  {d.label}
++                  {bandCounts[d.key] != null ? ` (${bandCounts[d.key]})` : ''}
++                </option>
++              ))}
++            </select>
++            {errorFor('difficulty') && <em className="hw-error">{errorFor('difficulty')}</em>}
++          </label>
++
++          {draft.kind === 'theme' ? (
++            <label className="field">
++              <span>Puzzles to solve</span>
++              <input
++                type="number"
++                min="1"
++                max={Math.min(MAX_REQUIRED, matching.length || MAX_REQUIRED)}
++                value={draft.requiredCount}
++                onChange={(e) => update({ requiredCount: e.target.value === '' ? '' : Number(e.target.value) })}
++              />
++              {draft.theme && <em className="hw-help">{matching.length} available</em>}
++              {errorFor('requiredCount') && <em className="hw-error">{errorFor('requiredCount')}</em>}
++            </label>
++          ) : (
++            <div className="field hw-wide">
++              <span>
++                Puzzles in the set <strong className="mono">{draft.puzzleIds.length}</strong> chosen
++                {draft.puzzleIds.length > 0 && (
++                  <button type="button" className="link-button hw-inline" onClick={() => update({ puzzleIds: [] })}>
++                    clear
++                  </button>
++                )}
++              </span>
++              {!draft.theme ? (
++                <em className="hw-help">Choose a theme to list its puzzles. Picks are kept if you switch theme.</em>
++              ) : (
++                <ul className="hw-pick-list">
++                  {matching.map((p) => (
++                    <li key={p.id}>
++                      <label>
++                        <input type="checkbox" checked={draft.puzzleIds.includes(p.id)} onChange={() => togglePuzzle(p.id)} />
++                        <span className="hw-pick-name">{p.name}</span>
++                        <span className="mono hw-pick-rating">{p.rating}</span>
++                      </label>
++                    </li>
++                  ))}
++                </ul>
++              )}
++              {errorFor('puzzleIds') && <em className="hw-error">{errorFor('puzzleIds')}</em>}
++            </div>
++          )}
++
++          <label className="field">
++            <span>Due</span>
++            <input
++              type="date"
++              value={draft.dueDate}
++              min={localDateString(new Date())}
++              onChange={(e) => update({ dueDate: e.target.value })}
++            />
++            <em className="hw-help">By the end of that day.</em>
++            {errorFor('dueAt') && <em className="hw-error">{errorFor('dueAt')}</em>}
++          </label>
++
++          <fieldset className="hw-choice hw-wide">
++            <legend>For</legend>
++            <label>
++              <input type="radio" name="hw-audience" checked={draft.audience === 'club'} onChange={() => update({ audience: 'club' })} />
++              Whole club ({activePlayers.length})
++            </label>
++            <label>
++              <input
++                type="radio"
++                name="hw-audience"
++                checked={draft.audience === 'players'}
++                onChange={() => update({ audience: 'players' })}
++              />
++              Chosen players
++            </label>
++            {draft.audience === 'players' && (
++              <ul className="hw-pick-list hw-pick-players">
++                {activePlayers.map((p) => (
++                  <li key={p.playerId}>
++                    <label>
++                      <input type="checkbox" checked={draft.playerIds.includes(p.playerId)} onChange={() => togglePlayer(p.playerId)} />
++                      <span className="hw-pick-name">{p.name}</span>
++                    </label>
++                  </li>
++                ))}
++              </ul>
++            )}
++            {errorFor('audience') && <em className="hw-error">{errorFor('audience')}</em>}
++          </fieldset>
++
++          <label className="field hw-wide">
++            <span>Note for trainees (optional)</span>
++            <input
++              type="text"
++              maxLength={NOTE_MAX}
++              value={draft.note}
++              placeholder="e.g. Warm-up for Saturday's tournament"
++              onChange={(e) => update({ note: e.target.value })}
++            />
++            {errorFor('note') && <em className="hw-error">{errorFor('note')}</em>}
++          </label>
++
++          {errorFor('save') && <p className="hw-error hw-wide">{errorFor('save')}</p>}
++
++          <div className="button-grid hw-wide">
++            <button type="submit" className="primary" disabled={busy}>
++              {busy ? 'Saving…' : 'Set homework'}
++            </button>
++            <button
++              type="button"
++              onClick={() => {
++                setOpen(false);
++                setErrors([]);
++              }}
++            >
++              Cancel
++            </button>
++          </div>
++        </form>
++      )}
++
++      {ordered.length === 0 ? (
++        !open && <p className="hint-text">No homework set yet.</p>
++      ) : (
++        <ul className="hw-list">
++          {ordered.map((assignment) => {
++            const report = reports[assignment.id];
++            const past = Date.parse(assignment.dueAt) < now;
++            return (
++              <li key={assignment.id} className={`hw-card${past ? ' hw-card-past' : ''}`}>
++                <div className="hw-card-head">
++                  <div className="hw-card-title">
++                    <strong>{assignmentTitle(assignment)}</strong>
++                    <span className="hw-meta">
++                      Due {shortDate(assignment.dueAt)} ·{' '}
++                      {assignment.audience === 'club' ? 'Whole club' : `${report.counts.total} chosen`}
++                      {report.removed > 0 && ` · ${report.removed} since left the roster`}
++                    </span>
++                    {assignment.note && <span className="hw-note">{assignment.note}</span>}
++                  </div>
++                  <button type="button" className="link-button danger" onClick={() => remove(assignment)}>
++                    Remove
++                  </button>
++                </div>
++
++                <p className="hw-tally">
++                  <strong className="mono">
++                    {report.counts.done}/{report.counts.total}
++                  </strong>{' '}
++                  done
++                  {report.counts['in-progress'] > 0 && ` · ${report.counts['in-progress']} in progress`}
++                  {report.counts['not-started'] > 0 && ` · ${report.counts['not-started']} not started`}
++                  {report.counts.overdue > 0 && ` · ${report.counts.overdue} overdue`}
++                </p>
++
++                <details className="hw-who" open={!past}>
++                  <summary>Who has done it</summary>
++                  {report.rows.length === 0 ? (
++                    <p className="hint-text">Nobody on the roster is set this any more.</p>
++                  ) : (
++                    <ul className="hw-player-list">
++                      {report.rows.map(({ playerId, name, progress }) => (
++                        <li key={playerId}>
++                          <span className="hw-player-name">{name}</span>
++                          <span className="mono hw-fraction">
++                            {Math.min(progress.correct, progress.required)}/{progress.required}
++                          </span>
++                          <span className="hw-detail">
++                            {progress.attempts
++                              ? `${progress.attempts} tr${progress.attempts === 1 ? 'y' : 'ies'} · last ${shortDate(progress.lastAttemptAt)}`
++                              : 'no attempts yet'}
++                          </span>
++                          <HomeworkStatus progress={progress} />
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                </details>
++              </li>
++            );
++          })}
++        </ul>
++      )}
++    </section>
++  );
++}
+diff --git a/src/components/HomeworkStatus.jsx b/src/components/HomeworkStatus.jsx
+new file mode 100644
+index 0000000..c63194b
+--- /dev/null
++++ b/src/components/HomeworkStatus.jsx
+@@ -0,0 +1,18 @@
++import { STATUS_LABEL } from '../data/homework.js';
++import '../styles/homework.css';
++
++/**
++ * HomeworkStatus — the done / in progress / not started / overdue pill.
++ *
++ * Colour is never the only cue (the label is always written out), because
++ * the coach reads this list across a room on a projector as often as up close.
++ */
++export default function HomeworkStatus({ progress }) {
++  const status = progress?.status || 'not-started';
++  return (
++    <span className={`hw-status hw-status-${status}`}>
++      {STATUS_LABEL[status]}
++      {progress?.late ? ' · late' : ''}
++    </span>
++  );
++}
+diff --git a/src/data/homework.js b/src/data/homework.js
+new file mode 100644
+index 0000000..78231a6
+--- /dev/null
++++ b/src/data/homework.js
+@@ -0,0 +1,465 @@
++/*
++ * homework.js — what a homework assignment is, and whether someone has done it.
++ *
++ * The coach sets either a THEME ("solve 5 forks, easy ones, by Tuesday") or a
++ * fixed SET of puzzles ("these six, by Tuesday"). Nothing records completion:
++ * it is computed every time from puzzle_attempts, which the Training page
++ * already writes for every attempt. A stored "done" flag would be a second
++ * copy of a fact the attempts table already holds, and the two would drift the
++ * first time an attempt synced late or a coach deleted a bad row.
++ *
++ * Pure: no React, no Supabase, no puzzles.json import (that needs Vite's JSON
++ * loader). Callers pass the catalogue in, so every rule here runs under
++ * `node --test`.
++ */
++
++export const DEFAULT_REQUIRED = 5;
++export const MAX_REQUIRED = 50;
++export const MAX_SET_SIZE = 50;
++export const NOTE_MAX = 200;
++
++/** How long a finished assignment stays on a trainee's list after it was due. */
++export const RECENT_DONE_DAYS = 14;
++
++const DAY_MS = 24 * 60 * 60 * 1000;
++
++/*
++ * The same bands, with the same keys, as DIFFICULTIES in TrainingPage.jsx.
++ * puzzle_attempts.difficulty stores the KEY the Training page computed at the
++ * time, and that stored key is what a difficulty-limited assignment matches
++ * on, so the keys here must never drift from the page's. The ranges are only
++ * used to count how many puzzles an assignment can draw from.
++ */
++export const HOMEWORK_DIFFICULTIES = [
++  { key: 'beginner', label: 'Beginner (< 1000)', min: -Infinity, max: 1000 },
++  { key: 'easy', label: 'Easy (1000–1400)', min: 1000, max: 1400 },
++  { key: 'intermediate', label: 'Intermediate (1400–1800)', min: 1400, max: 1800 },
++  { key: 'hard', label: 'Hard (1800–2200)', min: 1800, max: 2200 },
++  { key: 'expert', label: 'Expert (2200+)', min: 2200, max: Infinity },
++];
++
++const DIFFICULTY_KEYS = new Set(HOMEWORK_DIFFICULTIES.map((d) => d.key));
++
++export const STATUS_LABEL = {
++  done: 'Done',
++  'in-progress': 'In progress',
++  'not-started': 'Not started',
++  overdue: 'Overdue',
++};
++
++/** Which band a puzzle rating falls in, or '' for a rating that is not a number. */
++export function difficultyBandFor(rating) {
++  if (typeof rating !== 'number' || Number.isNaN(rating)) return '';
++  return HOMEWORK_DIFFICULTIES.find((d) => rating >= d.min && rating < d.max)?.key || '';
++}
++
++/** "backRankMate" → "Back Rank Mate", exactly as the Training page's theme dropdown reads. */
++export function themeLabel(theme) {
++  return String(theme || '')
++    .replace(/([a-z])([A-Z])/g, '$1 $2')
++    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
++    .replace(/^./, (c) => c.toUpperCase())
++    .replace(/\b(In|Vs)\b/g, (w) => w.toLowerCase());
++}
++
++/** Library puzzles on a theme, optionally within one difficulty band. */
++export function puzzlesMatching(puzzles, { theme, difficulty = '' } = {}) {
++  return (puzzles || []).filter(
++    (p) =>
++      p &&
++      (p.themes || []).includes(theme) &&
++      (!difficulty || difficultyBandFor(p.rating) === difficulty),
++  );
++}
++
++// -- dates ----------------------------------------------------------------
++
++// Accepts a Date, epoch milliseconds or an ISO string — callers pass all three.
++const toMs = (value) => {
++  if (value == null || value === '') return null;
++  const ms =
++    value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(value);
++  return Number.isFinite(ms) ? ms : null;
++};
++
++const pad = (n) => String(n).padStart(2, '0');
++
++/** A Date as the YYYY-MM-DD a date input shows, in the viewer's own time zone. */
++export function localDateString(value) {
++  const ms = toMs(value);
++  if (ms == null) return '';
++  const d = new Date(ms);
++  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
++}
++
++/*
++ * "Due Tuesday" means by the end of Tuesday where the club is, not at
++ * midnight UTC — which in Dallas is 7pm on Monday. The coach's browser is in
++ * the club's time zone, so the end of the local day is converted to an
++ * instant here and stored as one; nobody downstream has to guess a zone.
++ */
++export function dueAtFromDate(dateString) {
++  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || ''));
++  if (!match) return null;
++  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
++  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
++  // new Date() rolls 30 February over into March; that is a typo, not a date.
++  if (end.getFullYear() !== year || end.getMonth() !== month - 1 || end.getDate() !== day) return null;
++  return end.toISOString();
++}
++
++/**
++ * The next club day strictly after today, as YYYY-MM-DD. The club meets on
++ * Tuesdays (weekday 2), and homework set at one meeting is naturally due at
++ * the next — including when it is set on a Tuesday.
++ */
++export function defaultDueDate(now = new Date(), weekday = 2) {
++  const d = new Date(toMs(now) ?? Date.now());
++  const ahead = ((weekday - d.getDay() + 7) % 7) || 7;
++  d.setDate(d.getDate() + ahead);
++  return localDateString(d);
++}
++
++// -- building an assignment ------------------------------------------------
++
++/**
++ * Validate what the coach filled in and turn it into a stored assignment.
++ *
++ * Returns `{ ok: true, assignment }` or `{ ok: false, errors }`, where each
++ * error is `{ field, message }`. `themes` and `puzzles` are the library
++ * (PUZZLE_THEMES and PUZZLES); `players` is the visible roster.
++ *
++ * Club-wide homework is expanded into one target per current member, here,
++ * at creation. The database then only ever answers "is this assignment
++ * targeted at me?" (0020), so a player can never read homework set for
++ * someone else, and the coach's "who has done it" list does not quietly grow
++ * every time somebody joins.
++ */
++export function buildAssignment(draft = {}, { themes = [], puzzles = [], players = [], now = new Date(), id } = {}) {
++  const errors = [];
++  const fail = (field, message) => errors.push({ field, message });
++  const nowMs = toMs(now) ?? Date.now();
++
++  const kind = draft.kind === 'set' ? 'set' : draft.kind === 'theme' ? 'theme' : null;
++  if (!kind) fail('kind', 'Choose a theme or a puzzle set.');
++
++  let theme = null;
++  let difficulty = null;
++  let requiredCount = null;
++  let puzzleIds = [];
++
++  if (kind === 'theme') {
++    theme = String(draft.theme || '');
++    difficulty = draft.difficulty ? String(draft.difficulty) : null;
++    if (!theme) fail('theme', 'Choose a theme.');
++    else if (!themes.includes(theme)) fail('theme', `"${theme}" is not a theme in the puzzle library.`);
++    if (difficulty && !DIFFICULTY_KEYS.has(difficulty)) {
++      fail('difficulty', `"${difficulty}" is not a difficulty band.`);
++      difficulty = null;
++    }
++
++    const raw = draft.requiredCount === '' || draft.requiredCount == null ? DEFAULT_REQUIRED : draft.requiredCount;
++    requiredCount = Number(raw);
++    if (!Number.isInteger(requiredCount) || requiredCount < 1 || requiredCount > MAX_REQUIRED) {
++      fail('requiredCount', `The number of puzzles must be a whole number from 1 to ${MAX_REQUIRED}.`);
++    } else if (theme && themes.includes(theme)) {
++      // Asking for more puzzles than exist would make the homework impossible.
++      const available = puzzlesMatching(puzzles, { theme, difficulty }).length;
++      if (available < requiredCount) {
++        fail(
++          'requiredCount',
++          available
++            ? `Only ${available} ${themeLabel(theme).toLowerCase()} puzzle${available === 1 ? '' : 's'} match${available === 1 ? 'es' : ''}${difficulty ? ' at that difficulty' : ''}; ask for ${available} or fewer.`
++            : `No ${themeLabel(theme).toLowerCase()} puzzles match${difficulty ? ' at that difficulty' : ''}.`,
++        );
++      }
++    }
++  }
++
++  if (kind === 'set') {
++    const known = new Set((puzzles || []).map((p) => p && p.id));
++    puzzleIds = [...new Set((draft.puzzleIds || []).map(String))];
++    if (!puzzleIds.length) fail('puzzleIds', 'Pick at least one puzzle for the set.');
++    else if (puzzleIds.length > MAX_SET_SIZE) fail('puzzleIds', `A set can hold at most ${MAX_SET_SIZE} puzzles.`);
++    const unknown = puzzleIds.filter((pid) => !known.has(pid));
++    if (unknown.length) fail('puzzleIds', `Not in the puzzle library: ${unknown.join(', ')}.`);
++  }
++
++  const active = (players || []).filter((p) => p && p.playerId && !p.deletedAt);
++  const activeIds = new Set(active.map((p) => p.playerId));
++  const audience = draft.audience === 'players' ? 'players' : draft.audience === 'club' ? 'club' : null;
++  let playerIds = [];
++  if (!audience) fail('audience', 'Choose who the homework is for.');
++  else if (audience === 'club') {
++    playerIds = active.map((p) => p.playerId);
++    if (!playerIds.length) fail('audience', 'There is nobody on the roster to assign it to.');
++  } else {
++    playerIds = [...new Set((draft.playerIds || []).map(String))];
++    if (!playerIds.length) fail('audience', 'Pick at least one player.');
++    const strangers = playerIds.filter((pid) => !activeIds.has(pid));
++    if (strangers.length) fail('audience', `Not on the roster: ${strangers.join(', ')}.`);
++  }
++
++  const dueMs = toMs(draft.dueAt);
++  if (dueMs == null) fail('dueAt', 'Choose a due date.');
++  else if (dueMs <= nowMs) fail('dueAt', 'The due date has already passed.');
++
++  const note = String(draft.note || '').trim();
++  if (note.length > NOTE_MAX) fail('note', `Keep the note under ${NOTE_MAX} characters.`);
++
++  if (!id) fail('id', 'An assignment needs an id.');
++
++  if (errors.length) return { ok: false, errors };
++  return {
++    ok: true,
++    assignment: {
++      id,
++      kind,
++      theme,
++      difficulty,
++      requiredCount,
++      puzzleIds,
++      audience,
++      playerIds,
++      note,
++      dueAt: new Date(dueMs).toISOString(),
++      createdAt: new Date(nowMs).toISOString(),
++    },
++  };
++}
++
++// -- progress -------------------------------------------------------------
++
++/** How many distinct puzzles an assignment asks for. */
++export function requiredFor(assignment) {
++  if (!assignment) return 0;
++  if (assignment.kind === 'set') return (assignment.puzzleIds || []).length;
++  return assignment.requiredCount || DEFAULT_REQUIRED;
++}
++
++/*
++ * Which attempts belong to an assignment. Own-game puzzles ("own:…" ids from
++ * the Your mistakes mode) never count: their themes come from the analyser,
++ * their rating is a placeholder 0 that would read as "beginner", and the
++ * coach picked a theme from the library, which is where the drill link goes.
++ */
++function matcherFor(assignment) {
++  if (assignment.kind === 'set') {
++    const wanted = new Set(assignment.puzzleIds || []);
++    return (attempt) => wanted.has(attempt.puzzleId);
++  }
++  if (assignment.kind === 'theme') {
++    return (attempt) =>
++      !String(attempt.puzzleId).startsWith('own:') &&
++      (attempt.themes || []).includes(assignment.theme) &&
++      (!assignment.difficulty || attempt.difficulty === assignment.difficulty);
++  }
++  return () => false;
++}
++
++/*
++ * A solve counts only when it was the player's own. Taking a hint or showing
++ * the answer is still practice, and still counts as activity (the status
++ * moves to "in progress"), but it is not a puzzle solved.
++ *
++ * A correct attempt after a wrong move on the same puzzle DOES count. That is
++ * what the Training page itself treats as solved (the puzzle stays on the
++ * board after a miss, and the finished line is recorded as correct), and a
++ * stricter first-try rule would make a fixed set impossible to finish after
++ * one slip. The number of attempts is reported alongside, so the coach can
++ * see the difference between 5 of 5 in 5 tries and 5 of 5 in 40.
++ */
++const isCleanSolve = (attempt) => !!attempt.correct && !attempt.usedHint && !attempt.usedSolution;
++
++/**
++ * One player's progress on one assignment.
++ *
++ * Counts only that player's attempts made at or after the assignment was
++ * created. Attempts after the due date still count, so late work is not lost,
++ * but an assignment finished after its due date is flagged `late`. Each
++ * puzzle counts once, however many times it is solved.
++ *
++ * Returns `{ done, correct, required, attempts, lastAttemptAt, completedAt,
++ * late, status }`, with status one of done / in-progress / not-started /
++ * overdue.
++ */
++export function progressFor(assignment, attempts, playerId, { now = Date.now() } = {}) {
++  const required = requiredFor(assignment);
++  const empty = {
++    done: false,
++    correct: 0,
++    required,
++    attempts: 0,
++    lastAttemptAt: null,
++    completedAt: null,
++    late: false,
++    status: 'not-started',
++  };
++  if (!assignment || !playerId) return empty;
++
++  const createdMs = toMs(assignment.createdAt);
++  const dueMs = toMs(assignment.dueAt);
++  const nowMs = toMs(now) ?? Date.now();
++  // Without a start time there is no window to count in, so nothing counts.
++  if (createdMs == null) return empty;
++
++  const matches = matcherFor(assignment);
++  const counted = [];
++  for (const attempt of attempts || []) {
++    if (!attempt || attempt.playerId !== playerId || !attempt.puzzleId) continue;
++    const at = toMs(attempt.attemptedAt);
++    if (at == null || at < createdMs) continue;
++    if (!matches(attempt)) continue;
++    counted.push({ attempt, at });
++  }
++  counted.sort((a, b) => a.at - b.at);
++
++  // First clean solve of each distinct puzzle, in time order.
++  const firstSolve = new Map();
++  for (const { attempt, at } of counted) {
++    if (isCleanSolve(attempt) && !firstSolve.has(attempt.puzzleId)) firstSolve.set(attempt.puzzleId, at);
++  }
++  const solveTimes = [...firstSolve.values()].sort((a, b) => a - b);
++
++  const correct = solveTimes.length;
++  const done = required > 0 && correct >= required;
++  const completedMs = done ? solveTimes[required - 1] : null;
++  const late = done && dueMs != null && completedMs > dueMs;
++  const overdue = !done && dueMs != null && nowMs > dueMs;
++
++  return {
++    done,
++    correct,
++    required,
++    attempts: counted.length,
++    lastAttemptAt: counted.length ? new Date(counted[counted.length - 1].at).toISOString() : null,
++    completedAt: completedMs != null ? new Date(completedMs).toISOString() : null,
++    late,
++    status: done ? 'done' : overdue ? 'overdue' : counted.length ? 'in-progress' : 'not-started',
++  };
++}
++
++const isTarget = (assignment, playerId) => (assignment?.playerIds || []).includes(playerId);
++
++/**
++ * A trainee's homework list: every assignment targeted at them, with
++ * progress, unfinished first (soonest due first, so overdue work leads),
++ * then finished work, most recently due first.
++ *
++ * Finished work drops off `recentDoneDays` after its due date; unfinished
++ * work never drops off on its own, because an overdue assignment is still
++ * something the player has not done.
++ */
++export function homeworkForPlayer(assignments, attempts, playerId, { now = Date.now(), recentDoneDays = RECENT_DONE_DAYS } = {}) {
++  if (!playerId) return [];
++  const nowMs = toMs(now) ?? Date.now();
++  const items = (assignments || [])
++    .filter((a) => a && isTarget(a, playerId))
++    .map((assignment) => ({ assignment, progress: progressFor(assignment, attempts, playerId, { now: nowMs }) }))
++    .filter(({ assignment, progress }) => {
++      if (!progress.done) return true;
++      const dueMs = toMs(assignment.dueAt);
++      return dueMs == null || nowMs - dueMs <= recentDoneDays * DAY_MS;
++    });
++
++  const due = (item) => toMs(item.assignment.dueAt) ?? Infinity;
++  const open = items.filter((i) => !i.progress.done).sort((a, b) => due(a) - due(b));
++  const finished = items.filter((i) => i.progress.done).sort((a, b) => due(b) - due(a));
++  return [...open, ...finished];
++}
++
++const STATUS_ORDER = { overdue: 0, 'not-started': 1, 'in-progress': 2, done: 3 };
++
++/**
++ * The coach's view of one assignment: a row per targeted player still on the
++ * roster, the ones who have not done it first, plus counts per status.
++ * `removed` counts targets who have since left the roster; their rows are
++ * left out, the same as retired members everywhere else.
++ */
++export function assignmentReport(assignment, attempts, players, { now = Date.now() } = {}) {
++  const byId = new Map(
++    (players || []).filter((p) => p && p.playerId && !p.deletedAt).map((p) => [p.playerId, p]),
++  );
++  const targets = [...new Set(assignment?.playerIds || [])];
++  const rows = targets
++    .filter((pid) => byId.has(pid))
++    .map((pid) => ({
++      playerId: pid,
++      name: byId.get(pid).name || pid,
++      progress: progressFor(assignment, attempts, pid, { now }),
++    }))
++    .sort(
++      (a, b) =>
++        STATUS_ORDER[a.progress.status] - STATUS_ORDER[b.progress.status] ||
++        String(a.name).localeCompare(String(b.name)),
++    );
++
++  const counts = { done: 0, 'in-progress': 0, 'not-started': 0, overdue: 0, total: rows.length };
++  for (const row of rows) counts[row.progress.status] += 1;
++  return { rows, counts, removed: targets.length - rows.length };
++}
++
++/**
++ * The coach's list order: homework still running, soonest due first, then
++ * homework whose due date has passed, most recent first. What the coach is
++ * chasing this week sits at the top; last month's sits at the bottom.
++ */
++export function orderAssignments(assignments, { now = Date.now() } = {}) {
++  const nowMs = toMs(now) ?? Date.now();
++  const due = (a) => toMs(a.dueAt) ?? Infinity;
++  const list = (assignments || []).filter(Boolean);
++  const running = list.filter((a) => due(a) >= nowMs).sort((a, b) => due(a) - due(b));
++  const past = list.filter((a) => due(a) < nowMs).sort((a, b) => due(b) - due(a));
++  return [...running, ...past];
++}
++
++// -- labels and links -----------------------------------------------------
++
++/** A one-line name for an assignment: "Fork · 5 puzzles · Easy". */
++export function assignmentTitle(assignment) {
++  if (!assignment) return '';
++  const required = requiredFor(assignment);
++  const count = `${required} puzzle${required === 1 ? '' : 's'}`;
++  if (assignment.kind === 'set') return `Puzzle set · ${count}`;
++  const band = HOMEWORK_DIFFICULTIES.find((d) => d.key === assignment.difficulty);
++  return [themeLabel(assignment.theme), count, band ? band.label.split(' (')[0] : null].filter(Boolean).join(' · ');
++}
++
++/**
++ * Where "Practise" sends a trainee: the Training page's existing deep link,
++ * pre-filtered to the assignment's theme and band, or to the exact set.
++ */
++export function drillLinkFor(assignment) {
++  const params = new URLSearchParams();
++  if (assignment?.kind === 'set') {
++    params.set('puzzles', (assignment.puzzleIds || []).join(','));
++  } else if (assignment?.theme) {
++    params.set('theme', assignment.theme);
++    if (assignment.difficulty) params.set('difficulty', assignment.difficulty);
++  }
++  const query = params.toString();
++  return `#/training${query ? `?${query}` : ''}`;
++}
++
++/**
++ * Read a Training deep link back. Anything not in the library is dropped
++ * rather than trusted: a stale or hand-edited link should land on a working
++ * page, not on an empty pool.
++ */
++export function parseTrainingLink(hash, { themes = [], puzzleIds = [] } = {}) {
++  const out = { theme: '', difficulty: '', puzzleIds: [] };
++  const query = String(hash || '').split('?')[1];
++  if (!query) return out;
++  const params = new URLSearchParams(query);
++
++  const theme = params.get('theme');
++  if (theme && themes.includes(theme)) out.theme = theme;
++
++  const difficulty = params.get('difficulty');
++  if (difficulty && DIFFICULTY_KEYS.has(difficulty)) out.difficulty = difficulty;
++
++  const known = new Set(puzzleIds);
++  const wanted = (params.get('puzzles') || '').split(',').map((s) => s.trim()).filter(Boolean);
++  out.puzzleIds = [...new Set(wanted.filter((pid) => known.has(pid)))];
++  return out;
++}
+diff --git a/src/data/homework.test.js b/src/data/homework.test.js
+new file mode 100644
+index 0000000..db23205
+--- /dev/null
++++ b/src/data/homework.test.js
+@@ -0,0 +1,484 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import {
++  DEFAULT_REQUIRED,
++  HOMEWORK_DIFFICULTIES,
++  difficultyBandFor,
++  themeLabel,
++  puzzlesMatching,
++  localDateString,
++  dueAtFromDate,
++  defaultDueDate,
++  buildAssignment,
++  requiredFor,
++  progressFor,
++  homeworkForPlayer,
++  assignmentReport,
++  orderAssignments,
++  assignmentTitle,
++  drillLinkFor,
++  parseTrainingLink,
++} from './homework.js';
++
++// The real library, read the way Node can (puzzles.js needs Vite's JSON loader).
++const PUZZLES = JSON.parse(readFileSync(new URL('./puzzles.json', import.meta.url), 'utf8'));
++const THEMES = [...new Set(PUZZLES.flatMap((p) => p.themes))].sort();
++
++const PLAYERS = [
++  { playerId: 'CC-002', name: 'Anthony' },
++  { playerId: 'CC-004', name: 'Bea' },
++  { playerId: 'CC-005', name: 'Cal' },
++  { playerId: 'CC-003', name: 'Magnus Carlsen', deletedAt: '2026-09-25T00:00:00Z' },
++];
++
++const CREATED = '2026-10-01T15:00:00.000Z';
++const DUE = '2026-10-07T04:59:59.999Z';
++const BEFORE_DUE = Date.parse('2026-10-05T12:00:00Z');
++const AFTER_DUE = Date.parse('2026-10-09T12:00:00Z');
++
++const forkAssignment = (overrides = {}) => ({
++  id: 'HW-1',
++  kind: 'theme',
++  theme: 'fork',
++  difficulty: null,
++  requiredCount: 3,
++  puzzleIds: [],
++  audience: 'players',
++  playerIds: ['CC-004', 'CC-005'],
++  note: '',
++  dueAt: DUE,
++  createdAt: CREATED,
++  ...overrides,
++});
++
++let seq = 0;
++const attempt = (overrides = {}) => {
++  seq += 1;
++  return {
++    id: `PA-${seq}`,
++    playerId: 'CC-004',
++    puzzleId: `P${seq}`,
++    themes: ['fork', 'middlegame'],
++    difficulty: 'easy',
++    puzzleRating: 1200,
++    correct: true,
++    usedHint: false,
++    usedSolution: false,
++    secondsTaken: 20,
++    attemptedAt: '2026-10-02T18:00:00.000Z',
++    ...overrides,
++  };
++};
++
++// -- bands, labels, catalogue ------------------------------------------------
++
++test('difficultyBandFor: boundaries match the Training page bands', () => {
++  assert.equal(difficultyBandFor(400), 'beginner');
++  assert.equal(difficultyBandFor(999), 'beginner');
++  assert.equal(difficultyBandFor(1000), 'easy');
++  assert.equal(difficultyBandFor(1399), 'easy');
++  assert.equal(difficultyBandFor(1400), 'intermediate');
++  assert.equal(difficultyBandFor(1800), 'hard');
++  assert.equal(difficultyBandFor(2200), 'expert');
++  assert.deepEqual(
++    HOMEWORK_DIFFICULTIES.map((d) => d.key),
++    ['beginner', 'easy', 'intermediate', 'hard', 'expert'],
++  );
++});
++
++test('difficultyBandFor: a missing rating has no band', () => {
++  assert.equal(difficultyBandFor(null), '');
++  assert.equal(difficultyBandFor(undefined), '');
++  assert.equal(difficultyBandFor(NaN), '');
++});
++
++test('themeLabel: reads like the Training page dropdown', () => {
++  assert.equal(themeLabel('backRankMate'), 'Back Rank Mate');
++  assert.equal(themeLabel('mateIn2'), 'Mate in 2');
++  assert.equal(themeLabel('fork'), 'Fork');
++});
++
++test('puzzlesMatching: filters the real library by theme and band', () => {
++  const forks = puzzlesMatching(PUZZLES, { theme: 'fork' });
++  assert.ok(forks.length >= 5, 'the library has enough forks for a default assignment');
++  assert.ok(forks.every((p) => p.themes.includes('fork')));
++  const easyForks = puzzlesMatching(PUZZLES, { theme: 'fork', difficulty: 'easy' });
++  assert.ok(easyForks.every((p) => p.rating >= 1000 && p.rating < 1400));
++  assert.ok(easyForks.length < forks.length);
++  assert.equal(puzzlesMatching(PUZZLES, { theme: 'fork', difficulty: 'expert' }).length, 0);
++  assert.equal(puzzlesMatching(null, { theme: 'fork' }).length, 0);
++});
++
++// -- dates -------------------------------------------------------------------
++
++test('dueAtFromDate: the end of that day in local time', () => {
++  const iso = dueAtFromDate('2026-10-20');
++  const d = new Date(iso);
++  assert.equal(localDateString(iso), '2026-10-20');
++  assert.equal(d.getHours(), 23);
++  assert.equal(d.getMinutes(), 59);
++});
++
++test('dueAtFromDate: rejects junk and impossible dates', () => {
++  assert.equal(dueAtFromDate(''), null);
++  assert.equal(dueAtFromDate('next tuesday'), null);
++  assert.equal(dueAtFromDate('2026-02-30'), null);
++  assert.equal(dueAtFromDate('2026-13-01'), null);
++  assert.equal(dueAtFromDate(undefined), null);
++});
++
++test('defaultDueDate: the next Tuesday, and a week out when set on a Tuesday', () => {
++  // Local-time constructors keep this independent of the machine's zone.
++  const friday = new Date(2026, 8, 25, 10, 0); // Fri 25 Sep 2026
++  assert.equal(defaultDueDate(friday), '2026-09-29');
++  const tuesday = new Date(2026, 8, 29, 16, 0);
++  assert.equal(defaultDueDate(tuesday), '2026-10-06');
++  const monday = new Date(2026, 8, 28, 9, 0);
++  assert.equal(defaultDueDate(monday), '2026-09-29');
++});
++
++// -- buildAssignment ---------------------------------------------------------
++
++const NOW = new Date('2026-10-01T15:00:00.000Z');
++const ctx = (overrides = {}) => ({ themes: THEMES, puzzles: PUZZLES, players: PLAYERS, now: NOW, id: 'HW-9', ...overrides });
++
++test('buildAssignment: a theme assignment with the default count', () => {
++  const result = buildAssignment(
++    { kind: 'theme', theme: 'fork', audience: 'players', playerIds: ['CC-004'], dueAt: DUE },
++    ctx(),
++  );
++  assert.equal(result.ok, true, JSON.stringify(result.errors));
++  assert.equal(result.assignment.requiredCount, DEFAULT_REQUIRED);
++  assert.equal(result.assignment.theme, 'fork');
++  assert.equal(result.assignment.difficulty, null);
++  assert.deepEqual(result.assignment.puzzleIds, []);
++  assert.equal(result.assignment.createdAt, NOW.toISOString());
++  assert.equal(result.assignment.id, 'HW-9');
++});
++
++test('buildAssignment: club-wide expands to every ACTIVE member, never a retired one', () => {
++  const result = buildAssignment({ kind: 'theme', theme: 'fork', audience: 'club', dueAt: DUE }, ctx());
++  assert.equal(result.ok, true);
++  assert.deepEqual(result.assignment.playerIds, ['CC-002', 'CC-004', 'CC-005']);
++  assert.equal(result.assignment.audience, 'club');
++});
++
++test('buildAssignment: rejects a theme that is not in puzzles.json', () => {
++  const result = buildAssignment(
++    { kind: 'theme', theme: 'brilliantSwindle', audience: 'club', dueAt: DUE },
++    ctx(),
++  );
++  assert.equal(result.ok, false);
++  assert.ok(result.errors.some((e) => e.field === 'theme' && /not a theme/.test(e.message)));
++});
++
++test('buildAssignment: rejects asking for more puzzles than the theme and band hold', () => {
++  const available = puzzlesMatching(PUZZLES, { theme: 'bodenMate' }).length;
++  assert.equal(available, 1);
++  const result = buildAssignment(
++    { kind: 'theme', theme: 'bodenMate', requiredCount: 5, audience: 'club', dueAt: DUE },
++    ctx(),
++  );
++  assert.equal(result.ok, false);
++  assert.ok(result.errors.some((e) => e.field === 'requiredCount' && /Only 1/.test(e.message)));
++
++  const none = buildAssignment(
++    { kind: 'theme', theme: 'fork', difficulty: 'expert', requiredCount: 1, audience: 'club', dueAt: DUE },
++    ctx(),
++  );
++  assert.ok(none.errors.some((e) => e.field === 'requiredCount' && /No fork puzzles/.test(e.message)));
++});
++
++test('buildAssignment: rejects a bad count, band, due date, audience and a long note', () => {
++  const result = buildAssignment(
++    {
++      kind: 'theme',
++      theme: 'fork',
++      difficulty: 'grandmaster',
++      requiredCount: 0,
++      audience: 'players',
++      playerIds: [],
++      dueAt: '2026-09-30T00:00:00Z',
++      note: 'x'.repeat(201),
++    },
++    ctx(),
++  );
++  assert.equal(result.ok, false);
++  const fields = result.errors.map((e) => e.field).sort();
++  assert.deepEqual(fields, ['audience', 'difficulty', 'dueAt', 'note', 'requiredCount']);
++  assert.equal(buildAssignment({ kind: 'theme', theme: 'fork', requiredCount: 2.5, audience: 'club', dueAt: DUE }, ctx()).ok, false);
++});
++
++test('buildAssignment: rejects players who are not on the roster, including retired ones', () => {
++  const result = buildAssignment(
++    { kind: 'theme', theme: 'fork', audience: 'players', playerIds: ['CC-004', 'CC-003', 'CC-999'], dueAt: DUE },
++    ctx(),
++  );
++  assert.equal(result.ok, false);
++  assert.ok(result.errors.some((e) => e.field === 'audience' && /CC-003, CC-999/.test(e.message)));
++});
++
++test('buildAssignment: a set keeps its ids once each and ignores theme fields', () => {
++  const ids = PUZZLES.slice(0, 3).map((p) => p.id);
++  const result = buildAssignment(
++    { kind: 'set', theme: 'fork', requiredCount: 9, puzzleIds: [...ids, ids[0]], audience: 'club', dueAt: DUE },
++    ctx(),
++  );
++  assert.equal(result.ok, true);
++  assert.deepEqual(result.assignment.puzzleIds, ids);
++  assert.equal(result.assignment.theme, null);
++  assert.equal(result.assignment.requiredCount, null);
++  assert.equal(requiredFor(result.assignment), 3);
++});
++
++test('buildAssignment: rejects an empty set and ids that are not in the library', () => {
++  const empty = buildAssignment({ kind: 'set', puzzleIds: [], audience: 'club', dueAt: DUE }, ctx());
++  assert.ok(empty.errors.some((e) => e.field === 'puzzleIds'));
++  const bogus = buildAssignment({ kind: 'set', puzzleIds: ['nope'], audience: 'club', dueAt: DUE }, ctx());
++  assert.ok(bogus.errors.some((e) => e.field === 'puzzleIds' && /nope/.test(e.message)));
++});
++
++test('buildAssignment: rejects a missing kind and a missing id', () => {
++  const result = buildAssignment({ audience: 'club', dueAt: DUE }, ctx({ id: '' }));
++  const fields = result.errors.map((e) => e.field);
++  assert.ok(fields.includes('kind'));
++  assert.ok(fields.includes('id'));
++});
++
++// -- progressFor -------------------------------------------------------------
++
++test('progressFor: not started with no attempts at all', () => {
++  const p = progressFor(forkAssignment(), [], 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.status, 'not-started');
++  assert.equal(p.correct, 0);
++  assert.equal(p.required, 3);
++  assert.equal(p.done, false);
++  assert.equal(p.lastAttemptAt, null);
++});
++
++test('progressFor: in progress, then done once enough distinct puzzles are solved', () => {
++  const some = [attempt({ attemptedAt: '2026-10-02T18:00:00Z' }), attempt({ attemptedAt: '2026-10-02T18:05:00Z' })];
++  const partial = progressFor(forkAssignment(), some, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(partial.status, 'in-progress');
++  assert.equal(partial.correct, 2);
++  assert.equal(partial.lastAttemptAt, '2026-10-02T18:05:00.000Z');
++
++  const all = [...some, attempt({ attemptedAt: '2026-10-03T18:00:00Z' })];
++  const finished = progressFor(forkAssignment(), all, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(finished.status, 'done');
++  assert.equal(finished.done, true);
++  assert.equal(finished.late, false);
++  assert.equal(finished.completedAt, '2026-10-03T18:00:00.000Z');
++});
++
++test('progressFor: attempts made BEFORE the assignment existed are ignored', () => {
++  const old = [
++    attempt({ attemptedAt: '2026-09-30T18:00:00Z' }),
++    attempt({ attemptedAt: '2026-10-01T14:59:59.999Z' }),
++    attempt({ attemptedAt: '2026-10-01T10:00:00Z' }),
++  ];
++  const p = progressFor(forkAssignment(), old, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.correct, 0);
++  assert.equal(p.attempts, 0);
++  assert.equal(p.status, 'not-started');
++  // The creation instant itself is inside the window.
++  const onTheDot = progressFor(forkAssignment(), [attempt({ attemptedAt: CREATED })], 'CC-004', { now: BEFORE_DUE });
++  assert.equal(onTheDot.correct, 1);
++});
++
++test('progressFor: showing the solution or taking a hint is activity, not a solve', () => {
++  const tries = [
++    attempt({ correct: false, usedSolution: true }),
++    attempt({ correct: true, usedSolution: true }),
++    attempt({ correct: true, usedHint: true }),
++  ];
++  const p = progressFor(forkAssignment(), tries, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.correct, 0);
++  assert.equal(p.attempts, 3);
++  assert.equal(p.status, 'in-progress');
++});
++
++test("progressFor: another player's attempts are ignored", () => {
++  const theirs = [attempt({ playerId: 'CC-005' }), attempt({ playerId: 'CC-005' }), attempt({ playerId: 'CC-005' })];
++  const mine = progressFor(forkAssignment(), theirs, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(mine.correct, 0);
++  assert.equal(mine.status, 'not-started');
++  assert.equal(progressFor(forkAssignment(), theirs, 'CC-005', { now: BEFORE_DUE }).status, 'done');
++});
++
++test('progressFor: the same puzzle solved three times counts once', () => {
++  const again = [
++    attempt({ puzzleId: 'X1', attemptedAt: '2026-10-02T18:00:00Z' }),
++    attempt({ puzzleId: 'X1', attemptedAt: '2026-10-02T18:01:00Z' }),
++    attempt({ puzzleId: 'X1', attemptedAt: '2026-10-02T18:02:00Z' }),
++  ];
++  const p = progressFor(forkAssignment(), again, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.correct, 1);
++  assert.equal(p.attempts, 3);
++  assert.equal(p.done, false);
++});
++
++test('progressFor: a solve after a miss on the same puzzle counts, and both are attempts', () => {
++  const tries = [
++    attempt({ puzzleId: 'X2', correct: false, attemptedAt: '2026-10-02T18:00:00Z' }),
++    attempt({ puzzleId: 'X2', correct: true, attemptedAt: '2026-10-02T18:00:30Z' }),
++  ];
++  const p = progressFor(forkAssignment(), tries, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.correct, 1);
++  assert.equal(p.attempts, 2);
++});
++
++test('progressFor: off-theme, wrong-band and own-game attempts do not count', () => {
++  const noise = [
++    attempt({ themes: ['pin'] }),
++    attempt({ themes: ['fork'], puzzleId: 'own:17', difficulty: 'beginner' }),
++  ];
++  assert.equal(progressFor(forkAssignment(), noise, 'CC-004', { now: BEFORE_DUE }).attempts, 0);
++
++  const banded = forkAssignment({ difficulty: 'intermediate' });
++  const tries = [attempt({ difficulty: 'easy' }), attempt({ difficulty: 'intermediate' })];
++  const p = progressFor(banded, tries, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.correct, 1);
++  assert.equal(p.attempts, 1);
++});
++
++test('progressFor: overdue once the due date passes unfinished', () => {
++  const partial = [attempt()];
++  assert.equal(progressFor(forkAssignment(), partial, 'CC-004', { now: AFTER_DUE }).status, 'overdue');
++  assert.equal(progressFor(forkAssignment(), [], 'CC-004', { now: AFTER_DUE }).status, 'overdue');
++  // `now` arrives as epoch ms, a Date or an ISO string depending on the caller.
++  assert.equal(progressFor(forkAssignment(), [], 'CC-004', { now: new Date(AFTER_DUE) }).status, 'overdue');
++  assert.equal(progressFor(forkAssignment(), [], 'CC-004', { now: new Date(AFTER_DUE).toISOString() }).status, 'overdue');
++  assert.equal(progressFor(forkAssignment(), [], 'CC-004', { now: new Date(BEFORE_DUE) }).status, 'not-started');
++});
++
++test('progressFor: finishing after the due date is done, flagged late', () => {
++  const tries = [
++    attempt({ attemptedAt: '2026-10-02T18:00:00Z' }),
++    attempt({ attemptedAt: '2026-10-03T18:00:00Z' }),
++    attempt({ attemptedAt: '2026-10-08T18:00:00Z' }),
++  ];
++  const p = progressFor(forkAssignment(), tries, 'CC-004', { now: AFTER_DUE });
++  assert.equal(p.status, 'done');
++  assert.equal(p.late, true);
++  assert.equal(p.completedAt, '2026-10-08T18:00:00.000Z');
++});
++
++test('progressFor: a set counts only its own puzzles', () => {
++  const set = forkAssignment({ kind: 'set', theme: null, requiredCount: null, puzzleIds: ['A', 'B'] });
++  const tries = [attempt({ puzzleId: 'A' }), attempt({ puzzleId: 'C' })];
++  const p = progressFor(set, tries, 'CC-004', { now: BEFORE_DUE });
++  assert.equal(p.required, 2);
++  assert.equal(p.correct, 1);
++  assert.equal(p.attempts, 1);
++  const done = progressFor(set, [...tries, attempt({ puzzleId: 'B' })], 'CC-004', { now: BEFORE_DUE });
++  assert.equal(done.status, 'done');
++});
++
++test('progressFor: unreadable timestamps and junk input count for nothing', () => {
++  const tries = [attempt({ attemptedAt: 'yesterday' }), attempt({ attemptedAt: null }), null, attempt({ puzzleId: '' })];
++  assert.equal(progressFor(forkAssignment(), tries, 'CC-004', { now: BEFORE_DUE }).attempts, 0);
++  assert.equal(progressFor(forkAssignment({ createdAt: 'never' }), [attempt()], 'CC-004').correct, 0);
++  assert.equal(progressFor(null, [attempt()], 'CC-004').status, 'not-started');
++  assert.equal(progressFor(forkAssignment(), [attempt()], '').correct, 0);
++});
++
++// -- homeworkForPlayer -------------------------------------------------------
++
++test('homeworkForPlayer: only assignments targeted at the player, unfinished first by due date', () => {
++  const soon = forkAssignment({ id: 'soon', dueAt: '2026-10-04T04:59:59Z' });
++  const later = forkAssignment({ id: 'later', dueAt: '2026-10-10T04:59:59Z' });
++  const notMine = forkAssignment({ id: 'not-mine', playerIds: ['CC-005'] });
++  const finished = forkAssignment({ id: 'finished', requiredCount: 1, theme: 'pin', dueAt: '2026-10-12T04:59:59Z' });
++  const tries = [attempt({ themes: ['pin'] })];
++
++  const list = homeworkForPlayer([later, notMine, finished, soon], tries, 'CC-004', { now: BEFORE_DUE });
++  assert.deepEqual(list.map((i) => i.assignment.id), ['soon', 'later', 'finished']);
++  assert.equal(list[2].progress.status, 'done');
++  assert.deepEqual(homeworkForPlayer([soon], tries, ''), []);
++});
++
++test('homeworkForPlayer: finished work drops off two weeks after it was due; overdue work stays', () => {
++  const finished = forkAssignment({ id: 'finished', requiredCount: 1 });
++  const unfinished = forkAssignment({ id: 'unfinished', requiredCount: 5 });
++  const tries = [attempt()];
++  const monthLater = Date.parse('2026-11-07T12:00:00Z');
++  const list = homeworkForPlayer([finished, unfinished], tries, 'CC-004', { now: monthLater });
++  assert.deepEqual(list.map((i) => i.assignment.id), ['unfinished']);
++  assert.equal(list[0].progress.status, 'overdue');
++});
++
++// -- assignmentReport --------------------------------------------------------
++
++test('assignmentReport: one row per target on the roster, unfinished first, with counts', () => {
++  const hw = forkAssignment({ requiredCount: 1, playerIds: ['CC-002', 'CC-004', 'CC-005', 'CC-003'] });
++  const tries = [attempt({ playerId: 'CC-004' }), attempt({ playerId: 'CC-005', correct: false })];
++  const report = assignmentReport(hw, tries, PLAYERS, { now: BEFORE_DUE });
++  assert.deepEqual(
++    report.rows.map((r) => [r.name, r.progress.status]),
++    [
++      ['Anthony', 'not-started'],
++      ['Cal', 'in-progress'],
++      ['Bea', 'done'],
++    ],
++  );
++  assert.deepEqual(report.counts, { done: 1, 'in-progress': 1, 'not-started': 1, overdue: 0, total: 3 });
++  assert.equal(report.removed, 1, 'the retired target is counted, not shown');
++});
++
++test('assignmentReport: an empty or missing assignment reports nobody', () => {
++  const report = assignmentReport(null, [], PLAYERS);
++  assert.equal(report.rows.length, 0);
++  assert.equal(report.counts.total, 0);
++});
++
++test('orderAssignments: running soonest-first, then past most-recent-first', () => {
++  const list = [
++    forkAssignment({ id: 'past-old', dueAt: '2026-09-01T00:00:00Z' }),
++    forkAssignment({ id: 'next-month', dueAt: '2026-11-01T00:00:00Z' }),
++    forkAssignment({ id: 'past-recent', dueAt: '2026-10-04T00:00:00Z' }),
++    forkAssignment({ id: 'this-week', dueAt: '2026-10-07T00:00:00Z' }),
++    null,
++  ];
++  assert.deepEqual(
++    orderAssignments(list, { now: BEFORE_DUE }).map((a) => a.id),
++    ['this-week', 'next-month', 'past-recent', 'past-old'],
++  );
++  assert.deepEqual(orderAssignments(undefined), []);
++});
++
++// -- titles and links --------------------------------------------------------
++
++test('assignmentTitle: names the theme, count and band', () => {
++  assert.equal(assignmentTitle(forkAssignment({ difficulty: 'easy' })), 'Fork · 3 puzzles · Easy');
++  assert.equal(assignmentTitle(forkAssignment({ requiredCount: 1 })), 'Fork · 1 puzzle');
++  assert.equal(
++    assignmentTitle(forkAssignment({ kind: 'set', theme: null, puzzleIds: ['A', 'B'] })),
++    'Puzzle set · 2 puzzles',
++  );
++});
++
++test('drillLinkFor and parseTrainingLink: a theme link round-trips', () => {
++  const link = drillLinkFor(forkAssignment({ difficulty: 'easy' }));
++  assert.equal(link, '#/training?theme=fork&difficulty=easy');
++  assert.deepEqual(parseTrainingLink(link, { themes: THEMES }), { theme: 'fork', difficulty: 'easy', puzzleIds: [] });
++});
++
++test('drillLinkFor and parseTrainingLink: a set link round-trips', () => {
++  const ids = PUZZLES.slice(0, 2).map((p) => p.id);
++  const link = drillLinkFor(forkAssignment({ kind: 'set', theme: null, puzzleIds: ids }));
++  const parsed = parseTrainingLink(link, { themes: THEMES, puzzleIds: PUZZLES.map((p) => p.id) });
++  assert.deepEqual(parsed.puzzleIds, ids);
++  assert.equal(parsed.theme, '');
++});
++
++test('parseTrainingLink: unknown themes, bands and puzzle ids are dropped, not trusted', () => {
++  const parsed = parseTrainingLink('#/training?theme=nonsense&difficulty=godlike&puzzles=zzz,,zzz', {
++    themes: THEMES,
++    puzzleIds: PUZZLES.map((p) => p.id),
++  });
++  assert.deepEqual(parsed, { theme: '', difficulty: '', puzzleIds: [] });
++  assert.deepEqual(parseTrainingLink('#/training', { themes: THEMES }), { theme: '', difficulty: '', puzzleIds: [] });
++  assert.deepEqual(parseTrainingLink(undefined), { theme: '', difficulty: '', puzzleIds: [] });
++});
+diff --git a/src/data/homeworkStore.js b/src/data/homeworkStore.js
+new file mode 100644
+index 0000000..45fb03d
+--- /dev/null
++++ b/src/data/homeworkStore.js
+@@ -0,0 +1,211 @@
++/*
++ * homeworkStore.js — homework the coach has set.
++ *
++ * Same five-part shape as gamesStore: a local store, row translation, a cloud
++ * pull on sign-in, a push after every write, and hooks for the pages. With no
++ * backend it all lives in this browser, which is the coach's own machine.
++ *
++ * Only the assignment is stored. Whether anyone has DONE it is computed from
++ * puzzle attempts (homework.js → progressFor), so there is nothing to push
++ * when a trainee solves a puzzle, and nothing that can disagree with the
++ * attempts table.
++ *
++ * In the database an assignment is two tables (0020): the assignment, and one
++ * target row per player it is for. Here it is one record with `playerIds`,
++ * because every caller wants them together. A player's pull only ever
++ * returns assignments aimed at them, and only their own target row on each;
++ * RLS does that, not this file.
++ */
++
++import { useMemo } from 'react';
++import { createStore, useStore } from './store.js';
++import { supabase, isSupabaseConfigured } from './supabaseClient.js';
++import { reportSyncError } from './syncStatus.js';
++import { useAttempts } from './puzzleAttemptsStore.js';
++import { homeworkForPlayer } from './homework.js';
++
++const store = createStore('cc-homework-v1', []);
++
++export function useAssignments() {
++  return useStore(store);
++}
++
++export function getAssignments() {
++  return store.get();
++}
++
++let cloudReady = false;
++// Why the last pull failed, kept so a coach's save can say why it cannot
++// reach the server — most likely, before 0020 has been applied, that the
++// table does not exist yet.
++let cloudError = null;
++let channel = null;
++
++/** A client-minted id, like games.id: the app must work before any database does. */
++export function newHomeworkId() {
++  return `HW-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
++}
++
++function fromRow(row) {
++  return {
++    id: row.id,
++    kind: row.kind,
++    theme: row.theme ?? null,
++    difficulty: row.difficulty ?? null,
++    requiredCount: row.required_count ?? null,
++    puzzleIds: row.puzzle_ids || [],
++    audience: row.audience || 'players',
++    playerIds: (row.homework_targets || []).map((t) => t.player_id),
++    note: row.note || '',
++    dueAt: row.due_at,
++    createdAt: row.created_at,
++  };
++}
++
++function toRow(assignment) {
++  return {
++    id: assignment.id,
++    kind: assignment.kind,
++    theme: assignment.theme,
++    difficulty: assignment.difficulty,
++    required_count: assignment.requiredCount,
++    puzzle_ids: assignment.puzzleIds || [],
++    audience: assignment.audience,
++    note: assignment.note || null,
++    due_at: assignment.dueAt,
++    // Sent, not defaulted: attempts are stamped by the same browser clock, so
++    // the "only attempts after it was set" window must be too.
++    created_at: assignment.createdAt,
++  };
++}
++
++const targetRows = (assignment) =>
++  (assignment.playerIds || []).map((playerId) => ({ assignment_id: assignment.id, player_id: playerId }));
++
++async function syncFromCloud() {
++  const { data, error } = await supabase
++    .from('homework_assignments')
++    .select('*, homework_targets(player_id)')
++    .order('due_at', { ascending: false })
++    .limit(500);
++  if (error) {
++    // Not shouted on every sign-in: until 0020 is applied this fails for
++    // every member, and a banner nobody can act on teaches people to ignore
++    // banners. A coach who tries to SET homework is told (see below).
++    cloudReady = false;
++    cloudError = error.message;
++    return;
++  }
++  cloudReady = true;
++  cloudError = null;
++  store.set(data.map(fromRow));
++}
++
++function subscribeRealtime() {
++  if (channel) return;
++  channel = supabase
++    .channel('homework-changes')
++    .on('postgres_changes', { event: '*', schema: 'public', table: 'homework_assignments' }, () => {
++      syncFromCloud();
++    })
++    .on('postgres_changes', { event: '*', schema: 'public', table: 'homework_targets' }, () => {
++      syncFromCloud();
++    })
++    .subscribe();
++}
++
++if (isSupabaseConfigured) {
++  supabase.auth.onAuthStateChange((_event, session) => {
++    if (session) {
++      syncFromCloud();
++      subscribeRealtime();
++    } else {
++      cloudReady = false;
++      if (channel) {
++        supabase.removeChannel(channel);
++        channel = null;
++      }
++    }
++  });
++  supabase.auth.getSession().then(({ data }) => {
++    if (data.session) {
++      syncFromCloud();
++      subscribeRealtime();
++    }
++  });
++}
++
++const dropLocal = (id) => store.set((list) => list.filter((a) => a.id !== id));
++
++/**
++ * Save an assignment built by homework.js → buildAssignment.
++ *
++ * Waits for the database, unlike recordGame, because homework that exists
++ * only on the coach's screen is homework nobody receives. On any failure the
++ * local copy is taken back out and `{ ok: false, error }` comes back, so the
++ * form can stay filled in for another try.
++ */
++export async function saveAssignment(assignment) {
++  store.set((list) => [assignment, ...list.filter((a) => a.id !== assignment.id)]);
++  if (!isSupabaseConfigured) return { ok: true, local: true };
++
++  // Reported to the form, not the sync banner: the banner says the change
++  // "only exists in this browser", and after the rollback it exists nowhere.
++  const fail = (message) => {
++    dropLocal(assignment.id);
++    console.error('Sync failed (that homework):', message);
++    return { ok: false, error: message };
++  };
++
++  if (!cloudReady) return fail(cloudError || 'The homework list has not loaded from the server yet.');
++
++  const { error } = await supabase.from('homework_assignments').insert(toRow(assignment));
++  if (error) return fail(error.message);
++
++  const { error: targetError } = await supabase.from('homework_targets').insert(targetRows(assignment));
++  if (targetError) {
++    // An assignment with no targets is invisible to every player; remove it
++    // rather than leave the coach believing it was set. Cascades nothing
++    // else — no target row landed.
++    await supabase.from('homework_assignments').delete().eq('id', assignment.id);
++    return fail(targetError.message);
++  }
++  return { ok: true };
++}
++
++/** Remove an assignment. Attempts are untouched: they were practice either way. */
++export function removeAssignment(id) {
++  dropLocal(id);
++  if (isSupabaseConfigured && cloudReady) {
++    supabase
++      .from('homework_assignments')
++      .delete()
++      .eq('id', id)
++      .then(({ error }) => {
++        if (error) {
++          reportSyncError('removing that homework', error.message);
++          syncFromCloud();
++        }
++      });
++  }
++}
++
++// -- hooks for pages --------------------------------------------------------
++
++/**
++ * One trainee's homework with progress, unfinished first — the list the
++ * Training page shows, and the one the player dashboard (Phase B item 7) is
++ * meant to show under "homework due".
++ *
++ * Progress is recomputed whenever the attempts or assignments change, which
++ * includes every puzzle the trainee finishes. "Overdue" is judged at that
++ * moment; a page left open across a deadline catches up on its next change.
++ */
++export function useHomeworkFor(playerId) {
++  const assignments = useAssignments();
++  const attempts = useAttempts();
++  return useMemo(
++    () => homeworkForPlayer(assignments, attempts, playerId, { now: Date.now() }),
++    [assignments, attempts, playerId],
++  );
++}
+diff --git a/supabase/migrations/0020_homework.sql b/supabase/migrations/0020_homework.sql
+new file mode 100644
+index 0000000..e976ab7
+--- /dev/null
++++ b/supabase/migrations/0020_homework.sql
+@@ -0,0 +1,181 @@
++-- 0020 — homework: the coach assigns a theme or a puzzle set with a due date.
++--
++-- NOT YET APPLIED. Written without database access; the lead applies it.
++--
++-- Additive only: two new tables, their indexes, their policies, and their
++-- addition to the realtime publication. No ALTER on an existing table, no
++-- change to any existing policy, nothing dropped but this file's own policies
++-- (so it is safe to run twice).
++--
++-- Depends on 0005's helpers (is_coach, owns_player) and on
++-- players.player_id being TEXT, which is what production actually has.
++--
++-- There is deliberately NO completion table. Whether a player has done their
++-- homework is computed from puzzle_attempts (src/data/homework.js,
++-- progressFor), which the Training page already writes for every attempt. A
++-- stored "done" flag would be a second copy of that fact, and the two would
++-- disagree the first time an attempt synced late or a coach deleted a bad
++-- attempt row. The coach can already read every attempt (0006), and a player
++-- can read their own, so both sides can compute the same answer.
++
++-- ---------------------------------------------------------------------------
++-- 1. The assignment.
++--
++-- `kind = 'theme'`: solve `required_count` distinct library puzzles on
++-- `theme`, optionally within one `difficulty` band. `kind = 'set'`: solve
++-- every puzzle in `puzzle_ids`. The shape check keeps a row from being half
++-- of each.
++--
++-- The id is text and minted by the client ("HW-…"), the same as games.id:
++-- the app must work with no backend at all, so the id has to exist before
++-- the database does.
++--
++-- due_at is an instant, not a date. "Due Tuesday" means the end of Tuesday
++-- in the club's time zone; the coach's browser converts it once, here, so no
++-- reader has to guess a zone later.
++-- ---------------------------------------------------------------------------
++create table if not exists public.homework_assignments (
++  id              text primary key,
++  kind            text not null check (kind in ('theme', 'set')),
++  theme           text,
++  difficulty      text check (difficulty in ('beginner', 'easy', 'intermediate', 'hard', 'expert')),
++  required_count  integer check (required_count between 1 and 50),
++  puzzle_ids      text[] not null default '{}',
++  audience        text not null default 'players' check (audience in ('club', 'players')),
++  note            text check (char_length(note) <= 200),
++  due_at          timestamptz not null,
++  created_at      timestamptz not null default now(),
++  created_by      uuid default auth.uid() references auth.users(id) on delete set null,
++
++  constraint homework_assignments_shape check (
++    (kind = 'theme'
++       and theme is not null
++       and required_count is not null
++       and cardinality(puzzle_ids) = 0)
++    or
++    (kind = 'set'
++       and theme is null
++       and difficulty is null
++       and required_count is null
++       and cardinality(puzzle_ids) between 1 and 50)
++  ),
++  constraint homework_assignments_due_after_created check (due_at > created_at)
++);
++
++comment on table public.homework_assignments is
++  'Homework set by a coach. Completion is computed from puzzle_attempts, never stored.';
++comment on column public.homework_assignments.audience is
++  'How the coach chose the targets (club = everyone on the roster at the time). Display only: who it is for is homework_targets.';
++
++-- ---------------------------------------------------------------------------
++-- 2. Who it is for.
++--
++-- One row per targeted player, INCLUDING club-wide homework, which the app
++-- expands to every member on the roster when it is created. That is the
++-- conservative choice between the two policies the design allowed:
++--
++--   * is_approved() on club-wide rows would let every member read every
++--     club-wide assignment. Harmless today, but it is a second read path, and
++--     the day a coach sets "club" homework and then narrows it, the old path
++--     would still be open.
++--   * owns_player() on a target row means a member reads an assignment only
++--     when it names them. One path, and it can never reveal homework set for
++--     somebody else — "extra pawn endgames for X" is a judgement about a
++--     child, the same class of data as a coach note or a skill score, which
++--     stay owner-or-coach.
++--
++-- The cost: a member who joins after club-wide homework was set is not on it.
++-- The coach sets new homework for them; old homework does not follow them in.
++-- ---------------------------------------------------------------------------
++create table if not exists public.homework_targets (
++  assignment_id  text not null references public.homework_assignments(id) on delete cascade,
++  player_id      text not null references public.players(player_id) on delete cascade,
++  primary key (assignment_id, player_id)
++);
++
++comment on table public.homework_targets is
++  'One row per player an assignment is for. The only path by which a player can read an assignment.';
++
++-- Covering indexes for the foreign keys. The primary key already leads with
++-- assignment_id, so only player_id and created_by need their own.
++create index if not exists homework_targets_player_idx
++  on public.homework_targets (player_id);
++
++create index if not exists homework_assignments_created_by_idx
++  on public.homework_assignments (created_by);
++
++-- ---------------------------------------------------------------------------
++-- 3. Policies, in the per-command shape 0013 normalised everything to: one
++-- SELECT policy per table, role `authenticated`, coach gets everything.
++-- ---------------------------------------------------------------------------
++alter table public.homework_targets enable row level security;
++alter table public.homework_assignments enable row level security;
++
++-- ---- homework_targets ----
++drop policy if exists homework_targets_select on public.homework_targets;
++create policy homework_targets_select on public.homework_targets
++  for select to authenticated using (public.is_coach() or public.owns_player(player_id));
++
++drop policy if exists homework_targets_insert on public.homework_targets;
++create policy homework_targets_insert on public.homework_targets
++  for insert to authenticated with check (public.is_coach());
++
++drop policy if exists homework_targets_update on public.homework_targets;
++create policy homework_targets_update on public.homework_targets
++  for update to authenticated using (public.is_coach()) with check (public.is_coach());
++
++drop policy if exists homework_targets_delete on public.homework_targets;
++create policy homework_targets_delete on public.homework_targets
++  for delete to authenticated using (public.is_coach());
++
++-- ---- homework_assignments ----
++-- A player's read goes through homework_targets, whose own SELECT policy
++-- already limits them to their rows, so this sub-select can only ever find
++-- the reader's own target. It does not refer back to homework_assignments,
++-- so there is no policy recursion.
++drop policy if exists homework_assignments_select on public.homework_assignments;
++create policy homework_assignments_select on public.homework_assignments
++  for select to authenticated using (
++    public.is_coach()
++    or exists (
++      select 1
++        from public.homework_targets t
++       where t.assignment_id = homework_assignments.id
++         and public.owns_player(t.player_id)
++    )
++  );
++
++-- Only a coach sets, edits or removes homework. A player finishing it writes
++-- to puzzle_attempts, which they can already do (0006); nothing here needs a
++-- player write.
++drop policy if exists homework_assignments_insert on public.homework_assignments;
++create policy homework_assignments_insert on public.homework_assignments
++  for insert to authenticated with check (public.is_coach());
++
++drop policy if exists homework_assignments_update on public.homework_assignments;
++create policy homework_assignments_update on public.homework_assignments
++  for update to authenticated using (public.is_coach()) with check (public.is_coach());
++
++drop policy if exists homework_assignments_delete on public.homework_assignments;
++create policy homework_assignments_delete on public.homework_assignments
++  for delete to authenticated using (public.is_coach());
++
++-- ---------------------------------------------------------------------------
++-- 4. Realtime, so a trainee's list updates when the coach sets homework, the
++-- same as puzzle_attempts in 0006. Realtime applies the SELECT policies above.
++-- ---------------------------------------------------------------------------
++do $$
++begin
++  alter publication supabase_realtime add table public.homework_assignments;
++exception
++  when duplicate_object then null;
++end
++$$;
++
++do $$
++begin
++  alter publication supabase_realtime add table public.homework_targets;
++exception
++  when duplicate_object then null;
++end
++$$;

@@ -1,0 +1,1672 @@
+diff --git a/src/analysis/pgn.js b/src/analysis/pgn.js
+index 3284116..2a010a2 100644
+--- a/src/analysis/pgn.js
++++ b/src/analysis/pgn.js
+@@ -523,9 +523,13 @@ const SAN_PATTERN = /^([PNBRQK])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([QRBNqrbn]
+ /**
+  * Play a SAN string on `chess`, tolerating over-disambiguated notation such as
+  * `Qh4xe1` which the engine itself would render as `Qxe1`.
++ *
++ * Exported so repertoireView.js replays opening moves with exactly the same
++ * tolerance as the importer; two readers disagreeing on what is legal would
++ * make one game two different openings.
+  * @returns {object|null} the decorated move, or null if it is not legal.
+  */
+-function playSan(chess, san) {
++export function playSan(chess, san) {
+   const direct = chess.move(san);
+   if (direct) return direct;
+ 
+diff --git a/src/analysis/repertoireView.js b/src/analysis/repertoireView.js
+new file mode 100644
+index 0000000..7f361e6
+--- /dev/null
++++ b/src/analysis/repertoireView.js
+@@ -0,0 +1,376 @@
++/*
++ * repertoireView.js — what the repertoire UI shows, built around repertoire.js.
++ *
++ * repertoire.js answers "which lines does this player reach, and how do they
++ * score?" from plain { whitePlayerId, blackPlayerId, result, sanMoves } rows.
++ * The UI needs three things it deliberately does not know about:
++ *
++ *   1. The archive stores PGN, not sanMoves. Something has to turn one into
++ *      the other, and refuse the games that have no opening to name.
++ *   2. Which games make up each line, so an entry can open one of them.
++ *   3. How the engine judged the player's own opening moves, and where in
++ *      those games things first went wrong.
++ *
++ * This module adds exactly that and leaves repertoire.js as it is: the line
++ * keys, the counts and the scoring all still come from there.
++ *
++ * Pure and React-free, like the rest of src/analysis, so the rules that matter
++ * most here — only this player's games, only their side of the analysis, and
++ * no verdict from one or two games — are asserted in repertoireView.test.js.
++ */
++
++import { Chess, START_FEN } from '../engine/chess.js';
++import { parsePgn, playSan } from './pgn.js';
++import { classifyPly } from './scoring.js';
++import { BOOK_PLIES_FALLBACK, OPENING_LAST_FULLMOVE } from './buildPlyRecords.js';
++import { canViewAnalysis, NOT_ENOUGH } from './presentation.js';
++import {
++  DEFAULT_MIN_GAMES,
++  DEFAULT_PLIES,
++  DEFAULT_WEAKEST_MIN_GAMES,
++  openingKey,
++  playerScore,
++  repertoireReport,
++  weakestLines,
++} from './repertoire.js';
++
++/*
++ * How finely the UI may split lines: two, three or four moves a side. Eight is
++ * repertoire.js's own default. At club level most games leave any given line
++ * within four moves, so the coarser settings are what make a beginner's
++ * repertoire visible at all.
++ */
++export const GROUPING_PLIES = Object.freeze([4, 6, 8]);
++
++/*
++ * A line is LISTED from two games (repertoire.js's floor: "an accident, not a
++ * repertoire"), but its results are only SHOWN from three — the same bar
++ * weakestLines uses before it points at a problem. "Lost both" is two games,
++ * not a habit, and presentation.js is explicit that thin evidence is worded as
++ * "not enough games yet", never shown as a number.
++ */
++export const MIN_RESULT_GAMES = DEFAULT_WEAKEST_MIN_GAMES;
++
++/** Analysed games needed before an opening accuracy or a "first mistake" pattern is shown. */
++export const MIN_ANALYSED_GAMES = 3;
++
++/** The labels that count as "going wrong". Inaccuracies are too common to be a pattern. */
++const SERIOUS_LABELS = new Set(['mistake', 'blunder']);
++
++/*
++ * The moves the engine calls "opening" but does not grade as book: without an
++ * opening book the analyser treats the first BOOK_PLIES_FALLBACK plies as
++ * book (buildPlyRecords.js), and the opening phase ends at move 12. The spec
++ * says the UI must say so rather than imply real book knowledge.
++ */
++export const OPENING_ACCURACY_FROM_MOVE = Math.floor(BOOK_PLIES_FALLBACK / 2) + 1;
++export const OPENING_ACCURACY_TO_MOVE = OPENING_LAST_FULLMOVE;
++
++/** The four placement/turn/castling/ep fields: a FEN tag of the normal start is still a normal game. */
++const boardFields = (fen) => String(fen).trim().split(/\s+/).slice(0, 4).join(' ');
++
++/**
++ * The first `maxPlies` mainline moves of a PGN, in the engine's own SAN.
++ *
++ * Replaying rather than trusting the text is what makes two games of the same
++ * line share a key: "Nf3" and "Ng1f3", or "Bb5" and "Bb5+", are one move.
++ *
++ * @returns {string[]} [] for anything that names no opening: unparseable text,
++ *   a game set up from a position, a variant, or a move that will not replay.
++ */
++export function openingMoves(pgn, maxPlies = DEFAULT_PLIES) {
++  if (typeof pgn !== 'string' || !pgn.trim()) return [];
++
++  let parsed;
++  try {
++    [parsed] = parsePgn(pgn);
++  } catch {
++    return [];
++  }
++  if (!parsed || parsed.invalid) return [];
++
++  const tags = parsed.tags || {};
++  // A game started from a position has no opening, and a Chess960 "1.e4" is
++  // not the move a club player's repertoire is made of.
++  if (typeof tags.FEN === 'string' && tags.FEN.trim() && boardFields(tags.FEN) !== boardFields(START_FEN)) {
++    return [];
++  }
++  if (typeof tags.Variant === 'string' && tags.Variant.trim() && !/^standard$/i.test(tags.Variant.trim())) {
++    return [];
++  }
++
++  const limit = Number.isFinite(maxPlies) ? Math.max(0, Math.floor(maxPlies)) : DEFAULT_PLIES;
++  const board = new Chess(START_FEN);
++  const sans = [];
++  for (const move of parsed.moves.slice(0, limit)) {
++    let played = null;
++    try {
++      played = playSan(board, move.san);
++    } catch {
++      played = null;
++    }
++    // A broken move inside the opening would give the game a truncated key of
++    // its own — a fake line. Better to leave the game out.
++    if (!played) return [];
++    sans.push(played.san);
++  }
++  return sans;
++}
++
++/** 'w' | 'b' | null. An empty player id matches nothing: gamesStore uses '' for "no player". */
++function sideOf(game, playerId) {
++  if (!game || playerId == null || playerId === '') return null;
++  if (game.whitePlayerId === playerId) return 'w';
++  if (game.blackPlayerId === playerId) return 'b';
++  return null;
++}
++
++/**
++ * This player's games, and only theirs, with the fields repertoire.js reads.
++ * Newest first, so "the most recent example" is simply the first one.
++ */
++export function playerGames(games, playerId, { plies = DEFAULT_PLIES } = {}) {
++  const out = [];
++  for (const game of Array.isArray(games) ? games : []) {
++    const side = sideOf(game, playerId);
++    if (!side) continue; // someone else's game never reaches the report
++    const sanMoves = openingMoves(game.pgn, plies);
++    if (!sanMoves.length) continue;
++    out.push({
++      ...game,
++      side,
++      sanMoves,
++      key: openingKey(sanMoves, plies),
++      points: playerScore(game.result, side),
++    });
++  }
++  return out.sort(
++    (a, b) => String(b.playedAt ?? '').localeCompare(String(a.playedAt ?? '')) || String(a.id).localeCompare(String(b.id)),
++  );
++}
++
++/**
++ * The player's opening moves in one analysed game, as the engine judged them.
++ *
++ * Only plies of `side` are read, whatever else the row carries: the other side
++ * of the board is somebody else's analysis.
++ *
++ * @returns {{accuracies: number[], slip: object|null}|null} null when the row
++ *   has no per-move detail to read.
++ */
++export function openingPlay(row, side) {
++  if (!row || !Array.isArray(row.plies)) return null;
++  const accuracies = [];
++  let slip = null;
++  const plies = row.plies.filter((p) => p && p.side === side && p.phase === 'opening');
++  plies.sort((a, b) => a.ply - b.ply);
++  for (const ply of plies) {
++    const judged = classifyPly(ply);
++    // `counted` is scoring.js's own filter: book moves and decided positions
++    // are not graded, so they are neither accuracy nor a mistake.
++    if (!judged.counted) continue;
++    accuracies.push(judged.accuracy);
++    if (!slip && SERIOUS_LABELS.has(judged.label)) {
++      slip = { ply: ply.ply, fullmove: ply.fullmove, san: ply.san, label: judged.label };
++    }
++  }
++  return { accuracies, slip };
++}
++
++const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
++
++/** The lower median: "around move 9" should be a move that actually happened. */
++function median(xs) {
++  if (!xs.length) return null;
++  const sorted = [...xs].sort((a, b) => a - b);
++  return sorted[Math.floor((sorted.length - 1) / 2)];
++}
++
++const outcomeOf = (points) => (points === 1 ? 'won' : points === 0.5 ? 'drew' : 'lost');
++
++/** Accuracy and first-mistake figures for a set of games, withheld when thin. */
++function openingFigures(entries) {
++  const analysed = entries.filter((e) => e.play && e.play.accuracies.length);
++  const enough = analysed.length >= MIN_ANALYSED_GAMES;
++  const slips = analysed.filter((e) => e.play.slip);
++  return {
++    analysedGames: analysed.length,
++    openingAccuracy: enough ? Math.round(mean(analysed.flatMap((e) => e.play.accuracies))) : null,
++    slip: enough
++      ? {
++          games: slips.length,
++          typicalMove: median(slips.map((e) => e.play.slip.fullmove)),
++        }
++      : null,
++  };
++}
++
++/**
++ * Everything the repertoire panel renders for one player.
++ *
++ * Returns null when `viewer` may not see this player's analysis — the same
++ * rule, from presentation.js, as every other analysis view. The repertoire is
++ * built from the engine's verdicts and says which lines are losing, which is
++ * exactly what "no player ever sees another player's analysis" protects.
++ *
++ * @param {{viewer: object, games: object[], analyses: object[], playerId: string, plies?: number}} input
++ */
++export function buildRepertoireView({ viewer, games, analyses, playerId, plies = DEFAULT_PLIES }) {
++  if (!canViewAnalysis(viewer, playerId)) return null;
++
++  const mine = playerGames(games, playerId, { plies });
++
++  // Only the rows for this player's side of this player's games.
++  const wanted = new Set(mine.map((g) => `${g.id}:${g.side}`));
++  const rows = new Map();
++  for (const row of Array.isArray(analyses) ? analyses : []) {
++    const key = `${row?.gameId}:${row?.side}`;
++    if (wanted.has(key)) rows.set(key, row);
++  }
++
++  const entryFor = (game) => {
++    const play = openingPlay(rows.get(`${game.id}:${game.side}`), game.side);
++    return {
++      gameId: game.id,
++      playedAt: game.playedAt ?? null,
++      opponent: (game.side === 'w' ? game.blackName : game.whiteName) || '',
++      mode: game.mode ?? null,
++      outcome: outcomeOf(game.points),
++      // Open at the first real mistake if the engine found one; otherwise at
++      // the position the line's name describes.
++      ply: play?.slip ? play.slip.ply : game.sanMoves.length,
++      reason: play?.slip ? 'slip' : 'line',
++      slipMove: play?.slip?.fullmove ?? null,
++      play,
++    };
++  };
++
++  // Undecided games are left out, exactly as repertoireReport leaves them out,
++  // so a line's list of games always matches its count.
++  const decided = mine.filter((g) => g.points !== null);
++  const report = repertoireReport(decided, playerId, { plies, minGames: DEFAULT_MIN_GAMES });
++
++  const bySide = {};
++  for (const side of ['w', 'b']) {
++    const sideGames = decided.filter((g) => g.side === side);
++    const entries = sideGames.map(entryFor);
++    const byKey = new Map();
++    sideGames.forEach((game, i) => {
++      if (!byKey.has(game.key)) byKey.set(game.key, []);
++      byKey.get(game.key).push(entries[i]);
++    });
++
++    const lines = (side === 'w' ? report.asWhite : report.asBlack).map((line) => {
++      const lineEntries = byKey.get(line.key) || [];
++      const example = lineEntries.find((e) => e.reason === 'slip') || lineEntries[0] || null;
++      return {
++        ...line,
++        side,
++        scored: line.games >= MIN_RESULT_GAMES,
++        entries: lineEntries.map(stripPlay),
++        example: example ? { gameId: example.gameId, ply: example.ply, reason: example.reason } : null,
++        ...openingFigures(lineEntries),
++      };
++    });
++
++    const wins = sideGames.filter((g) => g.points === 1).length;
++    const draws = sideGames.filter((g) => g.points === 0.5).length;
++    bySide[side] = {
++      side,
++      games: sideGames.length,
++      wins,
++      draws,
++      losses: sideGames.length - wins - draws,
++      score: sideGames.length ? (wins + draws * 0.5) / sideGames.length : null,
++      scored: sideGames.length >= MIN_RESULT_GAMES,
++      lines,
++      // Games that fall in no listed line: one-offs at this grouping.
++      oneOffGames: sideGames.length - lines.reduce((n, l) => n + l.games, 0),
++      ...openingFigures(entries),
++    };
++  }
++
++  // Worst first across both colours, but only real problems: a line scoring
++  // half or better is not something to "work on".
++  const weakest = weakestLines(
++    { asWhite: bySide.w.lines, asBlack: bySide.b.lines },
++    { minGames: MIN_RESULT_GAMES },
++  ).filter((line) => line.score < 0.5);
++
++  const strongest =
++    [...bySide.w.lines, ...bySide.b.lines]
++      .filter((line) => line.scored && line.score > 0.5)
++      .sort((a, b) => b.score - a.score || b.games - a.games || a.key.localeCompare(b.key))[0] ?? null;
++
++  return {
++    playerId,
++    plies,
++    totalGames: mine.length,
++    unfinishedGames: mine.length - decided.length,
++    sides: bySide,
++    weakest,
++    strongest,
++  };
++}
++
++/** The per-game engine detail stays internal; the UI needs only the summary. */
++function stripPlay({ play, ...entry }) {
++  return entry;
++}
++
++/* ── wording ──────────────────────────────────────────────────────────────
++ *
++ * Kept here, beside the thresholds, so the rule "no verdict from one or two
++ * games" is enforced by a test rather than by whoever writes the JSX next.
++ */
++
++/** "3½" — points the way a chess player writes them. */
++export function pointsText(wins, draws) {
++  const points = wins + draws * 0.5;
++  const whole = Math.floor(points);
++  const half = points - whole >= 0.5;
++  if (!half) return String(whole);
++  return whole === 0 ? '½' : `${whole}½`;
++}
++
++const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
++
++/** "3½ out of 5", or NOT_ENOUGH below MIN_RESULT_GAMES. */
++export function scoreText(line) {
++  if (!line || !line.scored) return NOT_ENOUGH;
++  return `${pointsText(line.wins, line.draws)} out of ${line.games}`;
++}
++
++/** "3 won, 1 drawn, 1 lost", or NOT_ENOUGH below MIN_RESULT_GAMES. */
++export function recordText(line) {
++  if (!line || !line.scored) return NOT_ENOUGH;
++  return `${line.wins} won, ${line.draws} drawn, ${line.losses} lost`;
++}
++
++/** "81%", or NOT_ENOUGH below MIN_ANALYSED_GAMES analysed games. */
++export function accuracyText(line) {
++  if (!line || line.openingAccuracy == null) return NOT_ENOUGH;
++  return `${line.openingAccuracy}%`;
++}
++
++/**
++ * Where it tends to go wrong, in words. Null when there is nothing honest to
++ * say yet. The player's version is written to them and points at the example;
++ * the coach's is the plain count.
++ */
++export function slipText(line, audience = 'player') {
++  if (!line || !line.slip) return null;
++  const { games, typicalMove } = line.slip;
++  const n = line.analysedGames;
++  if (games === 0) {
++    return audience === 'coach'
++      ? `No opening mistakes in ${plural(n, 'analysed game')}.`
++      : `No real mistakes in the opening across ${plural(n, 'analysed game')}. Nicely played.`;
++  }
++  return audience === 'coach'
++    ? `First opening mistake in ${games} of ${plural(n, 'analysed game')}, typically move ${typicalMove}.`
++    : `In ${games} of your ${plural(n, 'analysed game')} here, the first real mistake came around move ${typicalMove}. The example opens right there.`;
++}
++
++/** "White" / "Black". */
++export const sideLabel = (side) => (side === 'w' ? 'White' : 'Black');
+diff --git a/src/analysis/repertoireView.test.js b/src/analysis/repertoireView.test.js
+new file mode 100644
+index 0000000..782a37d
+--- /dev/null
++++ b/src/analysis/repertoireView.test.js
+@@ -0,0 +1,396 @@
++/*
++ * The repertoire panel's rules: only this player's games, only their side of
++ * the analysis, and no verdict from one or two games. The UI is thin on
++ * purpose; everything it is not allowed to get wrong is asserted here.
++ */
++
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import {
++  openingMoves,
++  playerGames,
++  openingPlay,
++  buildRepertoireView,
++  pointsText,
++  scoreText,
++  recordText,
++  accuracyText,
++  slipText,
++  MIN_RESULT_GAMES,
++  MIN_ANALYSED_GAMES,
++  OPENING_ACCURACY_FROM_MOVE,
++  OPENING_ACCURACY_TO_MOVE,
++} from './repertoireView.js';
++import { openingKey } from './repertoire.js';
++import { NOT_ENOUGH } from './presentation.js';
++
++const ITALIAN = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'c3', 'Nf6', 'd3', 'd6'];
++const RUY = ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'];
++const SICILIAN = ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'];
++const LONDON = ['d4', 'd5', 'Bf4', 'Nf6', 'e3', 'e6', 'Nf3', 'Bd6', 'Bg3', 'O-O'];
++
++const coach = { role: 'coach', playerId: 'P-COACH' };
++const admin = { role: 'admin', playerId: null };
++const alice = { role: 'player', playerId: 'P1' };
++const bob = { role: 'player', playerId: 'P2' };
++
++/** Real PGN text, the way the archive stores it. */
++function pgnOf(sans, { result = '*', tags = {} } = {}) {
++  const header = Object.entries({ Event: 'Club', White: 'W', Black: 'B', Result: result, ...tags })
++    .map(([k, v]) => `[${k} "${v}"]`)
++    .join('\n');
++  const body = [];
++  sans.forEach((san, i) => {
++    if (i % 2 === 0) body.push(`${i / 2 + 1}.`);
++    body.push(san);
++  });
++  return `${header}\n\n${body.join(' ')} ${result}\n`;
++}
++
++let seq = 0;
++/** An archive row as gamesStore holds it. */
++function game(white, black, result, sans, extra = {}) {
++  seq += 1;
++  return {
++    id: `G-${seq}`,
++    playedAt: `2026-09-${String(seq % 28 + 1).padStart(2, '0')}T18:00:00Z`,
++    whitePlayerId: white,
++    blackPlayerId: black,
++    whiteName: white === 'P1' ? 'Alice' : `Opp ${white}`,
++    blackName: black === 'P1' ? 'Alice' : `Opp ${black}`,
++    result,
++    mode: 'human',
++    pgn: pgnOf(sans, { result }),
++    ...extra,
++  };
++}
++
++/** One ply record the way buildPlyRecords stores it on game_analyses.plies. */
++function ply(n, side, { cpBefore = 30, cpAfter = 30, best = true, phase = 'opening', inBook = false } = {}) {
++  return {
++    ply: n,
++    fullmove: Math.ceil(n / 2),
++    side,
++    san: 'x',
++    uci: best ? 'a2a3' : 'h2h3',
++    bestUci: 'a2a3',
++    cpBefore,
++    mateBefore: null,
++    cpAfter,
++    mateAfter: null,
++    secondBestDelta: 0,
++    inBook,
++    phase,
++  };
++}
++
++/** Plies 9..20 for `side` (moves 5..10), all accurate unless a slip is placed. */
++function openingPlies(side, { slipAtPly = null, blunder = false } = {}) {
++  const out = [];
++  for (let n = 1; n <= 20; n += 1) {
++    const mover = n % 2 === 1 ? 'w' : 'b';
++    if (mover !== side) continue;
++    if (n <= 8) {
++      out.push(ply(n, side, { inBook: true }));
++    } else if (n === slipAtPly) {
++      out.push(ply(n, side, { best: false, cpAfter: blunder ? -300 : -120 }));
++    } else {
++      out.push(ply(n, side));
++    }
++  }
++  return out;
++}
++
++const analysisRow = (g, side, plies) => ({ gameId: g.id, side, playerId: side === 'w' ? g.whitePlayerId : g.blackPlayerId, plies });
++
++/* ── openingMoves ─────────────────────────────────────────────────────────── */
++
++test('openingMoves reads the mainline in the engine’s SAN, clocks and variations ignored', () => {
++  const pgn = `[Event "Club"]\n[Result "1-0"]\n\n1. e4 {[%clk 0:09:58]} e5 (1... c5 2. Nf3) 2. Ng1f3 Nc6 3. Bb5 a6 1-0\n`;
++  assert.deepEqual(openingMoves(pgn, 8), ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6']);
++  assert.deepEqual(openingMoves(pgn, 3), ['e4', 'e5', 'Nf3'], 'truncated by ply');
++});
++
++test('openingMoves normalises castling and check marks so one move has one key', () => {
++  const withZeros = pgnOf(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', '0-0', 'Be7']);
++  const withOs = pgnOf(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'O-O', 'Be7']);
++  assert.deepEqual(openingMoves(withZeros), openingMoves(withOs));
++  assert.equal(openingMoves(withZeros)[6], 'O-O');
++  // The engine adds the check mark itself; a PGN that omits it is the same move.
++  const bare = openingMoves(pgnOf(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qxf7']));
++  assert.equal(bare[6], 'Qxf7#');
++});
++
++test('openingMoves names no opening for positions, variants, junk and broken moves', () => {
++  const fromPosition = pgnOf(['Kf2'], {
++    tags: { SetUp: '1', FEN: '8/8/8/8/8/8/8/4K2k w - - 0 1' },
++  });
++  assert.deepEqual(openingMoves(fromPosition), [], 'set-up position');
++  assert.deepEqual(openingMoves(pgnOf(ITALIAN, { tags: { Variant: 'Chess960' } })), [], 'variant');
++  assert.deepEqual(openingMoves(pgnOf(['e4', 'e5', 'Ke3'])), [], 'illegal move inside the opening');
++  assert.deepEqual(openingMoves('not a pgn at all'), []);
++  assert.deepEqual(openingMoves(''), []);
++  assert.deepEqual(openingMoves(null), []);
++  assert.deepEqual(openingMoves(undefined), []);
++});
++
++test('a FEN tag holding the normal start position is still a normal game', () => {
++  const pgn = pgnOf(ITALIAN, {
++    tags: { SetUp: '1', FEN: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' },
++  });
++  assert.deepEqual(openingMoves(pgn, 4), ['e4', 'e5', 'Nf3', 'Nc6']);
++});
++
++/* ── playerGames ──────────────────────────────────────────────────────────── */
++
++test('playerGames keeps only this player’s games, never anyone else’s', () => {
++  const games = [
++    game('P1', 'P9', '1-0', ITALIAN),
++    game('P2', 'P3', '1-0', ITALIAN), // two other members
++    game('P8', 'P1', '0-1', SICILIAN),
++  ];
++  const mine = playerGames(games, 'P1');
++  assert.equal(mine.length, 2);
++  assert.ok(mine.every((g) => g.whitePlayerId === 'P1' || g.blackPlayerId === 'P1'));
++  assert.deepEqual(mine.map((g) => g.side).sort(), ['b', 'w']);
++});
++
++test('an empty player id matches nothing, not every game without a player', () => {
++  // gamesStore stores a missing player as '' — a naive equality check would
++  // hand a player-less viewer every unassigned game in the archive.
++  const games = [game('', '', '1-0', ITALIAN), game('', 'P1', '0-1', ITALIAN)];
++  assert.deepEqual(playerGames(games, ''), []);
++  assert.deepEqual(playerGames(games, null), []);
++  assert.deepEqual(playerGames(games, undefined), []);
++});
++
++/* ── openingPlay ──────────────────────────────────────────────────────────── */
++
++test('openingPlay grades only this side’s opening moves and finds the first real mistake', () => {
++  const plies = [
++    ...openingPlies('w', { slipAtPly: 13 }),
++    ply(15, 'w', { best: false, cpAfter: -400, phase: 'middlegame' }), // later, not the opening
++  ];
++  const play = openingPlay({ plies }, 'w');
++  assert.equal(play.slip.ply, 13);
++  assert.equal(play.slip.fullmove, 7);
++  assert.equal(play.slip.label, 'mistake');
++  assert.equal(play.accuracies.length, 6, 'moves 5-10; book and middlegame plies are not graded');
++});
++
++test('openingPlay ignores the other side of the board and inaccuracies', () => {
++  const blackBlunders = openingPlies('b', { slipAtPly: 12, blunder: true });
++  assert.equal(openingPlay({ plies: blackBlunders }, 'w').accuracies.length, 0, 'no White plies');
++  const inaccuracy = [ply(9, 'w', { best: false, cpAfter: -20 })]; // ~5.5 win% lost
++  assert.equal(openingPlay({ plies: inaccuracy }, 'w').slip, null, 'an inaccuracy is not "going wrong"');
++  assert.equal(openingPlay({ plies: null }, 'w'), null);
++  assert.equal(openingPlay(undefined, 'w'), null);
++});
++
++/* ── buildRepertoireView: permissions ─────────────────────────────────────── */
++
++test('a player never gets another player’s repertoire', () => {
++  const games = [game('P2', 'P9', '1-0', ITALIAN), game('P2', 'P8', '1-0', ITALIAN)];
++  assert.equal(buildRepertoireView({ viewer: alice, games, analyses: [], playerId: 'P2' }), null);
++  assert.equal(buildRepertoireView({ viewer: null, games, analyses: [], playerId: 'P2' }), null);
++  assert.equal(
++    buildRepertoireView({ viewer: { role: 'parent', playerId: 'P2' }, games, analyses: [], playerId: 'P2' }),
++    null,
++  );
++  assert.ok(buildRepertoireView({ viewer: bob, games, analyses: [], playerId: 'P2' }), 'their own');
++  assert.ok(buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P2' }), 'a coach');
++  assert.ok(buildRepertoireView({ viewer: admin, games, analyses: [], playerId: 'P2' }), 'local admin');
++});
++
++/* ── buildRepertoireView: lines, results, examples ───────────────────────── */
++
++test('lines are split by colour, scored from the player’s side, and list their games', () => {
++  const games = [
++    game('P1', 'P5', '1-0', ITALIAN),
++    game('P1', 'P6', '1/2-1/2', ITALIAN),
++    game('P1', 'P7', '0-1', ITALIAN),
++    game('P5', 'P1', '0-1', SICILIAN), // a win as Black
++    game('P6', 'P1', '0-1', SICILIAN),
++    game('P7', 'P1', '1-0', SICILIAN),
++  ];
++  const view = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1' });
++
++  const [white] = view.sides.w.lines;
++  assert.equal(white.key, openingKey(ITALIAN, 8));
++  assert.equal(white.games, 3);
++  assert.equal(white.entries.length, 3, 'every game in the count is listed');
++  assert.equal(white.scored, true);
++  assert.equal(scoreText(white), '1½ out of 3');
++
++  const [black] = view.sides.b.lines;
++  assert.equal(black.wins, 2, 'Black wins count as wins');
++  assert.equal(scoreText(black), '2 out of 3');
++  assert.deepEqual(black.entries.map((e) => e.outcome).sort(), ['lost', 'won', 'won']);
++  assert.equal(view.sides.b.score, 2 / 3);
++});
++
++test('two games list a line but give no verdict: "not enough games yet"', () => {
++  const games = [game('P1', 'P5', '0-1', ITALIAN), game('P1', 'P6', '0-1', ITALIAN)];
++  const view = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1' });
++  const [line] = view.sides.w.lines;
++
++  assert.equal(line.games, 2, 'still listed: it is how often they play it');
++  assert.equal(line.scored, false);
++  assert.equal(scoreText(line), NOT_ENOUGH);
++  assert.equal(recordText(line), NOT_ENOUGH);
++  assert.equal(accuracyText(line), NOT_ENOUGH);
++  assert.equal(view.sides.w.scored, false, 'the colour total is thin too');
++  assert.deepEqual(view.weakest, [], 'two losses are not flagged as a line to work on');
++  assert.equal(view.strongest, null);
++});
++
++test('one-off games are counted but make no line', () => {
++  const games = [
++    game('P1', 'P5', '1-0', ITALIAN),
++    game('P1', 'P6', '1-0', ITALIAN),
++    game('P1', 'P7', '1-0', LONDON), // played once
++    game('P1', 'P8', '*', ITALIAN), // unfinished
++  ];
++  const view = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1' });
++  assert.equal(view.sides.w.lines.length, 1);
++  assert.equal(view.sides.w.games, 3, 'decided games only');
++  assert.equal(view.sides.w.oneOffGames, 1);
++  assert.equal(view.unfinishedGames, 1);
++  assert.equal(view.sides.w.lines[0].entries.length, 2, 'the unfinished game is not in the list');
++});
++
++test('coarser grouping gathers lines that split later', () => {
++  const games = [
++    game('P1', 'P5', '1-0', ITALIAN),
++    game('P1', 'P6', '1-0', RUY),
++    game('P1', 'P7', '0-1', ITALIAN),
++    game('P1', 'P8', '0-1', RUY),
++  ];
++  const fine = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1', plies: 8 });
++  const coarse = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1', plies: 4 });
++  assert.equal(fine.sides.w.lines.length, 2);
++  assert.equal(coarse.sides.w.lines.length, 1);
++  assert.equal(coarse.sides.w.lines[0].games, 4);
++  assert.equal(coarse.sides.w.lines[0].example.ply, 4, 'unanalysed: opens where the line’s name ends');
++});
++
++test('weakest lines are real problems only; strongest is the best-scoring established line', () => {
++  const games = [
++    game('P1', 'P5', '1-0', ITALIAN),
++    game('P1', 'P6', '1-0', ITALIAN),
++    game('P1', 'P7', '1/2-1/2', ITALIAN),
++    game('P5', 'P1', '1-0', SICILIAN),
++    game('P6', 'P1', '1-0', SICILIAN),
++    game('P7', 'P1', '1/2-1/2', SICILIAN),
++    game('P1', 'P8', '1-0', LONDON),
++    game('P1', 'P9', '0-1', LONDON),
++    game('P1', 'P4', '1/2-1/2', LONDON), // exactly half: not a problem
++  ];
++  const view = buildRepertoireView({ viewer: coach, games, analyses: [], playerId: 'P1' });
++  assert.equal(view.weakest.length, 1);
++  assert.equal(view.weakest[0].key, openingKey(SICILIAN, 8));
++  assert.equal(view.weakest[0].side, 'b');
++  assert.equal(view.strongest.key, openingKey(ITALIAN, 8));
++});
++
++/* ── buildRepertoireView: the engine's view of the opening ───────────────── */
++
++test('opening accuracy and the first-mistake pattern come from the player’s own side only', () => {
++  const games = [
++    game('P1', 'P5', '0-1', ITALIAN),
++    game('P1', 'P6', '0-1', ITALIAN),
++    game('P1', 'P7', '1-0', ITALIAN),
++  ];
++  const analyses = [
++    analysisRow(games[0], 'w', openingPlies('w', { slipAtPly: 13 })), // move 7
++    analysisRow(games[1], 'w', openingPlies('w', { slipAtPly: 17, blunder: true })), // move 9
++    analysisRow(games[2], 'w', openingPlies('w')),
++    // The opponents' rows are full of blunders. They must change nothing.
++    ...games.map((g) => analysisRow(g, 'b', openingPlies('b', { slipAtPly: 10, blunder: true }))),
++  ];
++  const view = buildRepertoireView({ viewer: alice, games, analyses, playerId: 'P1' });
++  const [line] = view.sides.w.lines;
++
++  assert.equal(line.analysedGames, 3);
++  assert.equal(line.slip.games, 2);
++  assert.equal(line.slip.typicalMove, 7, 'lower median of moves 7 and 9');
++  assert.ok(line.openingAccuracy > 50 && line.openingAccuracy < 100, `got ${line.openingAccuracy}`);
++
++  // The example is a game with a mistake, opened AT the mistake.
++  const exampleGame = games.find((g) => g.id === line.example.gameId);
++  assert.ok([games[0].id, games[1].id].includes(exampleGame.id));
++  assert.equal(line.example.reason, 'slip');
++  assert.ok([13, 17].includes(line.example.ply));
++
++  assert.match(slipText(line, 'player'), /2 of your 3 analysed games/);
++  assert.match(slipText(line, 'coach'), /2 of 3 analysed games, typically move 7/);
++});
++
++test('fewer than three analysed games: no accuracy and no pattern, however bad they look', () => {
++  const games = [
++    game('P1', 'P5', '0-1', ITALIAN),
++    game('P1', 'P6', '0-1', ITALIAN),
++    game('P1', 'P7', '0-1', ITALIAN),
++  ];
++  const analyses = [
++    analysisRow(games[0], 'w', openingPlies('w', { slipAtPly: 9, blunder: true })),
++    analysisRow(games[1], 'w', openingPlies('w', { slipAtPly: 9, blunder: true })),
++  ];
++  const view = buildRepertoireView({ viewer: coach, games, analyses, playerId: 'P1' });
++  const [line] = view.sides.w.lines;
++  assert.equal(MIN_ANALYSED_GAMES, 3);
++  assert.equal(line.analysedGames, 2);
++  assert.equal(line.openingAccuracy, null);
++  assert.equal(accuracyText(line), NOT_ENOUGH);
++  assert.equal(line.slip, null);
++  assert.equal(slipText(line), null);
++  // The example still opens at the mistake the engine did find.
++  assert.equal(line.example.reason, 'slip');
++  assert.equal(line.example.ply, 9);
++});
++
++test('a clean opening is said out loud, encouragingly', () => {
++  const games = [1, 2, 3].map((i) => game('P1', `P${i + 4}`, '1-0', ITALIAN));
++  const analyses = games.map((g) => analysisRow(g, 'w', openingPlies('w')));
++  const view = buildRepertoireView({ viewer: alice, games, analyses, playerId: 'P1' });
++  const [line] = view.sides.w.lines;
++  assert.equal(line.slip.games, 0);
++  assert.match(slipText(line, 'player'), /No real mistakes in the opening across 3 analysed games/);
++  assert.equal(accuracyText(line), '100%');
++});
++
++test('an empty archive gives an empty report rather than throwing', () => {
++  const view = buildRepertoireView({ viewer: coach, games: [], analyses: [], playerId: 'P1' });
++  assert.equal(view.totalGames, 0);
++  assert.deepEqual(view.sides.w.lines, []);
++  assert.deepEqual(view.sides.b.lines, []);
++  assert.equal(view.sides.w.score, null);
++  assert.equal(view.weakest.length, 0);
++  assert.ok(buildRepertoireView({ viewer: coach, games: undefined, analyses: undefined, playerId: 'P1' }));
++});
++
++/* ── wording ──────────────────────────────────────────────────────────────── */
++
++test('points are written the way chess players write them', () => {
++  assert.equal(pointsText(0, 0), '0');
++  assert.equal(pointsText(0, 1), '½');
++  assert.equal(pointsText(3, 1), '3½');
++  assert.equal(pointsText(2, 2), '3');
++});
++
++test('no wording helper ever turns thin evidence into a number', () => {
++  const thin = { games: 2, wins: 0, draws: 0, losses: 2, scored: false, openingAccuracy: null, slip: null };
++  for (const text of [scoreText(thin), recordText(thin), accuracyText(thin)]) {
++    assert.equal(text, NOT_ENOUGH);
++    assert.doesNotMatch(text, /\d/);
++  }
++  assert.equal(scoreText(null), NOT_ENOUGH);
++  assert.equal(MIN_RESULT_GAMES, 3);
++});
++
++test('the opening-accuracy window matches the analyser’s own book and phase rules', () => {
++  // First 8 plies are treated as book, the opening ends at move 12.
++  assert.equal(OPENING_ACCURACY_FROM_MOVE, 5);
++  assert.equal(OPENING_ACCURACY_TO_MOVE, 12);
++});
+diff --git a/src/components/GameReview.jsx b/src/components/GameReview.jsx
+index fc99867..f74e157 100644
+--- a/src/components/GameReview.jsx
++++ b/src/components/GameReview.jsx
+@@ -30,8 +30,11 @@ const LABEL_CLASS = {
+   forced: 'muted',
+ };
+ 
+-export default function GameReview({ game, analyses = [], orientation = 'w' }) {
+-  const [viewPly, setViewPly] = useState(0);
++export default function GameReview({ game, analyses = [], orientation = 'w', initialPly = 0 }) {
++  // initialPly lets another view (the repertoire panel) open a game at the
++  // move it is talking about. It is read once: callers that change it pass a
++  // new `key`, so stepping through the game is never yanked back.
++  const [viewPly, setViewPly] = useState(() => Math.max(0, Math.floor(Number(initialPly) || 0)));
+ 
+   // Replay the PGN once into a position per ply.
+   const replay = useMemo(() => {
+diff --git a/src/components/RepertoirePanel.jsx b/src/components/RepertoirePanel.jsx
+new file mode 100644
+index 0000000..1cdc7c3
+--- /dev/null
++++ b/src/components/RepertoirePanel.jsx
+@@ -0,0 +1,374 @@
++import { useEffect, useMemo, useRef, useState } from 'react';
++import GameReview from './GameReview.jsx';
++import { GAME_MODE_LABEL } from '../data/gamesStore.js';
++import { canViewAnalysis, NOT_ENOUGH } from '../analysis/presentation.js';
++import { DEFAULT_PLIES, DEFAULT_MIN_GAMES } from '../analysis/repertoire.js';
++import {
++  buildRepertoireView,
++  scoreText,
++  recordText,
++  accuracyText,
++  slipText,
++  sideLabel,
++  GROUPING_PLIES,
++  MIN_RESULT_GAMES,
++  MIN_ANALYSED_GAMES,
++  OPENING_ACCURACY_FROM_MOVE,
++  OPENING_ACCURACY_TO_MOVE,
++} from '../analysis/repertoireView.js';
++import '../styles/repertoire.css';
++
++/*
++ * RepertoirePanel — the openings one player actually plays, as White and as
++ * Black, and where they tend to go wrong.
++ *
++ * All the deciding happens in repertoireView.js (tested): which games count,
++ * which side of the analysis may be read, and when a result is too thin to
++ * show. This file only lays it out.
++ *
++ * Two hosts. The Roster detail (coach view) embeds its own GameReview for the
++ * example game. My games already has a game viewer, so it passes onOpenGame
++ * and the example opens there: two GameReviews on one page would both listen
++ * to the arrow keys.
++ *
++ * `audience` changes wording, never permissions. The player's version leads
++ * with what is going well and names ONE line to look at, the way
++ * presentation.js's playerSummary names one priority; the coach sees every
++ * line that is scoring below half.
++ */
++
++const COACH_WEAK_LIMIT = 3;
++
++const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
++const capitalise = (text) => (text ? text[0].toUpperCase() + text.slice(1) : text);
++const OUTCOME_LABEL = { won: 'Won', drew: 'Drew', lost: 'Lost' };
++
++export default function RepertoirePanel({
++  playerId,
++  games,
++  analyses,
++  viewer,
++  audience = 'player',
++  onOpenGame = null,
++}) {
++  const [plies, setPlies] = useState(DEFAULT_PLIES);
++  // { side, key, gameId, ply } for the line whose games are on show.
++  const [selected, setSelected] = useState(null);
++  const exampleRef = useRef(null);
++
++  const view = useMemo(
++    () => buildRepertoireView({ viewer, games, analyses, playerId, plies }),
++    [viewer?.role, viewer?.playerId, games, analyses, playerId, plies],
++  );
++
++  // A new grouping makes new lines; the old selection may not exist any more.
++  useEffect(() => setSelected(null), [plies, playerId]);
++
++  const selectedLine = useMemo(() => {
++    if (!view || !selected) return null;
++    return view.sides[selected.side].lines.find((l) => l.key === selected.key) || null;
++  }, [view, selected]);
++
++  useEffect(() => {
++    if (selected && !onOpenGame) exampleRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
++  }, [selected?.key, selected?.side]);
++
++  if (!view) return null; // not this viewer's to see — presentation.js decides
++
++  const open = (line, entry = null) => {
++    const target = entry ? { gameId: entry.gameId, ply: entry.ply } : line.example;
++    if (!target) return;
++    setSelected({ side: line.side, key: line.key, gameId: target.gameId, ply: target.ply });
++    onOpenGame?.(target.gameId, target.ply, line.side);
++  };
++
++  const isActive = (line) => selected?.side === line.side && selected?.key === line.key;
++  const movesPerSide = plies / 2;
++
++  if (view.totalGames === 0) {
++    return (
++      <div className="repertoire">
++        <p className="rep-empty">
++          {audience === 'coach'
++            ? 'No finished games with a recorded opening for this player yet.'
++            : 'No games with a recorded opening yet. Once you have played a few, the openings you use will show up here.'}
++        </p>
++      </div>
++    );
++  }
++
++  return (
++    <div className="repertoire">
++      <div className="rep-toolbar" role="group" aria-label="How finely to split the lines">
++        <span className="rep-toolbar-label">Group by the first</span>
++        {GROUPING_PLIES.map((option) => (
++          <button
++            key={option}
++            type="button"
++            className={`rep-chip ${option === plies ? 'active' : ''}`}
++            aria-pressed={option === plies}
++            onClick={() => setPlies(option)}
++          >
++            {option / 2} moves
++          </button>
++        ))}
++      </div>
++
++      <Highlights view={view} audience={audience} onPick={open} />
++
++      <div className="rep-sides">
++        {['w', 'b'].map((side) => (
++          <SideBlock
++            key={side}
++            block={view.sides[side]}
++            audience={audience}
++            movesPerSide={movesPerSide}
++            canGroupCoarser={plies > GROUPING_PLIES[0]}
++            isActive={isActive}
++            onPick={open}
++          />
++        ))}
++      </div>
++
++      {selectedLine && (
++        <div className="rep-example" ref={exampleRef}>
++          <ExampleBlock
++            line={selectedLine}
++            selected={selected}
++            audience={audience}
++            onPick={(entry) => open(selectedLine, entry)}
++            onClose={() => setSelected(null)}
++            embedded={!onOpenGame}
++          />
++          {!onOpenGame && (
++            <EmbeddedReview
++              gameId={selected.gameId}
++              ply={selected.ply}
++              side={selectedLine.side}
++              games={games}
++              analyses={analyses}
++              viewer={viewer}
++            />
++          )}
++        </div>
++      )}
++
++      <p className="rep-footnote">
++        A line is the first {movesPerSide} moves exactly as played in finished games. It is listed
++        once it has come up in {DEFAULT_MIN_GAMES} games; results show from {MIN_RESULT_GAMES} games,
++        and opening accuracy and mistake patterns from {MIN_ANALYSED_GAMES} analysed games. Opening
++        accuracy covers moves {OPENING_ACCURACY_FROM_MOVE}&ndash;{OPENING_ACCURACY_TO_MOVE}: until the
++        app has an opening book, the first {OPENING_ACCURACY_FROM_MOVE - 1} moves each are treated as
++        book and not graded.
++      </p>
++    </div>
++  );
++}
++
++/** The top of the panel: what is working, and what to look at. */
++function Highlights({ view, audience, onPick }) {
++  const { strongest, weakest } = view;
++  const toWorkOn = audience === 'coach' ? weakest.slice(0, COACH_WEAK_LIMIT) : weakest.slice(0, 1);
++  if (!strongest && !toWorkOn.length) return null;
++
++  return (
++    <div className="rep-highlights">
++      {strongest && (
++        <button type="button" className="rep-highlight good" onClick={() => onPick(strongest)}>
++          <span className="rep-highlight-title">
++            {audience === 'coach' ? 'Best-scoring line' : 'Going well'}
++          </span>
++          <span className="rep-line-key mono">{strongest.key}</span>
++          <span className="rep-highlight-text">
++            As {sideLabel(strongest.side)}: {scoreText(strongest)}
++            {audience === 'coach' ? '.' : '. Keep playing it.'}
++          </span>
++        </button>
++      )}
++      {toWorkOn.map((line) => (
++        <button
++          key={`${line.side}:${line.key}`}
++          type="button"
++          className="rep-highlight focus"
++          onClick={() => onPick(line)}
++        >
++          <span className="rep-highlight-title">
++            {audience === 'coach' ? 'Scoring below half' : 'Worth a look'}
++          </span>
++          <span className="rep-line-key mono">{line.key}</span>
++          <span className="rep-highlight-text">
++            As {sideLabel(line.side)}: {scoreText(line)}
++            {audience === 'coach' ? '.' : ' so far.'} {slipText(line, audience) ?? ''}
++          </span>
++        </button>
++      ))}
++    </div>
++  );
++}
++
++function SideBlock({ block, audience, movesPerSide, canGroupCoarser, isActive, onPick }) {
++  const label = sideLabel(block.side);
++  const accuracy =
++    block.openingAccuracy != null
++      ? `opening accuracy ${block.openingAccuracy}% (${plural(block.analysedGames, 'analysed game')})`
++      : `opening accuracy: ${NOT_ENOUGH}`;
++
++  return (
++    <section className="rep-side" aria-label={`As ${label}`}>
++      <h4 className="rep-side-title">As {label}</h4>
++      <p className="rep-side-summary">
++        {plural(block.games, 'game')}
++        {block.games > 0 && (
++          <>
++            {' · '}
++            {block.scored ? recordText(block) : NOT_ENOUGH}
++            {' · '}
++            {accuracy}
++          </>
++        )}
++      </p>
++
++      {block.lines.length ? (
++        <ul className="rep-lines">
++          {block.lines.map((line) => (
++            <li key={line.key}>
++              <LineButton
++                line={line}
++                colourGames={block.games}
++                audience={audience}
++                active={isActive(line)}
++                onPick={onPick}
++              />
++            </li>
++          ))}
++        </ul>
++      ) : (
++        <p className="rep-empty">
++          {block.games === 0
++            ? `No finished games as ${label} yet.`
++            : `${capitalise(NOT_ENOUGH)}: none of these games share the same first ${movesPerSide} moves.${
++                canGroupCoarser ? ' Try grouping by fewer moves.' : ''
++              }`}
++        </p>
++      )}
++
++      {block.lines.length > 0 && block.oneOffGames > 0 && (
++        <p className="rep-hint">
++          {plural(block.oneOffGames, 'other game')} as {label} went{' '}
++          {block.oneOffGames === 1 ? 'its' : 'their'} own way in the first {movesPerSide} moves.
++          {canGroupCoarser ? ' Group by fewer moves to include them.' : ''}
++        </p>
++      )}
++    </section>
++  );
++}
++
++function LineButton({ line, colourGames, audience, active, onPick }) {
++  const note = slipText(line, audience);
++  return (
++    <button
++      type="button"
++      className={`rep-line ${active ? 'active' : ''}`}
++      aria-pressed={active}
++      onClick={() => onPick(line)}
++    >
++      <span className="rep-line-key mono">{line.key}</span>
++      <span className="rep-line-stats">
++        <span>
++          {line.games} of {plural(colourGames, 'game')}
++        </span>
++        <span className={line.scored ? '' : 'rep-thin'}>{scoreText(line)}</span>
++        {line.scored && line.openingAccuracy != null && (
++          <span>opening accuracy {accuracyText(line)}</span>
++        )}
++      </span>
++      {line.scored && (
++        <span className="rep-bar" role="img" aria-label={recordText(line)} title={recordText(line)}>
++          <span className="rep-bar-won" style={{ flexGrow: line.wins }} />
++          <span className="rep-bar-drew" style={{ flexGrow: line.draws }} />
++          <span className="rep-bar-lost" style={{ flexGrow: line.losses }} />
++        </span>
++      )}
++      {note && <span className="rep-line-note">{note}</span>}
++    </button>
++  );
++}
++
++/** The selected line's games, each one click from the board. */
++function ExampleBlock({ line, selected, audience, onPick, onClose, embedded }) {
++  const current = line.entries.find((e) => e.gameId === selected.gameId) || null;
++  let why = null;
++  if (current?.reason === 'slip') {
++    why =
++      audience === 'coach'
++        ? `Opens at move ${current.slipMove}: the first opening mistake in this game.`
++        : `Opens at move ${current.slipMove}, where this game first went wrong. See what the engine preferred.`;
++  } else if (current) {
++    why = `Opens after move ${Math.ceil(current.ply / 2)}, where the line's name ends.`;
++  }
++
++  return (
++    <>
++      <div className="rep-example-head">
++        <h4 className="rep-side-title">
++          As {sideLabel(line.side)}: <span className="mono rep-example-key">{line.key}</span>
++        </h4>
++        <button type="button" className="link-button" onClick={onClose}>
++          Close
++        </button>
++      </div>
++      {why && (
++        <p className="rep-example-why">
++          {why}
++          {!embedded && ' The game is open in the viewer below.'}
++        </p>
++      )}
++      <div className="rep-games" aria-label="Games in this line">
++        {line.entries.map((entry) => (
++          <button
++            key={entry.gameId}
++            type="button"
++            className={`rep-game ${entry.gameId === selected.gameId ? 'active' : ''}`}
++            aria-pressed={entry.gameId === selected.gameId}
++            onClick={() => onPick(entry)}
++          >
++            <span className="mono">{String(entry.playedAt ?? '').slice(0, 10) || '—'}</span>
++            {entry.opponent ? ` vs ${entry.opponent}` : ''} · {OUTCOME_LABEL[entry.outcome]}
++            {entry.mode && entry.mode !== 'human' && GAME_MODE_LABEL[entry.mode]
++              ? ` · ${GAME_MODE_LABEL[entry.mode]}`
++              : ''}
++            {entry.reason === 'slip' ? ` · move ${entry.slipMove}` : ''}
++          </button>
++        ))}
++      </div>
++    </>
++  );
++}
++
++/** The Roster's own board for the example game, oriented to the player's side. */
++function EmbeddedReview({ gameId, ply, side, games, analyses, viewer }) {
++  const game = games.find((g) => g.id === gameId) || null;
++  // Same rule as GameAnalysisPanel: only the sides this viewer may see.
++  const visible = useMemo(
++    () =>
++      (analyses || []).filter(
++        (row) =>
++          row.gameId === gameId &&
++          canViewAnalysis(
++            viewer,
++            row.playerId ?? (row.side === 'w' ? game?.whitePlayerId : game?.blackPlayerId),
++          ),
++      ),
++    [analyses, gameId, viewer?.role, viewer?.playerId, game],
++  );
++  if (!game) return null;
++  return (
++    <GameReview
++      key={`${game.id}:${ply}`}
++      game={game}
++      analyses={visible}
++      orientation={side}
++      initialPly={ply}
++    />
++  );
++}
+diff --git a/src/pages/MyGamesPage.jsx b/src/pages/MyGamesPage.jsx
+index 8337a9f..e6d8d67 100644
+--- a/src/pages/MyGamesPage.jsx
++++ b/src/pages/MyGamesPage.jsx
+@@ -1,11 +1,12 @@
+-import { useMemo, useState } from 'react';
++import { useEffect, useMemo, useRef, useState } from 'react';
+ import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
+ import { useMyProfile } from '../data/rosterStore.js';
+ import { useAccount } from '../data/accountStore.js';
+-import { useAnalysisForGame } from '../data/analysisStore.js';
++import { useAnalysisForGame, useAnalyses } from '../data/analysisStore.js';
+ import { useDuePuzzles, useReviewSummary } from '../data/ownPuzzleStore.js';
+ import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
+ import GameReview from '../components/GameReview.jsx';
++import RepertoirePanel from '../components/RepertoirePanel.jsx';
+ 
+ /*
+  * MyGamesPage — a player's own game history, and the analyser on demand.
+@@ -24,6 +25,12 @@ export default function MyGamesPage() {
+   const me = useMyProfile();
+   const account = useAccount();
+   const [openId, setOpenId] = useState(null);
++  // Where the open game starts, and a counter that changes on every open so
++  // re-clicking the same repertoire entry jumps back to its move.
++  const [openPly, setOpenPly] = useState(0);
++  const [openRequest, setOpenRequest] = useState(0);
++  const reviewRef = useRef(null);
++  const analyses = useAnalyses();
+ 
+   const playerId = me?.playerId ?? null;
+   const viewer = { role: account?.role, playerId };
+@@ -35,6 +42,18 @@ export default function MyGamesPage() {
+       .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)));
+   }, [games, playerId]);
+ 
++  const openGame = (gameId, ply = 0) => {
++    setOpenId(gameId);
++    setOpenPly(ply);
++    setOpenRequest((n) => n + 1);
++  };
++
++  // The viewer sits below the openings panel now, so bring it into view
++  // whichever list the game was opened from.
++  useEffect(() => {
++    if (openRequest && openId) reviewRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
++  }, [openRequest]);
++
+   const due = useDuePuzzles(playerId);
+   const reviewState = useReviewSummary(playerId);
+ 
+@@ -98,7 +117,7 @@ export default function MyGamesPage() {
+                     game={game}
+                     playerId={playerId}
+                     open={openId === game.id}
+-                    onToggle={() => setOpenId(openId === game.id ? null : game.id)}
++                    onToggle={() => (openId === game.id ? setOpenId(null) : openGame(game.id))}
+                   />
+                 ))}
+               </tbody>
+@@ -107,11 +126,33 @@ export default function MyGamesPage() {
+         )}
+       </section>
+ 
++      {/*
++        Only this player's own games go in (`mine`), and the panel checks the
++        viewer again through presentation.js. Examples open in the viewer
++        below rather than a second board: two GameReviews on one page would
++        both answer the arrow keys.
++      */}
++      {!!mine.length && (
++        <section className="panel repertoire-panel">
++          <div className="panel-header">
++            <h2>Your openings</h2>
++          </div>
++          <RepertoirePanel
++            playerId={playerId}
++            games={mine}
++            analyses={analyses}
++            viewer={viewer}
++            audience="player"
++            onOpenGame={openGame}
++          />
++        </section>
++      )}
++
+       {openId && (() => {
+         const game = mine.find((g) => g.id === openId);
+         if (!game) return null;
+         return (
+-          <section className="panel">
++          <section className="panel" ref={reviewRef}>
+             <div className="panel-header">
+               <h2>
+                 {game.whiteName} vs {game.blackName}
+@@ -123,7 +164,12 @@ export default function MyGamesPage() {
+               themselves, rather than waiting for the queue or for a coach. The
+               database still decides what may be written.
+             */}
+-            <MyGameReview game={game} playerId={playerId} />
++            <MyGameReview
++              key={`${game.id}:${openPly}:${openRequest}`}
++              game={game}
++              playerId={playerId}
++              initialPly={openPly}
++            />
+             <GameAnalysisPanel game={game} viewer={viewer} allowSelfAnalysis />
+           </section>
+         );
+@@ -158,7 +204,7 @@ function MyGameRow({ game, playerId, open, onToggle }) {
+ }
+ 
+ /** The board viewer, oriented to the side this player actually had. */
+-function MyGameReview({ game, playerId }) {
++function MyGameReview({ game, playerId, initialPly = 0 }) {
+   const analyses = useAnalysisForGame(game.id);
+   const mine = analyses.filter((a) => a.playerId === playerId);
+   return (
+@@ -166,6 +212,7 @@ function MyGameReview({ game, playerId }) {
+       game={game}
+       analyses={mine.length ? mine : analyses}
+       orientation={game.whitePlayerId === playerId ? 'w' : 'b'}
++      initialPly={initialPly}
+     />
+   );
+ }
+diff --git a/src/pages/RosterPage.jsx b/src/pages/RosterPage.jsx
+index e753ffe..208a65d 100644
+--- a/src/pages/RosterPage.jsx
++++ b/src/pages/RosterPage.jsx
+@@ -1,13 +1,23 @@
+ import { useEffect, useState, useMemo } from 'react';
+ import { RUBRIC_CATEGORIES } from '../data/roster.js';
+-import { useSkillsForPlayer } from '../data/analysisStore.js';
+-import { suggestedRubric } from '../analysis/presentation.js';
+-import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
++import { useSkillsForPlayer, useAnalyses } from '../data/analysisStore.js';
++import { suggestedRubric, canViewAnalysis, isStaff } from '../analysis/presentation.js';
++import {
++  usePlayers,
++  useCloudStatus,
++  useMyProfile,
++  addPlayer,
++  updatePlayer,
++  updateRubric,
++  removePlayer,
++} from '../data/rosterStore.js';
++import { useGames } from '../data/gamesStore.js';
+ import InfoTooltip from '../components/InfoTooltip.jsx';
+ import { useAccount } from '../data/accountStore.js';
+ import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
+ import { usePlayerPrivate } from '../data/playerPrivateStore.js';
+ import RosterImportModal from '../components/RosterImportModal.jsx';
++import RepertoirePanel from '../components/RepertoirePanel.jsx';
+ 
+ const COMMITMENTS = ['Casual', 'Competitive'];
+ 
+@@ -36,6 +46,12 @@ export default function RosterPage() {
+   const [form, setForm] = useState(emptyForm);
+   const [editing, setEditing] = useState(false);
+   const [draft, setDraft] = useState(null);
++  const games = useGames();
++  const analyses = useAnalyses();
++  // The viewer as presentation.js understands one: the account's role plus
++  // the roster row it has claimed (none in local mode, where it is the admin).
++  const me = useMyProfile();
++  const viewer = { role: account?.role, playerId: me?.playerId ?? null };
+ 
+   const selected = players.find((p) => p.playerId === selectedId) || null;
+ 
+@@ -485,6 +501,31 @@ export default function RosterPage() {
+                   : ''}
+               </p>
+ 
++              {/*
++                Openings are analysis, so they follow the analysis rule: a
++                coach sees anyone's, a player only their own. For anyone else
++                the section is not rendered at all, not rendered empty.
++              */}
++              {canViewAnalysis(viewer, selected.playerId) && (
++                <>
++                  <h3>
++                    Openings
++                    <InfoTooltip>
++                      Built from this player's finished games in the archive. Click a line to open one
++                      of its games at the move that matters.
++                    </InfoTooltip>
++                  </h3>
++                  <RepertoirePanel
++                    key={selected.playerId}
++                    playerId={selected.playerId}
++                    games={games}
++                    analyses={analyses}
++                    viewer={viewer}
++                    audience={isStaff(viewer) ? 'coach' : 'player'}
++                  />
++                </>
++              )}
++
+               {Object.keys(selected.connections || {}).length > 0 && (
+                 <>
+                   <h3>
+diff --git a/src/styles/repertoire.css b/src/styles/repertoire.css
+new file mode 100644
+index 0000000..77b4ba8
+--- /dev/null
++++ b/src/styles/repertoire.css
+@@ -0,0 +1,263 @@
++/* =========================================================================
++   Repertoire panel (RepertoirePanel.jsx), on My games and the Roster detail.
++   Its own file so app.css stays one person's stylesheet; everything is
++   scoped under .repertoire and uses app.css's tokens, so both themes work.
++   ========================================================================= */
++
++.repertoire {
++  display: flex;
++  flex-direction: column;
++  gap: 14px;
++  margin-top: 10px;
++  min-width: 0;
++}
++
++/* Grouping control: a small segmented choice, not a form. */
++.rep-toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 6px;
++}
++
++.rep-toolbar-label {
++  font-size: 0.8rem;
++  color: var(--text-muted);
++  margin-right: 2px;
++}
++
++.rep-chip,
++.rep-game {
++  font-size: 0.8rem;
++  color: var(--text-muted);
++  background: var(--bg-sunken);
++  border: 1px solid var(--border);
++  border-radius: 999px;
++  padding: 3px 11px;
++  cursor: pointer;
++  transition: border-color 0.12s, background 0.12s, color 0.12s;
++}
++
++.rep-chip:hover,
++.rep-game:hover {
++  border-color: var(--border-strong);
++  color: var(--text);
++}
++
++.rep-chip.active,
++.rep-game.active {
++  color: var(--text);
++  background: var(--accent-soft);
++  border-color: var(--accent);
++}
++
++/* Highlights: one "going well", and one (player) or a few (coach) to look at. */
++.rep-highlights {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
++  gap: 10px;
++}
++
++.rep-highlight {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++  text-align: left;
++  color: var(--text);
++  background: var(--bg-sunken);
++  border: 1px solid var(--border);
++  border-left: 3px solid var(--border-strong);
++  border-radius: var(--radius);
++  padding: 10px 12px;
++  cursor: pointer;
++  font-size: 0.86rem;
++  min-width: 0;
++}
++
++.rep-highlight:hover {
++  border-color: var(--border-strong);
++}
++
++.rep-highlight.good {
++  border-left-color: var(--good);
++}
++
++/* The accent, not red: "worth a look" is an invitation, not an alarm. */
++.rep-highlight.focus {
++  border-left-color: var(--accent);
++}
++
++.rep-highlight-title {
++  font-size: 0.72rem;
++  text-transform: uppercase;
++  letter-spacing: 0.06em;
++  color: var(--text-faint);
++}
++
++.rep-highlight-text {
++  color: var(--text-muted);
++}
++
++/* The two colours: side by side where there is room, stacked otherwise. */
++.rep-sides {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
++  gap: 16px;
++}
++
++.rep-side {
++  min-width: 0;
++}
++
++.rep-side-title {
++  margin: 0;
++  font-size: 0.82rem;
++  text-transform: uppercase;
++  letter-spacing: 0.07em;
++  color: var(--text-muted);
++}
++
++.rep-side-summary {
++  margin: 4px 0 8px;
++  font-size: 0.84rem;
++  color: var(--text-muted);
++}
++
++.rep-lines {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.rep-line {
++  width: 100%;
++  display: flex;
++  flex-direction: column;
++  gap: 5px;
++  text-align: left;
++  color: var(--text);
++  background: var(--bg-raised);
++  border: 1px solid var(--border);
++  border-radius: var(--radius);
++  padding: 9px 11px;
++  cursor: pointer;
++  font-size: 0.84rem;
++  transition: border-color 0.12s, background 0.12s;
++}
++
++.rep-line:hover {
++  border-color: var(--border-strong);
++  background: var(--bg-sunken);
++}
++
++.rep-line.active {
++  border-color: var(--accent);
++  background: var(--accent-soft);
++}
++
++.rep-line-key {
++  font-size: 0.86rem;
++  color: var(--text);
++  overflow-wrap: anywhere;
++}
++
++.rep-line-stats {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 2px 14px;
++  color: var(--text-muted);
++}
++
++.rep-thin {
++  font-style: italic;
++  color: var(--text-faint);
++}
++
++.rep-line-note {
++  color: var(--text-muted);
++  font-size: 0.8rem;
++}
++
++/* Won / drawn / lost, proportional. The text beside it says the same thing. */
++.rep-bar {
++  display: flex;
++  height: 5px;
++  border-radius: 999px;
++  overflow: hidden;
++  background: var(--bg-sunken);
++}
++
++.rep-bar-won {
++  background: var(--good);
++}
++
++.rep-bar-drew {
++  background: var(--text-faint);
++}
++
++.rep-bar-lost {
++  background: var(--bad);
++  opacity: 0.8;
++}
++
++.rep-empty,
++.rep-hint,
++.rep-footnote,
++.rep-example-why {
++  margin: 0;
++  font-size: 0.82rem;
++  color: var(--text-muted);
++}
++
++.rep-hint {
++  margin-top: 8px;
++}
++
++.rep-footnote {
++  font-size: 0.76rem;
++  color: var(--text-faint);
++}
++
++/* The selected line's games and, on the Roster, the board. */
++.rep-example {
++  display: flex;
++  flex-direction: column;
++  gap: 10px;
++  border-top: 1px solid var(--border);
++  padding-top: 12px;
++  min-width: 0;
++}
++
++.rep-example-head {
++  display: flex;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 10px;
++}
++
++.rep-example-key {
++  text-transform: none;
++  letter-spacing: 0;
++  color: var(--text);
++  overflow-wrap: anywhere;
++}
++
++.rep-games {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 6px;
++}
++
++/* Inside the Roster's narrow detail column the review stacks: a 260px board
++   beside a move list helps nobody. */
++.repertoire .game-review {
++  grid-template-columns: minmax(0, 1fr);
++}
++
++/* My games: the panel sits between two others that have no spacing of their own. */
++.repertoire-panel {
++  margin: 20px 0;
++}

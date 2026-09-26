@@ -1,0 +1,2227 @@
+diff --git a/src/analysis/sessionPlanner.js b/src/analysis/sessionPlanner.js
+new file mode 100644
+index 0000000..7617443
+--- /dev/null
++++ b/src/analysis/sessionPlanner.js
+@@ -0,0 +1,362 @@
++/*
++ * sessionPlanner.js — a Tuesday lesson plan from what the club is weakest at.
++ *
++ * Input is the Club page's "where group time should go" list, i.e.
++ * weakestCategories(clubProfile(...)): the three lowest club-wide categories
++ * that are actually MEASURED. Output is a plain JSON object (it is saved as
++ * club_sessions.plan) with a short focus per category, 5–8 puzzles per focus
++ * from the shipped Lichess set, and a timed agenda for a ~60-minute meeting.
++ *
++ * Three rules shape everything here:
++ *
++ *   1. Never invent a weakness. With fewer than three measured categories the
++ *      plan says so and fills the gap with general tactics, labelled as such.
++ *      A club told "your endgames are weak" on no evidence stops trusting the
++ *      evidence when it does exist — the same reasoning as presentation.js.
++ *   2. Deterministic. The same club data and the same previous plan give the
++ *      same plan, so a coach who re-opens it on Tuesday sees what they printed
++ *      on Monday. No Math.random, no clock.
++ *   3. Fresh puzzles. Nothing from the previous plan is reused while the theme
++ *      still has unused puzzles; if it runs out, the repeats are flagged rather
++ *      than hidden.
++ */
++
++import { CATEGORY_LABELS } from './scoring.js';
++import { isIsoDate } from '../data/sessions.js';
++
++export const PLAN_VERSION = 1;
++export const SESSION_MINUTES = 60;
++export const FOCUS_COUNT = 3;
++export const MIN_PUZZLES_PER_FOCUS = 5;
++export const MAX_PUZZLES_PER_FOCUS = 8;
++export const DEFAULT_PUZZLES_PER_FOCUS = 6;
++export const WARMUP_PUZZLES = 5;
++/** Warm-ups are for getting heads into chess, not for getting stuck. */
++export const WARMUP_MAX_RATING = 1000;
++const WARMUP_THEMES = ['mateIn1', 'oneMove'];
++
++/*
++ * What to teach for each engine category, and which puzzles.json themes serve
++ * it. Theme order matters only for labelling: a puzzle is shown under the
++ * first theme in the list that it carries. The test alongside checks every
++ * theme against the shipped data, because an unknown theme filters the
++ * Training page down to nothing (see PUZZLE_THEME_BY_TRAINING_THEME).
++ *
++ * Notation is absent on purpose: it is not measurable from games and
++ * weakestCategories() already leaves it out.
++ */
++export const CATEGORY_LESSONS = Object.freeze({
++  openingKnowledge: {
++    themes: ['opening'],
++    focus:
++      'Opening principles: develop, castle, fight for the centre. Everyone should know the first moves of one line as White and one as Black.',
++    gameTip: 'After each game, write down the first eight moves and mark where you left your line.',
++  },
++  tacticalVision: {
++    themes: ['fork', 'pin', 'skewer', 'discoveredAttack', 'deflection'],
++    focus:
++      'Checks, captures, threats. Before every move, scan for forks, pins and skewers, for both sides.',
++    gameTip: 'Before each move, name one forcing move for you and one for your opponent.',
++  },
++  positionalUnderstanding: {
++    themes: ['quietMove', 'zugzwang', 'advancedPawn'],
++    focus:
++      'When nothing is forcing: find the worst-placed piece and improve it, and name a plan before moving.',
++    gameTip: 'At move 15, write a one-line plan on the scoresheet before playing on.',
++  },
++  endgameTechnique: {
++    themes: ['rookEndgame', 'pawnEndgame', 'endgame'],
++    focus:
++      'Converting the win: an active king, passed pawns, the opposition, and rooks behind passed pawns.',
++    gameTip: 'Play out a set endgame position instead of a full game, then swap colours.',
++  },
++  timeManagement: {
++    themes: ['mateIn1', 'oneMove'],
++    focus:
++      'Spend time where it matters: fast on the obvious move, slow on the critical one. Solve these against a clock, about 30 seconds each.',
++    gameTip: 'Use a clock, and write the time left on the scoresheet every ten moves.',
++  },
++  boardVision: {
++    themes: ['hangingPiece', 'trappedPiece', 'mateIn1'],
++    focus:
++      'Blunder check before every move: what did my opponent just attack, and what am I leaving undefended?',
++    gameTip: 'Before touching a piece, check which squares and pieces it stops guarding.',
++  },
++  psychologicalResilience: {
++    themes: ['defensiveMove', 'intermezzo', 'quietMove'],
++    focus:
++      'Keep fighting from worse positions: look for the defensive resource and make the position complicated instead of resigning.',
++    gameTip: 'No resigning today: every game is played to mate or a draw.',
++  },
++});
++
++/** Filler for a missing measured category. Labelled as general, never as a weakness. */
++export const GENERAL_TACTICS = Object.freeze([
++  {
++    key: 'doubleAttacks',
++    label: 'General tactics: double attacks',
++    themes: ['fork', 'discoveredAttack', 'skewer'],
++    focus: 'Double attacks: forks, discovered attacks and skewers. One move, two threats.',
++  },
++  {
++    key: 'matingPatterns',
++    label: 'General tactics: mating patterns',
++    themes: ['backRankMate', 'mateIn2', 'smotheredMate'],
++    focus: 'Mating patterns: back-rank mates, smothered mates and mate in two.',
++  },
++  {
++    key: 'pinsAndDeflections',
++    label: 'General tactics: pins and deflections',
++    themes: ['pin', 'deflection', 'attraction'],
++    focus: 'Pins and deflections: pieces that cannot move, and defenders that can be pulled away.',
++  },
++]);
++
++const GENERAL_GAME_TIP = 'Before each move, look for checks, captures and threats, for both sides.';
++
++/** 'discoveredAttack' -> 'Discovered attack'; matches the Training page's wording. */
++export const themeLabel = (theme) =>
++  String(theme)
++    .replace(/([a-z])([A-Z])/g, '$1 $2')
++    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
++    .toLowerCase()
++    .replace(/^./, (c) => c.toUpperCase());
++
++/** The Training page, pre-filtered to one theme (App.jsx routes on the hash). */
++export const trainingHref = (theme) => `#/training?theme=${encodeURIComponent(theme)}`;
++
++/** Every puzzle id a saved plan used. Tolerates an old or malformed plan. */
++export function puzzleIdsInPlan(plan) {
++  const ids = new Set();
++  if (!plan || typeof plan !== 'object') return ids;
++  const lists = [plan.warmup?.puzzles, ...(Array.isArray(plan.focuses) ? plan.focuses.map((f) => f?.puzzles) : [])];
++  for (const list of lists) {
++    if (!Array.isArray(list)) continue;
++    for (const p of list) if (p && typeof p.id === 'string') ids.add(p.id);
++  }
++  return ids;
++}
++
++const byDifficulty = (a, b) => a.rating - b.rating || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
++
++/**
++ * `count` puzzles spread evenly from easiest to hardest across a pool already
++ * sorted by rating. Evenly spaced ranks rather than the easiest N, because one
++ * set has to serve a room rated ~600 to ~1600.
++ */
++export function spreadAcross(sorted, count) {
++  if (count <= 0) return [];
++  if (sorted.length <= count) return [...sorted];
++  if (count === 1) return [sorted[Math.floor((sorted.length - 1) / 2)]];
++  const out = [];
++  // Spacing is >= 1 here, and Math.round is monotone with round(x + 1) =
++  // round(x) + 1, so the indices are distinct.
++  for (let i = 0; i < count; i += 1) out.push(sorted[Math.round((i * (sorted.length - 1)) / (count - 1))]);
++  return out;
++}
++
++/**
++ * Pick puzzles for one block. Unused puzzles first; if the themes run out,
++ * top up from the previous plan (flagged), never from this plan.
++ */
++function choosePuzzles({ pool, count, minimum, usedThisPlan, usedLastPlan }) {
++  const eligible = pool.filter((p) => !usedThisPlan.has(p.id)).sort(byDifficulty);
++  const fresh = eligible.filter((p) => !usedLastPlan.has(p.id));
++  let chosen = spreadAcross(fresh, count).map((p) => ({ puzzle: p, repeated: false }));
++  if (chosen.length < minimum) {
++    const repeats = spreadAcross(
++      eligible.filter((p) => usedLastPlan.has(p.id)),
++      minimum - chosen.length,
++    ).map((p) => ({ puzzle: p, repeated: true }));
++    chosen = [...chosen, ...repeats].sort((a, b) => byDifficulty(a.puzzle, b.puzzle));
++  }
++  for (const { puzzle } of chosen) usedThisPlan.add(puzzle.id);
++  return chosen;
++}
++
++function toPlanPuzzle({ puzzle, repeated }, themes) {
++  const theme = themes.find((t) => puzzle.themes.includes(t)) ?? themes[0];
++  return {
++    id: puzzle.id,
++    rating: puzzle.rating,
++    name: puzzle.name || themeLabel(theme),
++    theme,
++    href: trainingHref(theme),
++    ...(repeated ? { repeated: true } : {}),
++  };
++}
++
++const poolFor = (puzzles, themes) => puzzles.filter((p) => p.themes.some((t) => themes.includes(t)));
++
++/** The weakest list, cleaned: known, measured, distinct categories, in the order given. */
++function measuredWeaknesses(weakest) {
++  const seen = new Set();
++  const out = [];
++  for (const entry of Array.isArray(weakest) ? weakest : []) {
++    const category = entry?.category;
++    if (!CATEGORY_LESSONS[category] || seen.has(category)) continue;
++    // An unmeasured category (average null) is exactly the thing rule 1 is about.
++    if (typeof entry.average !== 'number' || Number.isNaN(entry.average)) continue;
++    seen.add(category);
++    out.push(entry);
++    if (out.length === FOCUS_COUNT) break;
++  }
++  return out;
++}
++
++function coverageNote(measured) {
++  if (measured >= FOCUS_COUNT) return null;
++  if (measured === 0) {
++    return 'No skill category has enough measured data yet, so every block is general tactics. This is not a diagnosis of the club; analyse more games and re-plan.';
++  }
++  const gaps = FOCUS_COUNT - measured;
++  return `Only ${measured} ${measured === 1 ? 'category has' : 'categories have'} enough measured data to call a weakness. The other ${gaps === 1 ? 'block is' : `${gaps} blocks are`} general tactics, not a measured weakness.`;
++}
++
++/**
++ * Split `minutes` into warm-up, focus blocks, practice games and review.
++ * At 60 minutes: 10 / 20 (split across the focuses, the weakest first) / 20 / 10.
++ */
++export function buildAgenda(focuses, { minutes = SESSION_MINUTES, gameTip = GENERAL_GAME_TIP, warmupCount = WARMUP_PUZZLES } = {}) {
++  if (!Number.isInteger(minutes) || minutes < 30 || minutes > 180) {
++    throw new RangeError(`a session is 30–180 whole minutes, got ${minutes}`);
++  }
++  if (!Array.isArray(focuses) || focuses.length === 0) throw new TypeError('an agenda needs at least one focus');
++  const warmup = Math.round(minutes / 6);
++  const review = Math.round(minutes / 6);
++  const games = Math.round(minutes / 3);
++  const focusTotal = minutes - warmup - review - games;
++  const base = Math.floor(focusTotal / focuses.length);
++  const extra = focusTotal - base * focuses.length;
++
++  const items = [];
++  let clock = 0;
++  const add = (kind, length, title, detail) => {
++    items.push({ kind, start: clock, end: clock + length, minutes: length, title, detail });
++    clock += length;
++  };
++  add('warmup', warmup, 'Warm-up puzzles', `${warmupCount} quick one-move puzzles to start the room thinking. Solve each before showing the answer.`);
++  focuses.forEach((f, i) => add('focus', base + (i < extra ? 1 : 0), `Focus: ${f.label}`, f.focus));
++  add('games', games, 'Practice games', `Clocked games with scoresheets, as at a tournament. ${gameTip}`);
++  add('review', review, 'Review', 'Go over one game per board: find the moment today’s focus came up, and what the better move was.');
++  return items;
++}
++
++/**
++ * The plan for one Tuesday.
++ *
++ * @param {object}   args
++ * @param {string}   args.sessionDate  'YYYY-MM-DD'
++ * @param {object[]} args.weakest      weakestCategories(clubProfile(...)), weakest first
++ * @param {object[]} args.puzzles      the puzzle library (puzzles.json)
++ * @param {object}   [args.previousPlan] the last saved plan, whose puzzles are not reused
++ */
++export function planSession({
++  sessionDate,
++  weakest = [],
++  puzzles,
++  previousPlan = null,
++  puzzlesPerFocus = DEFAULT_PUZZLES_PER_FOCUS,
++  warmupCount = WARMUP_PUZZLES,
++  minutes = SESSION_MINUTES,
++} = {}) {
++  if (!isIsoDate(sessionDate)) throw new TypeError(`sessionDate must be YYYY-MM-DD, got ${JSON.stringify(sessionDate)}`);
++  if (!Array.isArray(puzzles)) throw new TypeError('puzzles must be the puzzle library array');
++  if (
++    !Number.isInteger(puzzlesPerFocus) ||
++    puzzlesPerFocus < MIN_PUZZLES_PER_FOCUS ||
++    puzzlesPerFocus > MAX_PUZZLES_PER_FOCUS
++  ) {
++    throw new RangeError(`puzzlesPerFocus must be ${MIN_PUZZLES_PER_FOCUS}–${MAX_PUZZLES_PER_FOCUS}, got ${puzzlesPerFocus}`);
++  }
++  if (!Number.isInteger(warmupCount) || warmupCount < 0 || warmupCount > MAX_PUZZLES_PER_FOCUS) {
++    throw new RangeError(`warmupCount must be 0–${MAX_PUZZLES_PER_FOCUS}, got ${warmupCount}`);
++  }
++
++  const library = puzzles.filter(
++    (p) => p && typeof p.id === 'string' && Array.isArray(p.themes) && Number.isFinite(p.rating),
++  );
++  const usedLastPlan = puzzleIdsInPlan(previousPlan);
++  const usedThisPlan = new Set();
++  const measured = measuredWeaknesses(weakest);
++
++  const blocks = [
++    ...measured.map((entry) => ({
++      kind: 'measured',
++      key: entry.category,
++      category: entry.category,
++      label: entry.label || CATEGORY_LABELS[entry.category] || entry.category,
++      rubricAverage: typeof entry.rubricAverage === 'number' ? entry.rubricAverage : null,
++      measured: typeof entry.measured === 'number' ? entry.measured : null,
++      ...CATEGORY_LESSONS[entry.category],
++    })),
++    ...GENERAL_TACTICS.slice(0, FOCUS_COUNT - measured.length).map((g) => ({
++      kind: 'general',
++      category: null,
++      rubricAverage: null,
++      measured: null,
++      gameTip: GENERAL_GAME_TIP,
++      ...g,
++    })),
++  ];
++
++  // Focus blocks choose before the warm-up: they are the lesson, the warm-up
++  // can make do with what is left.
++  const available = new Set(library.flatMap((p) => p.themes));
++  const focuses = blocks.map((block) => {
++    const chosen = choosePuzzles({
++      pool: poolFor(library, block.themes),
++      count: puzzlesPerFocus,
++      minimum: MIN_PUZZLES_PER_FOCUS,
++      usedThisPlan,
++      usedLastPlan,
++    });
++    const repeatedCount = chosen.filter((c) => c.repeated).length;
++    return {
++      kind: block.kind,
++      key: block.key,
++      category: block.category,
++      label: block.label,
++      rubricAverage: block.rubricAverage,
++      measured: block.measured,
++      focus: block.focus,
++      gameTip: block.gameTip,
++      sets: block.themes
++        .filter((t) => available.has(t))
++        .map((theme) => ({ theme, label: themeLabel(theme), href: trainingHref(theme) })),
++      puzzles: chosen.map((c) => toPlanPuzzle(c, block.themes)),
++      note:
++        chosen.length < MIN_PUZZLES_PER_FOCUS
++          ? `Only ${chosen.length} puzzle${chosen.length === 1 ? '' : 's'} in the library for this theme.`
++          : repeatedCount > 0
++            ? `${repeatedCount} puzzle${repeatedCount === 1 ? '' : 's'} repeat${repeatedCount === 1 ? 's' : ''} from the last plan: this theme has run out of new ones.`
++            : null,
++    };
++  });
++
++  const warmupPool = poolFor(library, WARMUP_THEMES).filter((p) => p.rating < WARMUP_MAX_RATING);
++  const warmupPuzzles = choosePuzzles({
++    pool: warmupPool,
++    count: warmupCount,
++    minimum: warmupCount,
++    usedThisPlan,
++    usedLastPlan,
++  }).map((c) => toPlanPuzzle(c, WARMUP_THEMES));
++
++  const agenda = buildAgenda(focuses, { minutes, gameTip: focuses[0].gameTip, warmupCount: warmupPuzzles.length });
++
++  return {
++    version: PLAN_VERSION,
++    sessionDate,
++    minutes,
++    measuredCount: measured.length,
++    note: coverageNote(measured.length),
++    warmup: {
++      minutes: agenda[0].minutes,
++      puzzles: warmupPuzzles,
++      sets: WARMUP_THEMES.map((theme) => ({ theme, label: themeLabel(theme), href: trainingHref(theme) })),
++    },
++    focuses: focuses.map((f, i) => ({ ...f, minutes: agenda[i + 1].minutes })),
++    agenda,
++  };
++}
+diff --git a/src/analysis/sessionPlanner.test.js b/src/analysis/sessionPlanner.test.js
+new file mode 100644
+index 0000000..b205bfc
+--- /dev/null
++++ b/src/analysis/sessionPlanner.test.js
+@@ -0,0 +1,331 @@
++/*
++ * The Tuesday planner. The rules that matter most are the negative ones: it
++ * must not invent a weakness the data does not show, and it must not hand the
++ * club the same puzzles two weeks running.
++ */
++
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import {
++  planSession,
++  buildAgenda,
++  puzzleIdsInPlan,
++  spreadAcross,
++  themeLabel,
++  trainingHref,
++  CATEGORY_LESSONS,
++  GENERAL_TACTICS,
++  MIN_PUZZLES_PER_FOCUS,
++  MAX_PUZZLES_PER_FOCUS,
++  WARMUP_MAX_RATING,
++} from './sessionPlanner.js';
++import { clubProfile, weakestCategories } from './skillModel.js';
++
++const PUZZLES = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url)));
++const byId = new Map(PUZZLES.map((p) => [p.id, p]));
++
++const entry = (category, average, label = category) => ({
++  category,
++  label,
++  average,
++  rubricAverage: average / 10,
++  measured: 4,
++  engineBacked: 4,
++});
++const THREE = [
++  entry('endgameTechnique', 31, 'Endgame technique'),
++  entry('boardVision', 38, 'Board vision'),
++  entry('openingKnowledge', 44, 'Opening knowledge'),
++];
++
++const allPuzzles = (plan) => [...plan.warmup.puzzles, ...plan.focuses.flatMap((f) => f.puzzles)];
++
++/* ── the data the plan is built from ─────────────────────────────────────── */
++
++test('every lesson theme exists in the shipped puzzles, with enough to fill two plans', () => {
++  const available = new Set(PUZZLES.flatMap((p) => p.themes));
++  const lessons = [...Object.values(CATEGORY_LESSONS), ...GENERAL_TACTICS];
++  for (const lesson of lessons) {
++    for (const theme of lesson.themes) assert.ok(available.has(theme), `no puzzle carries "${theme}"`);
++    const pool = PUZZLES.filter((p) => p.themes.some((t) => lesson.themes.includes(t)));
++    assert.ok(pool.length >= 2 * MAX_PUZZLES_PER_FOCUS, `${lesson.themes} has only ${pool.length} puzzles`);
++  }
++});
++
++test('notation has no lesson: it is not measurable from games', () => {
++  assert.equal(CATEGORY_LESSONS.notation, undefined);
++});
++
++/* ── three measured weaknesses ───────────────────────────────────────────── */
++
++test('three measured categories become three focus blocks, weakest first', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  assert.equal(plan.sessionDate, '2026-09-29');
++  assert.equal(plan.measuredCount, 3);
++  assert.equal(plan.note, null);
++  assert.deepEqual(plan.focuses.map((f) => f.category), ['endgameTechnique', 'boardVision', 'openingKnowledge']);
++  assert.ok(plan.focuses.every((f) => f.kind === 'measured'));
++  assert.equal(plan.focuses[0].rubricAverage, 3.1);
++  assert.ok(plan.focuses.every((f) => typeof f.focus === 'string' && f.focus.length > 20));
++});
++
++test('each focus has 5–8 puzzles, each carrying one of that focus’s themes', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  for (const focus of plan.focuses) {
++    assert.ok(focus.puzzles.length >= MIN_PUZZLES_PER_FOCUS && focus.puzzles.length <= MAX_PUZZLES_PER_FOCUS, focus.label);
++    const themes = CATEGORY_LESSONS[focus.category].themes;
++    for (const p of focus.puzzles) {
++      const source = byId.get(p.id);
++      assert.ok(source, `${p.id} is not a real puzzle`);
++      assert.ok(source.themes.some((t) => themes.includes(t)), `${p.id} does not match ${focus.label}`);
++      assert.ok(source.themes.includes(p.theme));
++      assert.equal(p.rating, source.rating);
++    }
++  }
++});
++
++test('puzzles are spread across difficulty, easiest first, not bunched at one end', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  for (const focus of plan.focuses) {
++    const ratings = focus.puzzles.map((p) => p.rating);
++    assert.deepEqual(ratings, [...ratings].sort((a, b) => a - b), `${focus.label} not ordered`);
++    const pool = PUZZLES
++      .filter((p) => p.themes.some((t) => CATEGORY_LESSONS[focus.category].themes.includes(t)))
++      .map((p) => p.rating)
++      .sort((a, b) => a - b);
++    const q1 = pool[Math.floor(pool.length / 4)];
++    const q3 = pool[Math.floor((pool.length * 3) / 4)];
++    assert.ok(ratings[0] <= q1, `${focus.label} starts too hard (${ratings[0]} > ${q1})`);
++    assert.ok(ratings[ratings.length - 1] >= q3, `${focus.label} tops out too easy (${ratings.at(-1)} < ${q3})`);
++  }
++});
++
++test('warm-up puzzles are easy one-movers, and nothing repeats within a plan', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  assert.equal(plan.warmup.puzzles.length, 5);
++  for (const p of plan.warmup.puzzles) {
++    assert.ok(p.rating < WARMUP_MAX_RATING);
++    assert.ok(['mateIn1', 'oneMove'].some((t) => byId.get(p.id).themes.includes(t)));
++  }
++  const ids = allPuzzles(plan).map((p) => p.id);
++  assert.equal(new Set(ids).size, ids.length);
++});
++
++test('the same inputs give the same plan (no randomness, no clock)', () => {
++  const a = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  const b = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: [...PUZZLES].reverse() });
++  assert.deepEqual(a, b);
++});
++
++test('next week’s plan does not reuse last week’s puzzles', () => {
++  const first = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  const second = planSession({ sessionDate: '2026-10-06', weakest: THREE, puzzles: PUZZLES, previousPlan: first });
++  const before = puzzleIdsInPlan(first);
++  for (const p of allPuzzles(second)) assert.ok(!before.has(p.id), `${p.id} repeated`);
++  assert.ok(allPuzzles(second).every((p) => !p.repeated));
++  // Still the same lesson, still spread.
++  assert.deepEqual(second.focuses.map((f) => f.category), first.focuses.map((f) => f.category));
++  // And a third week avoids the second, not necessarily the first.
++  const third = planSession({ sessionDate: '2026-10-13', weakest: THREE, puzzles: PUZZLES, previousPlan: second });
++  const middle = puzzleIdsInPlan(second);
++  for (const p of allPuzzles(third)) assert.ok(!middle.has(p.id));
++});
++
++test('a plan survives the round trip through jsonb', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  assert.deepEqual(JSON.parse(JSON.stringify(plan)), plan);
++});
++
++test('every link goes to the Training page filtered to a real theme', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  const available = new Set(PUZZLES.flatMap((p) => p.themes));
++  const links = [
++    ...plan.warmup.sets,
++    ...plan.focuses.flatMap((f) => f.sets),
++    ...allPuzzles(plan),
++  ];
++  for (const link of links) {
++    assert.match(link.href, /^#\/training\?theme=[A-Za-z0-9]+$/);
++    assert.ok(available.has(new URLSearchParams(link.href.split('?')[1]).get('theme')));
++  }
++});
++
++/* ── the agenda ──────────────────────────────────────────────────────────── */
++
++test('the agenda fills 60 minutes: warm-up, focus blocks, games, review', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES });
++  assert.deepEqual(plan.agenda.map((a) => a.kind), ['warmup', 'focus', 'focus', 'focus', 'games', 'review']);
++  assert.equal(plan.agenda.reduce((sum, a) => sum + a.minutes, 0), 60);
++  plan.agenda.forEach((item, i) => {
++    assert.equal(item.start, i === 0 ? 0 : plan.agenda[i - 1].end);
++    assert.equal(item.end - item.start, item.minutes);
++  });
++  assert.deepEqual(plan.agenda.map((a) => a.minutes), [10, 7, 7, 6, 20, 10]);
++  assert.equal(plan.warmup.minutes, 10);
++  assert.deepEqual(plan.focuses.map((f) => f.minutes), [7, 7, 6]);
++  // The practice games carry the weakest category's game tip.
++  assert.ok(plan.agenda[4].detail.includes(CATEGORY_LESSONS.endgameTechnique.gameTip));
++});
++
++test('buildAgenda scales and rejects nonsense lengths', () => {
++  const focuses = [{ label: 'A', focus: 'a' }, { label: 'B', focus: 'b' }];
++  assert.equal(buildAgenda(focuses, { minutes: 90 }).at(-1).end, 90);
++  assert.equal(buildAgenda(focuses, { minutes: 45 }).at(-1).end, 45);
++  for (const minutes of [0, 20, 29, 181, 60.5, '60', NaN]) {
++    assert.throws(() => buildAgenda(focuses, { minutes }), RangeError, String(minutes));
++  }
++  assert.throws(() => buildAgenda([], {}), TypeError);
++});
++
++/* ── fewer than three measured: say so, do not invent ────────────────────── */
++
++test('one measured category: one focus on it, two labelled general tactics, and a note saying so', () => {
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: [THREE[0]], puzzles: PUZZLES });
++  assert.equal(plan.measuredCount, 1);
++  assert.deepEqual(plan.focuses.map((f) => f.kind), ['measured', 'general', 'general']);
++  assert.equal(plan.focuses[0].category, 'endgameTechnique');
++  for (const f of plan.focuses.slice(1)) {
++    assert.equal(f.category, null);
++    assert.equal(f.rubricAverage, null);
++    assert.match(f.label, /^General tactics/);
++  }
++  assert.match(plan.note, /Only 1 category has enough measured data/);
++  assert.match(plan.note, /2 blocks are general tactics, not a measured weakness/);
++});
++
++test('no measured categories: all general tactics, and the note says it is not a diagnosis', () => {
++  for (const weakest of [[], null, undefined, 'endgame', {}]) {
++    const plan = planSession({ sessionDate: '2026-09-29', weakest, puzzles: PUZZLES });
++    assert.equal(plan.measuredCount, 0);
++    assert.ok(plan.focuses.every((f) => f.kind === 'general' && f.category === null));
++    assert.equal(plan.focuses.length, 3);
++    assert.match(plan.note, /not a diagnosis/);
++    assert.equal(plan.agenda.reduce((sum, a) => sum + a.minutes, 0), 60);
++  }
++});
++
++test('an unmeasured, unknown, notation or duplicate entry is never treated as a weakness', () => {
++  const plan = planSession({
++    sessionDate: '2026-09-29',
++    puzzles: PUZZLES,
++    weakest: [
++      { category: 'tacticalVision', label: 'Tactical vision', average: null, rubricAverage: null },
++      { category: 'notation', label: 'Notation', average: 10, rubricAverage: 1 },
++      { category: 'swagger', label: 'Swagger', average: 5 },
++      entry('boardVision', 38, 'Board vision'),
++      entry('boardVision', 38, 'Board vision'),
++      null,
++    ],
++  });
++  assert.equal(plan.measuredCount, 1);
++  assert.deepEqual(plan.focuses.map((f) => f.category), ['boardVision', null, null]);
++});
++
++test('the planner accepts weakestCategories(clubProfile(...)) as it comes', () => {
++  const players = [
++    { playerId: 'CC-010', rubric: {} },
++    { playerId: 'CC-011', rubric: {} },
++  ];
++  const skills = {
++    'CC-010': {
++      endgameTechnique: { score: 30, confidence: 'medium', observations: 40 },
++      timeManagement: { score: 70, confidence: 'high', observations: 90 },
++      tacticalVision: { score: 55, confidence: 'low', observations: 3 }, // too thin to count
++    },
++    'CC-011': { endgameTechnique: { score: 40, confidence: 'medium', observations: 30 } },
++  };
++  const weakest = weakestCategories(clubProfile(players, skills));
++  assert.deepEqual(weakest.map((w) => w.category), ['endgameTechnique', 'timeManagement']);
++  const plan = planSession({ sessionDate: '2026-09-29', weakest, puzzles: PUZZLES });
++  assert.deepEqual(plan.focuses.map((f) => f.kind), ['measured', 'measured', 'general']);
++  assert.equal(plan.focuses[0].label, 'Endgame technique');
++  assert.equal(plan.focuses[0].rubricAverage, 3.5);
++  assert.match(plan.note, /Only 2 categories/);
++});
++
++/* ── running out of puzzles ──────────────────────────────────────────────── */
++
++test('when a theme runs out, repeats from last week are flagged rather than hidden', () => {
++  // A tiny library: seven opening puzzles and a few warm-ups.
++  const tiny = [
++    ...Array.from({ length: 7 }, (_, i) => ({ id: `op${i}`, rating: 800 + i * 100, themes: ['opening'], name: 'Opening' })),
++    ...Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, rating: 500 + i * 10, themes: ['mateIn1', 'oneMove'] })),
++    ...Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, rating: 600 + i * 30, themes: ['fork', 'pin', 'backRankMate'] })),
++  ];
++  const weakest = [entry('openingKnowledge', 40, 'Opening knowledge')];
++  const first = planSession({ sessionDate: '2026-09-29', weakest, puzzles: tiny });
++  assert.equal(first.focuses[0].puzzles.length, 6);
++  assert.equal(first.focuses[0].note, null);
++
++  const second = planSession({ sessionDate: '2026-10-06', weakest, puzzles: tiny, previousPlan: first });
++  const opening = second.focuses[0];
++  assert.equal(opening.puzzles.length, MIN_PUZZLES_PER_FOCUS);
++  assert.equal(opening.puzzles.filter((p) => p.repeated).length, 4);
++  assert.match(opening.note, /4 puzzles repeat from the last plan/);
++  const ratings = opening.puzzles.map((p) => p.rating);
++  assert.deepEqual(ratings, [...ratings].sort((a, b) => a - b));
++});
++
++test('a theme with too few puzzles says how many it has', () => {
++  const tiny = [
++    { id: 'op1', rating: 900, themes: ['opening'] },
++    { id: 'op2', rating: 1000, themes: ['opening'] },
++    ...Array.from({ length: 40 }, (_, i) => ({ id: `t${i}`, rating: 500 + i * 30, themes: ['fork', 'pin', 'mateIn2', 'oneMove'] })),
++  ];
++  const plan = planSession({ sessionDate: '2026-09-29', weakest: [entry('openingKnowledge', 40)], puzzles: tiny });
++  assert.equal(plan.focuses[0].puzzles.length, 2);
++  assert.match(plan.focuses[0].note, /Only 2 puzzles in the library/);
++});
++
++/* ── bad input ───────────────────────────────────────────────────────────── */
++
++test('bad input is refused, not guessed at', () => {
++  assert.throws(() => planSession({ sessionDate: '29/09/2026', weakest: THREE, puzzles: PUZZLES }), TypeError);
++  assert.throws(() => planSession({ sessionDate: '2026-02-30', weakest: THREE, puzzles: PUZZLES }), TypeError);
++  assert.throws(() => planSession({ sessionDate: '2026-09-29', weakest: THREE }), TypeError);
++  assert.throws(() => planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: 'all' }), TypeError);
++  for (const puzzlesPerFocus of [4, 9, 6.5, '6']) {
++    assert.throws(
++      () => planSession({ sessionDate: '2026-09-29', weakest: THREE, puzzles: PUZZLES, puzzlesPerFocus }),
++      RangeError,
++      String(puzzlesPerFocus),
++    );
++  }
++  assert.throws(() => planSession({ sessionDate: '2026-09-29', puzzles: PUZZLES, minutes: 5 }), RangeError);
++  assert.throws(() => planSession(), TypeError);
++});
++
++test('malformed puzzles in the library are skipped, not crashed on', () => {
++  const plan = planSession({
++    sessionDate: '2026-09-29',
++    weakest: THREE,
++    puzzles: [null, { id: 'x' }, { id: 7, themes: ['opening'], rating: 900 }, ...PUZZLES],
++  });
++  assert.ok(allPuzzles(plan).every((p) => byId.has(p.id)));
++});
++
++/* ── helpers ─────────────────────────────────────────────────────────────── */
++
++test('puzzleIdsInPlan tolerates old or broken plans', () => {
++  assert.equal(puzzleIdsInPlan(null).size, 0);
++  assert.equal(puzzleIdsInPlan('plan').size, 0);
++  assert.equal(puzzleIdsInPlan({ focuses: 'x', warmup: { puzzles: [null, { id: 3 }, { id: 'a' }] } }).size, 1);
++});
++
++test('spreadAcross picks distinct, evenly spaced items', () => {
++  const sorted = Array.from({ length: 10 }, (_, i) => i);
++  assert.deepEqual(spreadAcross(sorted, 4), [0, 3, 6, 9]);
++  assert.deepEqual(spreadAcross(sorted, 1), [4]);
++  assert.deepEqual(spreadAcross(sorted, 0), []);
++  assert.deepEqual(spreadAcross([1, 2], 5), [1, 2]);
++  const many = spreadAcross(Array.from({ length: 9 }, (_, i) => i), 8);
++  assert.equal(new Set(many).size, 8);
++});
++
++test('theme labels and links read like the Training page', () => {
++  assert.equal(themeLabel('discoveredAttack'), 'Discovered attack');
++  assert.equal(themeLabel('mateIn1'), 'Mate in 1');
++  assert.equal(themeLabel('endgame'), 'Endgame');
++  assert.equal(trainingHref('backRankMate'), '#/training?theme=backRankMate');
++});
+diff --git a/src/components/SessionAttendance.jsx b/src/components/SessionAttendance.jsx
+new file mode 100644
+index 0000000..950cace
+--- /dev/null
++++ b/src/components/SessionAttendance.jsx
+@@ -0,0 +1,184 @@
++import { useMemo, useState } from 'react';
++import { setAttendance } from '../data/rosterStore.js';
++import { useClubSessions, setSessionCancelled } from '../data/clubSessionsStore.js';
++import {
++  cancelledDates,
++  clubDate,
++  formatSessionDate,
++  isIsoDate,
++  isSessionDay,
++  mostRecentSession,
++  sessionStrip,
++} from '../data/sessions.js';
++import InfoTooltip from './InfoTooltip.jsx';
++import '../styles/sessions.css';
++
++const STRIP_PAST = 4;
++const STRIP_FUTURE = 3;
++
++/**
++ * SessionAttendance — the Coach page's attendance panel, organised by Tuesday.
++ *
++ * It opens on the session the coach is most likely taking attendance for
++ * (today on a Tuesday, otherwise the last Tuesday that was not cancelled),
++ * rather than on today's date: on a Wednesday "today" is a day the club did
++ * not meet. Sessions come from the calendar, so there is nothing to create.
++ */
++export default function SessionAttendance({ players }) {
++  const sessions = useClubSessions();
++  const cancelled = useMemo(() => cancelledDates(sessions), [sessions]);
++  const cancelledSet = useMemo(() => new Set(cancelled), [cancelled]);
++  // The club's date, not UTC's: a late Tuesday session is still Tuesday.
++  const today = clubDate();
++  const defaultDate = useMemo(() => mostRecentSession(today, { skip: cancelled }), [today, cancelled]);
++  // Null until the coach picks one, so the default can still follow a
++  // cancellation that arrives from the cloud after the page opened.
++  const [picked, setPicked] = useState(null);
++  const sessionDate = picked ?? defaultDate;
++  const strip = useMemo(
++    () => sessionStrip(today, { past: STRIP_PAST, future: STRIP_FUTURE, skip: cancelled }),
++    [today, cancelled],
++  );
++
++  const attendanceOn = (player, date) => (player.attendance || []).find((a) => a.date === date) ?? null;
++  const presentOn = (date) => players.filter((p) => attendanceOn(p, date)?.present === true).length;
++  const recordedOn = (date) => players.some((p) => attendanceOn(p, date) != null);
++
++  const onSchedule = isSessionDay(sessionDate);
++  const isCancelled = cancelledSet.has(sessionDate);
++  const isUpcoming = sessionDate > today;
++  const locked = isCancelled || isUpcoming;
++  const alreadyTaken = recordedOn(sessionDate);
++  const presentCount = presentOn(sessionDate);
++
++  const toggleCancelled = () => {
++    // Pin the selection, or cancelling the default session would jump the
++    // panel to the Tuesday before.
++    setPicked(sessionDate);
++    setSessionCancelled(sessionDate, !isCancelled);
++  };
++
++  const stripLabel = (s) => {
++    if (s.cancelled) return 'Cancelled';
++    if (s.when === 'today') return 'Today';
++    if (s.when === 'upcoming') return 'Upcoming';
++    return recordedOn(s.date) ? `${presentOn(s.date)} present` : 'Not taken';
++  };
++
++  return (
++    <section className="panel">
++      <div className="panel-header">
++        <h2>
++          Attendance
++          <InfoTooltip>
++            Every Tuesday is a session automatically. Pick one below; the panel opens on today if it
++            is Tuesday, otherwise on the last Tuesday. Mark a holiday as cancelled so it is skipped.
++          </InfoTooltip>
++        </h2>
++        <span className="badge">
++          {presentCount} / {players.length} present
++        </span>
++      </div>
++
++      <ul className="session-strip" aria-label="Tuesday sessions">
++        {strip.map((s) => (
++          <li key={s.date}>
++            <button
++              type="button"
++              className={`session-chip ${s.date === sessionDate ? 'selected' : ''} ${s.cancelled ? 'cancelled' : ''} ${s.when}`}
++              aria-pressed={s.date === sessionDate}
++              onClick={() => setPicked(s.date)}
++            >
++              <span className="session-chip-date">{formatSessionDate(s.date, { withWeekday: false })}</span>
++              <span className="session-chip-status">{stripLabel(s)}</span>
++            </button>
++          </li>
++        ))}
++      </ul>
++
++      <div className="session-selected">
++        <div className="session-selected-title">
++          <strong>{formatSessionDate(sessionDate, { withYear: true })}</strong>
++          {isCancelled && <span className="badge session-badge-cancelled">Cancelled</span>}
++          {!onSchedule && <span className="badge">Not a Tuesday</span>}
++        </div>
++        <div className="session-actions">
++          {onSchedule &&
++            (isCancelled ? (
++              <button type="button" className="link-button" onClick={toggleCancelled}>
++                Restore session
++              </button>
++            ) : (
++              <button
++                type="button"
++                className="link-button danger"
++                onClick={toggleCancelled}
++                disabled={alreadyTaken}
++                title={alreadyTaken ? 'Attendance was taken for this date, so the session happened.' : undefined}
++              >
++                Mark cancelled
++              </button>
++            ))}
++          <label className="session-other-date">
++            <span>Other date</span>
++            <input
++              type="date"
++              value={sessionDate}
++              onChange={(e) => {
++                if (isIsoDate(e.target.value)) setPicked(e.target.value);
++              }}
++            />
++          </label>
++        </div>
++      </div>
++
++      {isCancelled && (
++        <p className="hint-text">
++          Cancelled: the club did not meet, so there is no attendance to take. Restore it if the club
++          met after all.
++        </p>
++      )}
++      {!isCancelled && isUpcoming && (
++        <p className="hint-text">This session has not happened yet. Attendance opens on the day.</p>
++      )}
++      {!onSchedule && !locked && (
++        <p className="hint-text">
++          Not a regular Tuesday session. Attendance is still recorded against this date.
++        </p>
++      )}
++
++      {players.length === 0 ? (
++        <p className="hint-text">No players on the roster yet.</p>
++      ) : (
++        <ul className={`attendance-list ${locked ? 'session-locked' : ''}`}>
++          {players.map((p) => {
++            const state = attendanceOn(p, sessionDate)?.present ?? null;
++            return (
++              <li key={p.playerId}>
++                <span className="attendance-name">{p.name}</span>
++                <span className="attendance-buttons">
++                  <button
++                    type="button"
++                    className={state === true ? 'attend-on' : ''}
++                    disabled={locked}
++                    onClick={() => setAttendance(p.playerId, sessionDate, true)}
++                  >
++                    Present
++                  </button>
++                  <button
++                    type="button"
++                    className={state === false ? 'attend-off' : ''}
++                    disabled={locked}
++                    onClick={() => setAttendance(p.playerId, sessionDate, false)}
++                  >
++                    Absent
++                  </button>
++                </span>
++              </li>
++            );
++          })}
++        </ul>
++      )}
++    </section>
++  );
++}
+diff --git a/src/components/SessionPlanner.jsx b/src/components/SessionPlanner.jsx
+new file mode 100644
+index 0000000..86aaa91
+--- /dev/null
++++ b/src/components/SessionPlanner.jsx
+@@ -0,0 +1,260 @@
++import { useEffect, useMemo, useState } from 'react';
++import { createPortal } from 'react-dom';
++import { PUZZLES } from '../data/puzzles.js';
++import { useClubSessions, saveSessionPlan } from '../data/clubSessionsStore.js';
++import {
++  cancelledDates,
++  clubDate,
++  formatSessionDate,
++  latestPlanBefore,
++  upcomingSessions,
++} from '../data/sessions.js';
++import { planSession, themeLabel } from '../analysis/sessionPlanner.js';
++import InfoTooltip from './InfoTooltip.jsx';
++import '../styles/sessions.css';
++
++const PLANNABLE_AHEAD = 4;
++const PRINT_CLASS = 'printing-session-plan';
++
++const minutesLabel = (item) => `${item.start}–${item.end} min`;
++
++/** One plan, rendered. Used on screen and, via a portal, for printing. */
++function PlanView({ plan }) {
++  const focuses = Array.isArray(plan?.focuses) ? plan.focuses : [];
++  const agenda = Array.isArray(plan?.agenda) ? plan.agenda : [];
++  const warmup = plan?.warmup?.puzzles ?? [];
++  return (
++    <div className="session-plan-body">
++      <h3 className="session-plan-heading">
++        Session plan · {plan?.sessionDate ? formatSessionDate(plan.sessionDate, { withYear: true }) : ''}
++      </h3>
++      {plan?.note && <p className="session-plan-note">{plan.note}</p>}
++
++      <ol className="session-agenda">
++        {agenda.map((item, i) => (
++          <li key={`${item.kind}-${i}`}>
++            <span className="session-agenda-time mono">{minutesLabel(item)}</span>
++            <span className="session-agenda-what">
++              <strong>{item.title}</strong>
++              <span>{item.detail}</span>
++            </span>
++          </li>
++        ))}
++      </ol>
++
++      <div className="session-plan-block">
++        <h4>
++          Warm-up <span className="session-plan-minutes">{plan?.warmup?.minutes ?? 10} min</span>
++        </h4>
++        <PuzzleList puzzles={warmup} />
++      </div>
++
++      {focuses.map((focus, i) => (
++        <div className="session-plan-block" key={focus.key ?? i}>
++          <h4>
++            {i + 1}. {focus.label}{' '}
++            <span className="session-plan-minutes">{focus.minutes} min</span>
++            {focus.kind === 'general' ? (
++              <span className="badge session-badge-general">general, not measured</span>
++            ) : (
++              focus.rubricAverage != null && (
++                <span className="badge">club average {Number(focus.rubricAverage).toFixed(1)} / 10</span>
++              )
++            )}
++          </h4>
++          <p className="session-plan-focus">{focus.focus}</p>
++          {Array.isArray(focus.sets) && focus.sets.length > 0 && (
++            <p className="session-plan-sets">
++              Puzzle sets:{' '}
++              {focus.sets.map((set, j) => (
++                <span key={set.theme}>
++                  {j > 0 && ' · '}
++                  <a href={set.href}>{set.label}</a>
++                </span>
++              ))}
++            </p>
++          )}
++          <PuzzleList puzzles={focus.puzzles ?? []} />
++          {focus.note && <p className="hint-text">{focus.note}</p>}
++        </div>
++      ))}
++    </div>
++  );
++}
++
++function PuzzleList({ puzzles }) {
++  if (!puzzles.length) return <p className="hint-text">No puzzles.</p>;
++  return (
++    <ol className="session-puzzles">
++      {puzzles.map((p) => (
++        <li key={p.id}>
++          <span className="mono session-puzzle-rating">{p.rating}</span>
++          <span className="session-puzzle-name">{p.name}</span>
++          <a href={p.href} className="session-puzzle-theme">
++            {themeLabel(p.theme)}
++          </a>
++          <span className="mono session-puzzle-id">#{p.id}</span>
++          {p.repeated && <span className="badge">repeat</span>}
++        </li>
++      ))}
++    </ol>
++  );
++}
++
++/**
++ * SessionPlanner — "Plan this Tuesday".
++ *
++ * Builds the lesson from the club's three weakest measured categories (the
++ * same list the Club page shows as "where group time should go"), avoiding
++ * the puzzles of the last saved plan, and lets the coach save it to that
++ * Tuesday and print it. The plan is a draft until saved: re-planning never
++ * silently replaces what was already printed and handed out.
++ */
++export default function SessionPlanner({ weakest }) {
++  const sessions = useClubSessions();
++  const cancelled = useMemo(() => cancelledDates(sessions), [sessions]);
++  const today = clubDate();
++  const upcoming = useMemo(
++    () => upcomingSessions(today, PLANNABLE_AHEAD, { skip: cancelled }),
++    [today, cancelled],
++  );
++  const [picked, setPicked] = useState(null);
++  const target = picked && upcoming.includes(picked) ? picked : upcoming[0];
++  const record = sessions.find((s) => s.sessionDate === target) ?? null;
++  const [draft, setDraft] = useState(null);
++  const [status, setStatus] = useState('');
++  const [error, setError] = useState('');
++
++  const draftPlan = draft && draft.sessionDate === target ? draft.plan : null;
++  const savedPlan = record?.plan ?? null;
++  const shown = draftPlan ?? savedPlan;
++  const isNext = target === upcoming[0];
++
++  const makePlan = () => {
++    setError('');
++    setStatus('');
++    try {
++      const plan = planSession({
++        sessionDate: target,
++        weakest,
++        puzzles: PUZZLES,
++        previousPlan: latestPlanBefore(sessions, target),
++      });
++      setDraft({ sessionDate: target, plan });
++    } catch (e) {
++      setError(`Could not build a plan: ${e.message}`);
++    }
++  };
++
++  const save = () => {
++    saveSessionPlan(target, draftPlan);
++    setDraft(null);
++    setStatus(`Saved to ${formatSessionDate(target)}.`);
++  };
++
++  // Print only the plan: the portal below is the one thing visible while the
++  // body carries PRINT_CLASS. Removed on afterprint rather than straight after
++  // print(), because not every browser blocks inside print().
++  const print = () => {
++    document.body.classList.add(PRINT_CLASS);
++    const done = () => document.body.classList.remove(PRINT_CLASS);
++    window.addEventListener('afterprint', done, { once: true });
++    window.print();
++  };
++  useEffect(() => () => document.body.classList.remove(PRINT_CLASS), []);
++
++  const weakestText = weakest.length
++    ? weakest.map((w) => w.label).join(', ')
++    : 'none measured yet';
++
++  return (
++    <section className="panel session-plan">
++      <div className="panel-header">
++        <h2>
++          Session plan
++          <InfoTooltip>
++            Built from the club&rsquo;s weakest measured categories (the Club page&rsquo;s &ldquo;where
++            group time should go&rdquo;): a short focus and 5&ndash;8 puzzles for each, spread from
++            easy to hard, plus a timed hour. Puzzles from the last saved plan are not reused. Where
++            fewer than three categories are measured the plan fills in with general tactics and says so.
++          </InfoTooltip>
++        </h2>
++        {upcoming.length > 1 && (
++          <label className="session-plan-target">
++            <select
++              aria-label="Session to plan"
++              value={target}
++              onChange={(e) => {
++                setPicked(e.target.value);
++                setStatus('');
++                setError('');
++              }}
++            >
++              {upcoming.map((date, i) => (
++                <option key={date} value={date}>
++                  {formatSessionDate(date)}
++                  {i === 0 ? ' (next)' : ''}
++                </option>
++              ))}
++            </select>
++          </label>
++        )}
++      </div>
++
++      <p className="hint-text session-plan-basis">
++        Weakest measured: {weakestText}.
++      </p>
++
++      <div className="session-plan-actions">
++        {!shown && (
++          <button type="button" className="primary" onClick={makePlan}>
++            {isNext ? 'Plan this Tuesday' : `Plan ${formatSessionDate(target)}`}
++          </button>
++        )}
++        {draftPlan && (
++          <>
++            <button type="button" className="primary" onClick={save}>
++              Save to {formatSessionDate(target)}
++            </button>
++            <button type="button" onClick={print}>
++              Print
++            </button>
++            <button type="button" onClick={() => setDraft(null)}>
++              Discard
++            </button>
++          </>
++        )}
++        {!draftPlan && savedPlan && (
++          <>
++            <span className="badge session-badge-saved">
++              Saved{savedPlan.savedAt ? ` ${String(savedPlan.savedAt).slice(0, 10)}` : ''}
++            </span>
++            <button type="button" onClick={print}>
++              Print
++            </button>
++            <button type="button" onClick={makePlan}>
++              Re-plan
++            </button>
++          </>
++        )}
++      </div>
++      {draftPlan && savedPlan && (
++        <p className="hint-text">
++          This is a new draft. The saved plan stays until you save over it.
++        </p>
++      )}
++      {draftPlan && !savedPlan && <p className="hint-text">Draft. Not saved yet.</p>}
++      {status && <p className="hint-text session-plan-status">{status}</p>}
++      {error && <p className="hint-text session-plan-error">{error}</p>}
++
++      {shown && <PlanView plan={shown} />}
++      {shown &&
++        createPortal(
++          <div className="session-plan-print" aria-hidden="true">
++            <PlanView plan={shown} />
++          </div>,
++          document.body,
++        )}
++    </section>
++  );
++}
+diff --git a/src/data/clubSessionsStore.js b/src/data/clubSessionsStore.js
+new file mode 100644
+index 0000000..8b37221
+--- /dev/null
++++ b/src/data/clubSessionsStore.js
+@@ -0,0 +1,153 @@
++/*
++ * clubSessionsStore.js — what is remembered about individual Tuesdays.
++ *
++ * Sessions themselves are not stored: the club meets every Tuesday, so
++ * sessions.js derives them from the calendar and nobody has to "create" one
++ * before taking attendance. A row here exists only when a Tuesday differs
++ * from the default — the coach cancelled it (a holiday), or saved a lesson
++ * plan for it. That keeps the table sparse and means a missing row is never
++ * a missing session.
++ *
++ * Same five-part shape as gamesStore: local by default, backed by the
++ * `club_sessions` table (0021) once Supabase is configured and someone is
++ * signed in. Keyed on session_date, which is unique, so every write is an
++ * upsert and two coaches saving the same Tuesday converge on one row.
++ */
++
++import { createStore, useStore } from './store.js';
++import { supabase, isSupabaseConfigured } from './supabaseClient.js';
++import { reportSyncError } from './syncStatus.js';
++import { isIsoDate } from './sessions.js';
++
++const store = createStore('cc-club-sessions-v1', []);
++
++export function useClubSessions() {
++  return useStore(store);
++}
++
++export function getClubSessions() {
++  return store.get();
++}
++
++let cloudReady = false;
++let channel = null;
++
++function fromRow(row) {
++  return {
++    sessionDate: row.session_date,
++    cancelled: !!row.cancelled,
++    plan: row.plan ?? null,
++    notes: row.notes || '',
++    updatedAt: row.updated_at || null,
++  };
++}
++
++function toRow(session) {
++  // created_by / created_at are left to the column defaults, so an update
++  // never rewrites who first touched the row.
++  return {
++    session_date: session.sessionDate,
++    cancelled: !!session.cancelled,
++    plan: session.plan ?? null,
++    notes: session.notes || '',
++  };
++}
++
++/*
++ * PostgREST's "no such table" codes. Until 0021 is applied the pull fails
++ * with one of these; saying which migration is missing is more use to the
++ * coach than a raw relation error.
++ */
++const MISSING_TABLE = new Set(['42P01', 'PGRST205']);
++
++async function syncFromCloud() {
++  const { data, error } = await supabase
++    .from('club_sessions')
++    .select('*')
++    .order('session_date', { ascending: false })
++    .limit(500);
++  if (error) {
++    reportSyncError(
++      'the club sessions',
++      MISSING_TABLE.has(error.code)
++        ? 'the club_sessions table does not exist yet (migration 0021). Cancellations and plans stay on this device until it is applied.'
++        : error.message,
++    );
++    return;
++  }
++  cloudReady = true;
++  store.set(data.map(fromRow));
++}
++
++function subscribeRealtime() {
++  if (channel) return;
++  channel = supabase
++    .channel('club-sessions-changes')
++    .on('postgres_changes', { event: '*', schema: 'public', table: 'club_sessions' }, () => {
++      syncFromCloud();
++    })
++    .subscribe();
++}
++
++if (isSupabaseConfigured) {
++  supabase.auth.onAuthStateChange((_event, session) => {
++    if (session) {
++      syncFromCloud();
++      subscribeRealtime();
++    } else {
++      cloudReady = false;
++      if (channel) {
++        supabase.removeChannel(channel);
++        channel = null;
++      }
++    }
++  });
++  supabase.auth.getSession().then(({ data }) => {
++    if (data.session) {
++      syncFromCloud();
++      subscribeRealtime();
++    }
++  });
++}
++
++/** Merge `patch` into one Tuesday's record, creating it if need be. Returns the record. */
++function updateSession(sessionDate, patch, what) {
++  if (!isIsoDate(sessionDate)) throw new TypeError(`session date must be YYYY-MM-DD, got ${JSON.stringify(sessionDate)}`);
++  let record = null;
++  store.set((sessions) => {
++    const existing = sessions.find((s) => s.sessionDate === sessionDate);
++    record = {
++      sessionDate,
++      cancelled: false,
++      plan: null,
++      notes: '',
++      ...existing,
++      ...patch,
++      updatedAt: new Date().toISOString(),
++    };
++    return [record, ...sessions.filter((s) => s.sessionDate !== sessionDate)]
++      .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate))
++      .slice(0, 500);
++  });
++
++  if (isSupabaseConfigured && cloudReady) {
++    supabase
++      .from('club_sessions')
++      .upsert(toRow(record), { onConflict: 'session_date' })
++      .then(({ error }) => {
++        if (error) reportSyncError(what, error.message);
++      });
++  }
++  return record;
++}
++
++/** Cancel a Tuesday (a holiday, a school closure) or restore it. */
++export function setSessionCancelled(sessionDate, cancelled) {
++  return updateSession(sessionDate, { cancelled: !!cancelled }, cancelled ? 'cancelling that session' : 'restoring that session');
++}
++
++/** Attach a lesson plan (sessionPlanner.js output) to a Tuesday. */
++export function saveSessionPlan(sessionDate, plan) {
++  if (!plan || typeof plan !== 'object') throw new TypeError('a session plan must be an object');
++  return updateSession(sessionDate, { plan: { ...plan, savedAt: new Date().toISOString() } }, 'that session plan');
++}
+diff --git a/src/data/sessions.js b/src/data/sessions.js
+new file mode 100644
+index 0000000..07c5a1e
+--- /dev/null
++++ b/src/data/sessions.js
+@@ -0,0 +1,217 @@
++/*
++ * sessions.js — when the club meets.
++ *
++ * The club meets every Tuesday. A session is therefore not something a coach
++ * creates: it exists because the calendar says so, and the only thing ever
++ * stored about one is what makes it different (cancelled for a holiday, a
++ * saved lesson plan). This module is the calendar half of that, and it is
++ * pure so the timezone traps below can be pinned by tests.
++ *
++ * DATES ARE CALENDAR DATES, NOT INSTANTS. A session is 'YYYY-MM-DD', exactly
++ * what attendance.session_date and club_sessions.session_date hold. Two ways
++ * of getting that wrong have already bitten this codebase:
++ *
++ *   1. `new Date().toISOString().slice(0, 10)` is the date in UTC. A Tuesday
++ *      meeting in Dallas that runs past 7pm CDT is already Wednesday in UTC,
++ *      so attendance taken at the end of the session landed on Wednesday.
++ *   2. `new Date('2026-09-29')` is midnight UTC, which is Monday evening in
++ *      Chicago; formatting it with the browser's local zone prints "Mon".
++ *
++ * So: "what day is it" is asked in America/Chicago, once, at the boundary
++ * (clubDate). Everything after that is arithmetic on whole calendar days via
++ * Date.UTC, which has no zone and no DST, so adding 7 days always lands on the
++ * next Tuesday regardless of where the browser thinks it is.
++ */
++
++/** Tuesday, in Date#getUTCDay numbering (0 = Sunday). */
++export const CLUB_WEEKDAY = 2;
++/** The club's own clock: SEM at Townview, Dallas. */
++export const CLUB_TIME_ZONE = 'America/Chicago';
++
++const DAY_MS = 86_400_000;
++const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
++
++/** True for a real calendar date written 'YYYY-MM-DD' (so not '2026-02-30'). */
++export function isIsoDate(value) {
++  if (typeof value !== 'string') return false;
++  const match = ISO_DATE.exec(value);
++  if (!match) return false;
++  const [year, month, day] = match.slice(1).map(Number);
++  const probe = new Date(Date.UTC(year, month - 1, day));
++  return (
++    probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day
++  );
++}
++
++function assertIsoDate(value, name = 'date') {
++  if (!isIsoDate(value)) {
++    throw new TypeError(`${name} must be a calendar date written YYYY-MM-DD, got ${JSON.stringify(value)}`);
++  }
++}
++
++const toDayNumber = (iso) => {
++  const [year, month, day] = iso.split('-').map(Number);
++  return Date.UTC(year, month - 1, day) / DAY_MS;
++};
++const fromDayNumber = (n) => new Date(n * DAY_MS).toISOString().slice(0, 10);
++
++// Intl formatters are comparatively expensive to build and this runs on every
++// render of the Coach page, so one per zone is kept.
++const formatters = new Map();
++function partsFormatter(timeZone) {
++  if (!formatters.has(timeZone)) {
++    formatters.set(
++      timeZone,
++      new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }),
++    );
++  }
++  return formatters.get(timeZone);
++}
++
++/**
++ * The club's calendar date for an instant, or a calendar date passed through.
++ *
++ * A string is already a calendar date and is returned unchanged (after
++ * validation) — re-interpreting '2026-09-29' as an instant is exactly trap 2.
++ * A Date is read on the club's clock, not the browser's and not UTC.
++ */
++export function clubDate(input = new Date(), timeZone = CLUB_TIME_ZONE) {
++  if (typeof input === 'string') {
++    assertIsoDate(input);
++    return input;
++  }
++  if (!(input instanceof Date) || Number.isNaN(input.getTime())) {
++    throw new TypeError(`expected a Date or a YYYY-MM-DD string, got ${JSON.stringify(input)}`);
++  }
++  const parts = Object.fromEntries(
++    partsFormatter(timeZone)
++      .formatToParts(input)
++      .map((p) => [p.type, p.value]),
++  );
++  return `${parts.year}-${parts.month}-${parts.day}`;
++}
++
++/** Day of the week of a calendar date, 0 = Sunday. Zone-free by construction. */
++export function weekdayOf(iso) {
++  assertIsoDate(iso);
++  return new Date(toDayNumber(iso) * DAY_MS).getUTCDay();
++}
++
++export const isSessionDay = (iso) => weekdayOf(iso) === CLUB_WEEKDAY;
++
++/** Calendar arithmetic: whole days, never milliseconds across a DST change. */
++export function addDays(iso, days) {
++  assertIsoDate(iso);
++  if (!Number.isInteger(days)) throw new RangeError(`days must be a whole number, got ${days}`);
++  return fromDayNumber(toDayNumber(iso) + days);
++}
++
++/**
++ * The cancelled-dates list as a Set, ignoring anything that is not a real
++ * date. It comes from database rows and localStorage, so one malformed entry
++ * must not take the Coach page down with it.
++ */
++export function normaliseSkipList(skip = []) {
++  const out = new Set();
++  if (skip == null) return out;
++  for (const entry of skip) if (isIsoDate(entry)) out.add(entry);
++  return out;
++}
++
++const sessionOnOrAfter = (iso) => addDays(iso, (CLUB_WEEKDAY - weekdayOf(iso) + 7) % 7);
++const sessionOnOrBefore = (iso) => addDays(iso, -((weekdayOf(iso) - CLUB_WEEKDAY + 7) % 7));
++
++function assertCount(n, name) {
++  if (!Number.isInteger(n) || n < 0) throw new RangeError(`${name} must be a whole number ≥ 0, got ${n}`);
++}
++
++/**
++ * The next `n` sessions on or after `fromDate` (a Tuesday counts as its own
++ * next session), leaving out cancelled dates.
++ */
++export function upcomingSessions(fromDate, n, { skip = [] } = {}) {
++  assertCount(n, 'n');
++  const skipped = normaliseSkipList(skip);
++  const out = [];
++  // Terminates: every pass either adds a date or consumes one of a finite
++  // number of skipped dates.
++  for (let date = sessionOnOrAfter(clubDate(fromDate)); out.length < n; date = addDays(date, 7)) {
++    if (!skipped.has(date)) out.push(date);
++  }
++  return out;
++}
++
++/**
++ * The session attendance is for: today on a Tuesday, otherwise the last
++ * Tuesday — skipping back past any the coach cancelled, because nobody took
++ * attendance at a meeting that did not happen.
++ */
++export function mostRecentSession(today = new Date(), { skip = [] } = {}) {
++  const skipped = normaliseSkipList(skip);
++  let date = sessionOnOrBefore(clubDate(today));
++  while (skipped.has(date)) date = addDays(date, -7);
++  return date;
++}
++
++/**
++ * The strip of Tuesdays the Coach page shows: `past` before the current one,
++ * the current one, and `future` after it. Cancelled dates are INCLUDED and
++ * flagged, not dropped, so the coach can see a holiday and undo it.
++ */
++export function sessionStrip(today = new Date(), { past = 3, future = 3, skip = [] } = {}) {
++  assertCount(past, 'past');
++  assertCount(future, 'future');
++  const skipped = normaliseSkipList(skip);
++  const now = clubDate(today);
++  const anchor = sessionOnOrBefore(now);
++  const out = [];
++  for (let i = -past; i <= future; i += 1) {
++    const date = addDays(anchor, i * 7);
++    out.push({
++      date,
++      cancelled: skipped.has(date),
++      when: date < now ? 'past' : date === now ? 'today' : 'upcoming',
++    });
++  }
++  return out;
++}
++
++/**
++ * 'Tue, Sep 29', optionally with the year or without the weekday. Formatted in
++ * UTC because the date is zone-free: formatting it in the browser's zone is
++ * trap 2 above.
++ */
++export function formatSessionDate(iso, { withYear = false, withWeekday = true } = {}) {
++  assertIsoDate(iso);
++  return new Intl.DateTimeFormat('en-US', {
++    timeZone: 'UTC',
++    ...(withWeekday ? { weekday: 'short' } : {}),
++    month: 'short',
++    day: 'numeric',
++    ...(withYear ? { year: 'numeric' } : {}),
++  }).format(new Date(toDayNumber(iso) * DAY_MS));
++}
++
++/* ─────────────── over stored session records ({sessionDate, cancelled, plan}) ─────────────── */
++
++/** The cancelled dates among stored session records. */
++export function cancelledDates(records = []) {
++  return (records || [])
++    .filter((r) => r && r.cancelled && isIsoDate(r.sessionDate))
++    .map((r) => r.sessionDate)
++    .sort();
++}
++
++/**
++ * The most recent saved plan strictly before `date`: what the planner must not
++ * repeat. A cancelled session's plan never ran, so it does not count.
++ */
++export function latestPlanBefore(records = [], date) {
++  assertIsoDate(date);
++  let best = null;
++  for (const r of records || []) {
++    if (!r || !r.plan || r.cancelled || !isIsoDate(r.sessionDate) || r.sessionDate >= date) continue;
++    if (!best || r.sessionDate > best.sessionDate) best = r;
++  }
++  return best ? best.plan : null;
++}
+diff --git a/src/data/sessions.test.js b/src/data/sessions.test.js
+new file mode 100644
+index 0000000..8a8abfd
+--- /dev/null
++++ b/src/data/sessions.test.js
+@@ -0,0 +1,231 @@
++/*
++ * The Tuesday calendar. Most of these are about one failure: a Tuesday that
++ * quietly becomes a Monday or a Wednesday because something read the date in
++ * UTC or in the browser's zone instead of on the club's clock.
++ */
++
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {
++  CLUB_WEEKDAY,
++  isIsoDate,
++  clubDate,
++  weekdayOf,
++  isSessionDay,
++  addDays,
++  normaliseSkipList,
++  upcomingSessions,
++  mostRecentSession,
++  sessionStrip,
++  formatSessionDate,
++  cancelledDates,
++  latestPlanBefore,
++} from './sessions.js';
++
++/** Run `fn` with the process pretending to be somewhere else. */
++function inZone(tz, fn) {
++  const previous = process.env.TZ;
++  process.env.TZ = tz;
++  try {
++    return fn();
++  } finally {
++    if (previous === undefined) delete process.env.TZ;
++    else process.env.TZ = previous;
++  }
++}
++
++/* ── the calendar itself ─────────────────────────────────────────────────── */
++
++test('the club meets on Tuesday', () => {
++  assert.equal(CLUB_WEEKDAY, 2);
++  assert.equal(isSessionDay('2026-09-29'), true);
++  assert.equal(isSessionDay('2026-09-25'), false); // a Friday
++  assert.equal(weekdayOf('2026-10-24'), 6); // the tournament is a Saturday
++});
++
++test('isIsoDate accepts real dates only', () => {
++  assert.equal(isIsoDate('2026-09-29'), true);
++  assert.equal(isIsoDate('2028-02-29'), true); // leap day
++  for (const bad of ['2026-02-29', '2026-02-30', '2026-13-01', '2026-9-29', '2026-09-29T00:00', '', null, undefined, 20260929, {}]) {
++    assert.equal(isIsoDate(bad), false, `${JSON.stringify(bad)} is not a date`);
++  }
++});
++
++test('addDays is calendar arithmetic, across month, year and leap boundaries', () => {
++  assert.equal(addDays('2026-09-29', 7), '2026-10-06');
++  assert.equal(addDays('2026-12-29', 7), '2027-01-05');
++  assert.equal(addDays('2028-02-22', 7), '2028-02-29');
++  assert.equal(addDays('2026-10-06', -7), '2026-09-29');
++  assert.throws(() => addDays('2026-09-29', 1.5), RangeError);
++  assert.throws(() => addDays('not a date', 1), TypeError);
++});
++
++/* ── midnight: the date is read on the club's clock ──────────────────────── */
++
++test('late Tuesday evening in Dallas is still Tuesday, though UTC says Wednesday', () => {
++  // 23:30 CDT on Tue 29 Sep = 04:30 UTC on Wed 30 Sep.
++  const lateTuesday = new Date('2026-09-30T04:30:00Z');
++  assert.equal(lateTuesday.toISOString().slice(0, 10), '2026-09-30'); // the old bug
++  assert.equal(clubDate(lateTuesday), '2026-09-29');
++  assert.equal(mostRecentSession(lateTuesday), '2026-09-29');
++});
++
++test('late Monday evening in Dallas is Monday, though UTC already says Tuesday', () => {
++  // 23:30 CDT on Mon 28 Sep = 04:30 UTC on Tue 29 Sep.
++  const lateMonday = new Date('2026-09-29T04:30:00Z');
++  assert.equal(clubDate(lateMonday), '2026-09-28');
++  assert.equal(mostRecentSession(lateMonday), '2026-09-22');
++  assert.deepEqual(upcomingSessions(lateMonday, 1), ['2026-09-29']);
++});
++
++test('one minute either side of Chicago midnight on a Tuesday', () => {
++  // 00:00 CDT Tue 29 Sep = 05:00 UTC.
++  assert.equal(mostRecentSession(new Date('2026-09-29T04:59:00Z')), '2026-09-22');
++  assert.equal(mostRecentSession(new Date('2026-09-29T05:00:00Z')), '2026-09-29');
++  // And the end of that Tuesday: 23:59 CDT = 04:59 UTC Wednesday.
++  assert.equal(mostRecentSession(new Date('2026-09-30T04:59:00Z')), '2026-09-29');
++  assert.equal(mostRecentSession(new Date('2026-09-30T05:00:00Z')), '2026-09-29'); // Wednesday: last Tuesday
++});
++
++test('the answer does not depend on the zone the browser is in', () => {
++  const instant = new Date('2026-09-30T04:30:00Z');
++  for (const tz of ['UTC', 'America/Chicago', 'Pacific/Kiritimati', 'Pacific/Pago_Pago', 'Asia/Kolkata']) {
++    inZone(tz, () => {
++      assert.equal(clubDate(instant), '2026-09-29', tz);
++      assert.equal(mostRecentSession(instant), '2026-09-29', tz);
++      assert.deepEqual(upcomingSessions('2026-10-27', 2), ['2026-10-27', '2026-11-03'], tz);
++      assert.equal(formatSessionDate('2026-09-29'), 'Tue, Sep 29', tz);
++    });
++  }
++});
++
++test('a date-only string is not re-read as an instant (the "Mon, Sep 28" trap)', () => {
++  inZone('America/Chicago', () => {
++    // The naive route: midnight UTC is Monday evening in Chicago.
++    assert.equal(new Date('2026-09-29').getDay(), 1);
++    assert.equal(clubDate('2026-09-29'), '2026-09-29');
++    assert.equal(formatSessionDate('2026-09-29'), 'Tue, Sep 29');
++    assert.equal(formatSessionDate('2026-09-29', { withYear: true }), 'Tue, Sep 29, 2026');
++    assert.equal(formatSessionDate('2026-09-29', { withWeekday: false }), 'Sep 29');
++    assert.throws(() => formatSessionDate('Sep 29'), TypeError);
++  });
++});
++
++/* ── DST ─────────────────────────────────────────────────────────────────── */
++
++test('the Tuesday after DST ends (Sun 1 Nov 2026) is read in CST, not CDT', () => {
++  // 23:30 CST Tue 3 Nov = 05:30 UTC Wed 4 Nov. Under CDT's offset it would be 00:30 Wednesday.
++  assert.equal(clubDate(new Date('2026-11-04T05:30:00Z')), '2026-11-03');
++  assert.equal(mostRecentSession(new Date('2026-11-04T05:30:00Z')), '2026-11-03');
++  // 23:30 CST Mon 2 Nov = 05:30 UTC Tue 3 Nov.
++  assert.equal(mostRecentSession(new Date('2026-11-03T05:30:00Z')), '2026-10-27');
++});
++
++test('the Tuesday after DST starts (Sun 14 Mar 2027) is read in CDT', () => {
++  // 23:30 CDT Tue 16 Mar = 04:30 UTC Wed 17 Mar.
++  assert.equal(mostRecentSession(new Date('2027-03-17T04:30:00Z')), '2027-03-16');
++  // 23:30 CDT Mon 15 Mar = 04:30 UTC Tue 16 Mar.
++  assert.equal(mostRecentSession(new Date('2027-03-16T04:30:00Z')), '2027-03-09');
++});
++
++test('weekly sessions stay on Tuesday straight through both DST changes', () => {
++  const autumn = upcomingSessions('2026-10-20', 4);
++  assert.deepEqual(autumn, ['2026-10-20', '2026-10-27', '2026-11-03', '2026-11-10']);
++  const spring = upcomingSessions('2027-03-01', 4);
++  assert.deepEqual(spring, ['2027-03-02', '2027-03-09', '2027-03-16', '2027-03-23']);
++  for (const d of [...autumn, ...spring]) assert.equal(weekdayOf(d), 2, d);
++});
++
++/* ── upcoming / most recent ──────────────────────────────────────────────── */
++
++test('upcomingSessions counts a Tuesday as its own next session', () => {
++  assert.deepEqual(upcomingSessions('2026-09-29', 2), ['2026-09-29', '2026-10-06']);
++  assert.deepEqual(upcomingSessions('2026-09-25', 3), ['2026-09-29', '2026-10-06', '2026-10-13']);
++  assert.deepEqual(upcomingSessions('2026-09-30', 1), ['2026-10-06']);
++});
++
++test('upcomingSessions still returns n sessions when some are cancelled', () => {
++  const skip = ['2026-11-24', '2026-12-22', '2026-12-29']; // Thanksgiving week, winter break
++  assert.deepEqual(upcomingSessions('2026-11-17', 4, { skip }), [
++    '2026-11-17', '2026-12-01', '2026-12-08', '2026-12-15',
++  ]);
++  assert.deepEqual(upcomingSessions('2026-12-20', 1, { skip }), ['2027-01-05']);
++});
++
++test('mostRecentSession: today on a Tuesday, otherwise the last Tuesday', () => {
++  assert.equal(mostRecentSession('2026-09-29'), '2026-09-29');
++  assert.equal(mostRecentSession('2026-09-25'), '2026-09-22'); // Friday
++  assert.equal(mostRecentSession('2026-09-28'), '2026-09-22'); // Monday
++  assert.equal(mostRecentSession('2026-10-04'), '2026-09-29'); // Sunday
++});
++
++test('mostRecentSession skips back past cancelled Tuesdays', () => {
++  assert.equal(mostRecentSession('2026-12-30', { skip: ['2026-12-29', '2026-12-22'] }), '2026-12-15');
++  // A cancelled Tuesday that is today is not the session either.
++  assert.equal(mostRecentSession('2026-09-29', { skip: ['2026-09-29'] }), '2026-09-22');
++});
++
++test('upcomingSessions and mostRecentSession reject bad input rather than guessing', () => {
++  assert.deepEqual(upcomingSessions('2026-09-25', 0), []);
++  for (const n of [-1, 1.5, NaN, '3', undefined]) {
++    assert.throws(() => upcomingSessions('2026-09-25', n), RangeError, String(n));
++  }
++  assert.throws(() => upcomingSessions('2026-02-30', 1), TypeError);
++  assert.throws(() => mostRecentSession('29/09/2026'), TypeError);
++  assert.throws(() => mostRecentSession(new Date('nonsense')), TypeError);
++  assert.throws(() => mostRecentSession(1759190400000), TypeError);
++});
++
++test('a malformed skip list entry is ignored, not fatal', () => {
++  const skip = normaliseSkipList(['2026-12-22', 'soon', null, 42, '2026-02-30', '2026-12-22']);
++  assert.deepEqual([...skip], ['2026-12-22']);
++  assert.equal(normaliseSkipList(null).size, 0);
++  assert.equal(mostRecentSession('2026-12-23', { skip: ['garbage'] }), '2026-12-22');
++});
++
++/* ── the strip on the Coach page ─────────────────────────────────────────── */
++
++test('the strip on a Friday: past Tuesdays, then the coming ones', () => {
++  const strip = sessionStrip('2026-09-25', { past: 2, future: 2 });
++  assert.deepEqual(strip.map((s) => s.date), ['2026-09-08', '2026-09-15', '2026-09-22', '2026-09-29', '2026-10-06']);
++  assert.deepEqual(strip.map((s) => s.when), ['past', 'past', 'past', 'upcoming', 'upcoming']);
++});
++
++test('the strip on a Tuesday marks today, and shows cancelled Tuesdays instead of hiding them', () => {
++  const strip = sessionStrip('2026-09-29', { past: 1, future: 1, skip: ['2026-10-06'] });
++  assert.deepEqual(strip, [
++    { date: '2026-09-22', cancelled: false, when: 'past' },
++    { date: '2026-09-29', cancelled: false, when: 'today' },
++    { date: '2026-10-06', cancelled: true, when: 'upcoming' },
++  ]);
++  assert.throws(() => sessionStrip('2026-09-29', { past: -1 }), RangeError);
++});
++
++/* ── stored records ──────────────────────────────────────────────────────── */
++
++test('cancelledDates reads only real, cancelled records', () => {
++  const records = [
++    { sessionDate: '2026-12-29', cancelled: true },
++    { sessionDate: '2026-12-22', cancelled: true },
++    { sessionDate: '2026-12-15', cancelled: false, plan: {} },
++    { sessionDate: 'bad', cancelled: true },
++    null,
++  ];
++  assert.deepEqual(cancelledDates(records), ['2026-12-22', '2026-12-29']);
++  assert.deepEqual(cancelledDates(undefined), []);
++});
++
++test('latestPlanBefore finds the last plan that actually ran before the date', () => {
++  const records = [
++    { sessionDate: '2026-09-22', plan: { id: 'a' } },
++    { sessionDate: '2026-09-29', plan: { id: 'b' } },
++    { sessionDate: '2026-10-06', plan: { id: 'c' }, cancelled: true }, // never happened
++    { sessionDate: '2026-10-13', plan: { id: 'd' } },
++    { sessionDate: '2026-10-20', plan: null },
++  ];
++  assert.deepEqual(latestPlanBefore(records, '2026-10-13'), { id: 'b' });
++  assert.deepEqual(latestPlanBefore(records, '2026-10-27'), { id: 'd' });
++  assert.equal(latestPlanBefore(records, '2026-09-22'), null); // not its own plan
++  assert.equal(latestPlanBefore([], '2026-09-22'), null);
++  assert.throws(() => latestPlanBefore(records, 'next week'), TypeError);
++});
+diff --git a/src/styles/sessions.css b/src/styles/sessions.css
+new file mode 100644
+index 0000000..1018388
+--- /dev/null
++++ b/src/styles/sessions.css
+@@ -0,0 +1,352 @@
++/*
++ * sessions.css — the Tuesday strip, attendance locking and the session plan.
++ * Its own file so the feature can be read (and removed) in one place; it uses
++ * the tokens defined in app.css and nothing else.
++ */
++
++/* ---------- the strip of Tuesdays --------------------------------------- */
++
++.session-strip {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: grid;
++  /* Four to a row on a phone, all eight in one row on a laptop. */
++  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
++  gap: 6px;
++}
++
++.session-chip {
++  width: 100%;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 1px;
++  padding: 6px 4px;
++  background: var(--bg-sunken);
++  color: var(--text);
++  border: 1px solid var(--border);
++  border-radius: var(--radius);
++  font-family: inherit;
++  cursor: pointer;
++  transition: border-color 0.12s, background 0.12s;
++}
++
++.session-chip:hover {
++  border-color: var(--border-strong);
++}
++
++.session-chip.selected {
++  border-color: var(--accent);
++  background: var(--accent-soft);
++}
++
++.session-chip-date {
++  font-size: 0.86rem;
++  font-weight: 600;
++  white-space: nowrap;
++}
++
++.session-chip-status {
++  font-size: 0.7rem;
++  color: var(--text-muted);
++  white-space: nowrap;
++}
++
++.session-chip.today .session-chip-status {
++  color: var(--accent);
++  font-weight: 600;
++}
++
++.session-chip.cancelled .session-chip-date {
++  text-decoration: line-through;
++  color: var(--text-muted);
++}
++
++.session-chip.cancelled .session-chip-status {
++  color: var(--bad);
++}
++
++/* ---------- the selected session ---------------------------------------- */
++
++.session-selected {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px 16px;
++  margin-top: 12px;
++}
++
++.session-selected-title {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 8px;
++}
++
++.session-actions {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 8px 16px;
++}
++
++.session-other-date {
++  display: flex;
++  align-items: center;
++  gap: 6px;
++  font-size: 0.82rem;
++  color: var(--text-muted);
++}
++
++.session-other-date input {
++  background: var(--bg-sunken);
++  color: var(--text);
++  border: 1px solid var(--border);
++  border-radius: 7px;
++  padding: 4px 8px;
++  font-family: inherit;
++  font-size: 0.85rem;
++}
++
++.badge.session-badge-cancelled {
++  color: var(--bad);
++  border-color: var(--bad);
++}
++
++.attendance-list.session-locked li {
++  opacity: 0.6;
++}
++
++.attendance-buttons button:disabled {
++  cursor: not-allowed;
++}
++
++/* ---------- the plan ---------------------------------------------------- */
++
++.session-plan-target select {
++  max-width: 100%;
++}
++
++.session-plan-basis {
++  margin-top: 0;
++}
++
++.session-plan-actions {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 8px;
++  margin-top: 8px;
++}
++
++.session-plan-actions button {
++  background: var(--bg-sunken);
++  color: var(--text);
++  border: 1px solid var(--border);
++  border-radius: 8px;
++  padding: 8px 12px;
++  font-size: 0.88rem;
++  cursor: pointer;
++}
++
++.session-plan-actions button.primary {
++  background: var(--accent);
++  color: var(--accent-text);
++  border-color: var(--accent);
++}
++
++.session-plan-actions button:hover:not(:disabled) {
++  border-color: var(--border-strong);
++}
++
++.badge.session-badge-saved {
++  color: var(--good);
++  border-color: var(--good);
++}
++
++.badge.session-badge-general {
++  color: var(--warn);
++  border-color: var(--warn);
++}
++
++.session-plan-error {
++  color: var(--bad);
++}
++
++.session-plan-body {
++  margin-top: 14px;
++  border-top: 1px solid var(--border);
++  padding-top: 12px;
++}
++
++.session-plan-heading {
++  margin-top: 0;
++}
++
++.session-plan-note {
++  padding: 8px 12px;
++  border: 1px solid var(--warn);
++  border-radius: var(--radius);
++  background: var(--bg-sunken);
++  font-size: 0.88rem;
++}
++
++.session-agenda {
++  list-style: none;
++  margin: 10px 0 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.session-agenda li {
++  display: grid;
++  grid-template-columns: 7.5em minmax(0, 1fr);
++  gap: 10px;
++  padding: 6px 10px;
++  background: var(--bg-sunken);
++  border: 1px solid var(--border);
++  border-radius: var(--radius);
++}
++
++.session-agenda-time {
++  color: var(--text-muted);
++  font-size: 0.82rem;
++  padding-top: 1px;
++}
++
++.session-agenda-what {
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  font-size: 0.86rem;
++  min-width: 0;
++}
++
++.session-agenda-what span {
++  color: var(--text-muted);
++}
++
++.session-plan-block {
++  margin-top: 16px;
++}
++
++.session-plan-block h4 {
++  margin: 0 0 4px;
++  font-size: 0.95rem;
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 6px 8px;
++}
++
++.session-plan-minutes {
++  color: var(--text-muted);
++  font-weight: 400;
++  font-size: 0.82rem;
++}
++
++.session-plan-focus,
++.session-plan-sets {
++  font-size: 0.86rem;
++  margin: 4px 0;
++}
++
++.session-plan-body a {
++  color: var(--accent);
++}
++
++.session-puzzles {
++  margin: 6px 0 0;
++  padding-left: 1.6em;
++  display: flex;
++  flex-direction: column;
++  gap: 3px;
++  font-size: 0.85rem;
++}
++
++.session-puzzles li {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: baseline;
++  gap: 4px 10px;
++}
++
++.session-puzzle-rating {
++  min-width: 3.2em;
++}
++
++.session-puzzle-id {
++  color: var(--text-faint);
++  font-size: 0.78rem;
++}
++
++/* ---------- printing ---------------------------------------------------- */
++
++/* The print copy lives in a portal directly under <body>, so hiding the app
++   is one rule instead of fighting every positioned ancestor. */
++.session-plan-print {
++  display: none;
++}
++
++@media print {
++  body.printing-session-plan {
++    background: #fff;
++  }
++
++  body.printing-session-plan > *:not(.session-plan-print) {
++    display: none !important;
++  }
++
++  body.printing-session-plan > .session-plan-print {
++    display: block;
++    color: #000;
++    background: #fff;
++    font-size: 11pt;
++  }
++
++  .session-plan-print .session-plan-body {
++    margin: 0;
++    border: 0;
++    padding: 0;
++  }
++
++  .session-plan-print h3,
++  .session-plan-print .session-agenda-time,
++  .session-plan-print .session-agenda-what span,
++  .session-plan-print .session-plan-minutes,
++  .session-plan-print .session-puzzle-id,
++  .session-plan-print .hint-text {
++    color: #333;
++  }
++
++  .session-plan-print h3 {
++    font-size: 14pt;
++    text-transform: none;
++    letter-spacing: 0;
++  }
++
++  .session-plan-print a {
++    color: #000;
++    text-decoration: none;
++  }
++
++  .session-plan-print .badge {
++    color: #333;
++    background: none;
++    border-color: #999;
++  }
++
++  .session-plan-print .session-agenda li,
++  .session-plan-print .session-plan-note {
++    background: none;
++    border-color: #999;
++  }
++
++  .session-plan-print .session-plan-block {
++    break-inside: avoid;
++  }
++}
+diff --git a/supabase/migrations/0021_club_sessions.sql b/supabase/migrations/0021_club_sessions.sql
+new file mode 100644
+index 0000000..4a57c5d
+--- /dev/null
++++ b/supabase/migrations/0021_club_sessions.sql
+@@ -0,0 +1,83 @@
++-- 0021 — club sessions: what is remembered about individual Tuesdays.
++--
++-- NOT YET APPLIED. Written without database access; the lead applies it.
++--
++-- Additive only. Creates one table with its policies, a trigger and a
++-- realtime registration. Alters, drops and rewrites nothing that exists —
++-- in particular the attendance table (0007) and its policies are untouched:
++-- attendance rows are still one per player per session_date, and a session
++-- does not need a row here for attendance to be taken against it. Safe to run
++-- twice.
++--
++-- WHY A SPARSE TABLE. The club meets every Tuesday, so the app derives
++-- sessions from the calendar (src/data/sessions.js) instead of making the
++-- coach create one each week. A row exists only when a Tuesday differs from
++-- the default: it was cancelled (a holiday), or a lesson plan was saved for
++-- it (src/analysis/sessionPlanner.js). A missing row is never a missing
++-- session.
++--
++-- session_date is a DATE, not a timestamp, for the same reason as
++-- attendance.session_date: a meeting is a calendar day in Dallas, and a
++-- timestamptz would move a late Tuesday evening into Wednesday in UTC.
++--
++-- Depends on 0005's helpers (is_coach, is_approved) and 0011's
++-- touch_updated_at().
++
++create table if not exists public.club_sessions (
++  id            bigserial primary key,
++  session_date  date not null unique,
++  cancelled     boolean not null default false,
++  plan          jsonb check (plan is null or jsonb_typeof(plan) = 'object'),
++  notes         text not null default '',
++  created_by    uuid default auth.uid() references auth.users(id) on delete set null,
++  created_at    timestamptz not null default now(),
++  updated_at    timestamptz not null default now()
++);
++
++comment on table public.club_sessions is
++  'One row per Tuesday that differs from the default: cancelled, or has a saved lesson plan. Sessions without a row still exist.';
++comment on column public.club_sessions.plan is
++  'sessionPlanner.js output: focus blocks, puzzle ids, timed agenda. Puzzle ids refer to src/data/puzzles.json.';
++
++-- Covering index for the foreign key, as 0013 does for the other tables.
++create index if not exists club_sessions_created_by_idx on public.club_sessions (created_by);
++
++drop trigger if exists club_sessions_touch_updated_at on public.club_sessions;
++create trigger club_sessions_touch_updated_at
++  before update on public.club_sessions
++  for each row execute function public.touch_updated_at();
++
++-- ---------------------------------------------------------------------------
++-- Policies, in 0013's shape: exactly one SELECT policy, and writes split into
++-- INSERT / UPDATE / DELETE rather than FOR ALL (which would add a second
++-- permissive SELECT policy to every read).
++--
++-- Every approved member may read: the schedule and the lesson plan are club
++-- information, not a judgement about any one child. Only coaches write.
++-- ---------------------------------------------------------------------------
++alter table public.club_sessions enable row level security;
++
++drop policy if exists club_sessions_select on public.club_sessions;
++create policy club_sessions_select on public.club_sessions
++  for select to authenticated using (public.is_approved());
++
++drop policy if exists club_sessions_insert on public.club_sessions;
++create policy club_sessions_insert on public.club_sessions
++  for insert to authenticated with check (public.is_coach());
++
++drop policy if exists club_sessions_update on public.club_sessions;
++create policy club_sessions_update on public.club_sessions
++  for update to authenticated using (public.is_coach()) with check (public.is_coach());
++
++drop policy if exists club_sessions_delete on public.club_sessions;
++create policy club_sessions_delete on public.club_sessions
++  for delete to authenticated using (public.is_coach());
++
++-- Realtime, so a cancellation made on one device shows on the others.
++do $$
++begin
++  alter publication supabase_realtime add table public.club_sessions;
++exception
++  when duplicate_object then null;
++end
++$$;
