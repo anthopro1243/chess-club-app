@@ -134,3 +134,53 @@ exception
   when duplicate_object then null;
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 3. Registrations (F072, F073) and the coach's repertoire tick (F074).
+--
+-- Who the coach has put on the district form, under which of the campus's
+-- (at most two) coaches. The 10-per-coach limit is enforced by the app
+-- before every add (src/data/registrationRules.js), not by a trigger: the
+-- district could change the number, and a trigger would then refuse a list
+-- the district accepts.
+--
+-- Coach-only writes. A member may read their own row, so they can see their
+-- own readiness (which includes the coach's "mini-repertoire reviewed" tick).
+-- ---------------------------------------------------------------------------
+create table if not exists public.event_registrations (
+  event_id             text not null references public.official_events(id) on delete cascade,
+  player_id            text not null references public.players(player_id) on delete cascade,
+  coach_slot           smallint not null check (coach_slot in (1, 2)),
+  repertoire_reviewed  boolean not null default false,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now(),
+  primary key (event_id, player_id)
+);
+
+create index if not exists event_registrations_player_idx on public.event_registrations (player_id);
+
+comment on table public.event_registrations is
+  'Players the coach registered for an event, by coach slot (1 or 2). App enforces 10 per coach.';
+
+alter table public.event_registrations enable row level security;
+
+drop policy if exists event_registrations_select on public.event_registrations;
+create policy event_registrations_select on public.event_registrations
+  for select to authenticated using (public.is_coach() or public.owns_player(player_id));
+drop policy if exists event_registrations_insert on public.event_registrations;
+create policy event_registrations_insert on public.event_registrations
+  for insert to authenticated with check (public.is_coach());
+drop policy if exists event_registrations_update on public.event_registrations;
+create policy event_registrations_update on public.event_registrations
+  for update to authenticated using (public.is_coach()) with check (public.is_coach());
+drop policy if exists event_registrations_delete on public.event_registrations;
+create policy event_registrations_delete on public.event_registrations
+  for delete to authenticated using (public.is_coach());
+
+do $$
+begin
+  alter publication supabase_realtime add table public.event_registrations;
+exception
+  when duplicate_object then null;
+end
+$$;

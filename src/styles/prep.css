@@ -412,3 +412,135 @@
     grid-row: 1;
   }
 }
+
+/* ---------- registration ------------------------------------------------------ */
+
+.prep-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prep-rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.prep-rule {
+  padding: 5px 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.prep-rule strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.prep-rule.good {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.prep-rule.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.prep-rule.bad {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.prep-alert {
+  margin: 6px 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.prep-alert.bad {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.prep-alert.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.prep-alert.good {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.prep-reg-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.prep-reg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.prep-reg-row:last-child {
+  border-bottom: none;
+}
+
+.prep-choice-2 {
+  grid-template-columns: repeat(2, minmax(84px, 1fr));
+}
+
+.prep-choice-btn.on-coach {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.prep-inline-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.prep-inline-field select {
+  width: auto;
+}
+
+.prep-check {
+  margin: 8px 0 4px;
+}
+
+.prep-export {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  min-height: 140px;
+}
+
+@media (max-width: 640px) {
+  .prep-reg-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .prep-reg-row .prep-choice {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+  }
+
+  .prep-stack .panel-header {
+    flex-wrap: wrap;
+  }
+}

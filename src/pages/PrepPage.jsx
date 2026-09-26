@@ -7,6 +7,7 @@ import { useClubToday } from '../components/prep/useClubToday.js';
 import DeadlineBanner from '../components/prep/DeadlineBanner.jsx';
 import EventPanel from '../components/prep/EventPanel.jsx';
 import AvailabilityPoll from '../components/prep/AvailabilityPoll.jsx';
+import RegistrationHelper from '../components/prep/RegistrationHelper.jsx';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
 /*
@@ -17,6 +18,7 @@ import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 const TABS = [
   { id: 'event', label: 'Event', coachOnly: false },
   { id: 'availability', label: 'Availability', coachOnly: false },
+  { id: 'registration', label: 'Registration', coachOnly: true },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -121,6 +123,7 @@ export default function PrepPage() {
       {activeTab === 'availability' && (
         <AvailabilityPoll event={event} players={players} me={me} isCoach={isCoach} />
       )}
+      {activeTab === 'registration' && isCoach && <RegistrationHelper event={event} players={players} />}
     </div>
   );
 }
