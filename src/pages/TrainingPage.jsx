@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import Board from '../components/Board.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
+import EndgameTrainer from '../components/EndgameTrainer.jsx';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
 import { useDuePuzzles, useReviewSummary, reviewOwnPuzzle } from '../data/ownPuzzleStore.js';
@@ -315,7 +316,9 @@ export default function TrainingPage() {
     <div className="training-layout">
       {mistakesNote && <p className="muted mistakes-note">{mistakesNote}</p>}
       <section className="board-column">
-        {pool.length === 0 ? (
+        {source === 'endgames' ? (
+          <EndgameTrainer trainee={trainee} rating={trainee?.ratings?.uscf ?? null} />
+        ) : pool.length === 0 ? (
           <div className="panel-block">
             <h2>No puzzles match</h2>
             <p className="hint-text">
@@ -407,13 +410,14 @@ export default function TrainingPage() {
                   ? `Your mistakes (${duePuzzles.length} due)`
                   : 'Your mistakes — pick a trainee first'}
               </option>
+              <option value="endgames">Endgames: play them out vs the engine</option>
             </select>
           </label>
           <label className="field">
             <span>Theme</span>
             <select
               value={themeFilter}
-              disabled={source === 'mistakes'}
+              disabled={source !== 'library'}
               onChange={(event) => setThemeFilter(event.target.value)}
             >
               <option value="">All themes</option>
