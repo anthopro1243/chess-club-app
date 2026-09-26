@@ -6,6 +6,8 @@ import { formatDate, relativeDays, daysBetween, nextEvent } from '../data/offici
 import { useClubToday } from '../components/prep/useClubToday.js';
 import DeadlineBanner from '../components/prep/DeadlineBanner.jsx';
 import EventPanel from '../components/prep/EventPanel.jsx';
+import AvailabilityPoll from '../components/prep/AvailabilityPoll.jsx';
+import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
 /*
  * Which tabs each role sees. A member gets the parts that are about them
@@ -14,6 +16,7 @@ import EventPanel from '../components/prep/EventPanel.jsx';
  */
 const TABS = [
   { id: 'event', label: 'Event', coachOnly: false },
+  { id: 'availability', label: 'Availability', coachOnly: false },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -43,6 +46,11 @@ export default function PrepPage() {
   const isCoach = !!account.isCoach;
   const events = useOfficialEvents();
   const today = useClubToday();
+  // The store already leaves retired members out; every list here is the
+  // current roster. `me` is null in local mode and for a member who has not
+  // claimed a profile yet, which the member views handle.
+  const players = usePlayers();
+  const me = useMyProfile();
 
   const sortedEvents = useMemo(
     () => [...events].sort((a, b) => String(a.date).localeCompare(String(b.date))),
@@ -110,6 +118,9 @@ export default function PrepPage() {
       </nav>
 
       {activeTab === 'event' && <EventPanel event={event} isCoach={isCoach} onCreated={setEventId} />}
+      {activeTab === 'availability' && (
+        <AvailabilityPoll event={event} players={players} me={me} isCoach={isCoach} />
+      )}
     </div>
   );
 }

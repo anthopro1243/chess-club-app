@@ -85,3 +85,52 @@ exception
   when duplicate_object then null;
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 2. Availability poll (F071).
+--
+-- One answer per member per event. A member may insert and update ONLY their
+-- own row (owns_player); a coach may do anything, which is how answers for a
+-- whole room get recorded on the coach's phone at a Tuesday meeting. Reads
+-- are owner-or-coach: whether a classmate can come is not club-wide news,
+-- and a transport note ("needs the bus") can say something about a family.
+-- Only a coach deletes (undoing a mis-tap); a member just changes the answer.
+-- ---------------------------------------------------------------------------
+create table if not exists public.event_availability (
+  event_id        text not null references public.official_events(id) on delete cascade,
+  player_id       text not null references public.players(player_id) on delete cascade,
+  answer          text not null check (answer in ('yes', 'maybe', 'no')),
+  transport_note  text check (char_length(transport_note) <= 200),
+  answered_at     timestamptz not null default now(),
+  primary key (event_id, player_id)
+);
+
+-- The primary key covers event_id; this covers the player foreign key.
+create index if not exists event_availability_player_idx on public.event_availability (player_id);
+
+comment on table public.event_availability is
+  'Yes / maybe / no per member per event, plus an optional transport note.';
+
+alter table public.event_availability enable row level security;
+
+drop policy if exists event_availability_select on public.event_availability;
+create policy event_availability_select on public.event_availability
+  for select to authenticated using (public.is_coach() or public.owns_player(player_id));
+drop policy if exists event_availability_insert on public.event_availability;
+create policy event_availability_insert on public.event_availability
+  for insert to authenticated with check (public.is_coach() or public.owns_player(player_id));
+drop policy if exists event_availability_update on public.event_availability;
+create policy event_availability_update on public.event_availability
+  for update to authenticated using (public.is_coach() or public.owns_player(player_id))
+  with check (public.is_coach() or public.owns_player(player_id));
+drop policy if exists event_availability_delete on public.event_availability;
+create policy event_availability_delete on public.event_availability
+  for delete to authenticated using (public.is_coach());
+
+do $$
+begin
+  alter publication supabase_realtime add table public.event_availability;
+exception
+  when duplicate_object then null;
+end
+$$;
