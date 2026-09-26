@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { usePlayers, useCloudStatus } from '../data/rosterStore.js';
+import { useMemo, useState } from 'react';
+import { usePlayers, useCloudStatus, useMyProfile } from '../data/rosterStore.js';
+import { useAccount } from '../data/accountStore.js';
+import { isSupabaseConfigured } from '../data/supabaseClient.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import AnnouncementsPanel from '../components/AnnouncementsPanel.jsx';
-import { useAccount } from '../data/accountStore.js';
+import PlayerHome from '../components/PlayerHome.jsx';
 import { useSkillScores } from '../data/analysisStore.js';
 import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
 import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
@@ -14,7 +16,29 @@ import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
 export default function DashboardPage({ onNavigate }) {
   const players = usePlayers();
   const cloud = useCloudStatus();
+
+  /*
+   * The signed-in member's own page sits above the club view. It needs a
+   * linked roster row: an account that has not claimed one has no games or
+   * scores to show, and the account menu already offers the claim.
+   */
+  const me = useMyProfile();
   const account = useAccount();
+  const myViewer = useMemo(
+    () => (me ? { role: account.role, playerId: me.playerId } : null),
+    [me, account.role],
+  );
+
+  /*
+   * Local mode has no accounts, so no signed-in player: the one local user is
+   * the coach (accountStore's LOCAL_ADMIN). Rather than faking a sign-in, the
+   * coach can preview any roster member's page. Local only - with a backend,
+   * each member sees their own page when they sign in.
+   */
+  const canPreview = !isSupabaseConfigured && account.isCoach;
+  const [previewId, setPreviewId] = useState('');
+  const previewViewer = useMemo(() => ({ role: account.role, playerId: null }), [account.role]);
+  const previewing = canPreview && players.some((p) => p.playerId === previewId);
   // The club profile now prefers real engine measurements over an untouched
   // manual rubric, and leaves a category blank rather than averaging "no data"
   // as zero - which is what made every category read a flat 2.5.
@@ -72,6 +96,33 @@ export default function DashboardPage({ onNavigate }) {
 
   return (
     <div className="dashboard">
+      <AnnouncementsPanel isCoach={!!account?.isCoach} />
+
+      {isSupabaseConfigured && me && account.isApproved && (
+        <PlayerHome playerId={me.playerId} viewer={myViewer} />
+      )}
+
+      {canPreview && players.length > 0 && (
+        <section className="panel ph-preview-picker" aria-label="Preview a player's home page">
+          <label htmlFor="ph-preview-select" className="muted small">
+            Local mode: preview a player&rsquo;s home page as
+          </label>
+          <select
+            id="ph-preview-select"
+            value={previewing ? previewId : ''}
+            onChange={(event) => setPreviewId(event.target.value)}
+          >
+            <option value="">No one (club view only)</option>
+            {players.map((p) => (
+              <option key={p.playerId} value={p.playerId}>
+                {p.name} ({p.playerId})
+              </option>
+            ))}
+          </select>
+        </section>
+      )}
+      {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
+
       <section className="hero">
         <div>
           <h1>Chess Club</h1>
@@ -89,8 +140,6 @@ export default function DashboardPage({ onNavigate }) {
           </div>
         </div>
       </section>
-
-      <AnnouncementsPanel isCoach={!!account?.isCoach} />
 
       <section className="stat-row">
         <Stat label="Players" value={players.length} />

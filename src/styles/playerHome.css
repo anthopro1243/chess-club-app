@@ -1,0 +1,326 @@
+/* =========================================================================
+   Player home — the signed-in player's own block at the top of the Club page.
+   Its own file so it merges cleanly beside other features' styles; every
+   colour comes from the tokens in app.css, so light and dark both work.
+   ========================================================================= */
+
+.player-home {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-color: var(--border-strong);
+}
+
+.ph-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.ph-header h2 {
+  font-size: 1.25rem;
+}
+
+.ph-preview-note {
+  margin: 4px 0 0;
+}
+
+/* Anchors dressed as buttons: they carry real hash routes (#/training?theme=…),
+   so middle-click and "copy link" work, and there is no click handler to break. */
+.ph-action {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1.3;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.ph-action:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+.ph-action.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.ph-action.primary:hover {
+  filter: brightness(1.07);
+}
+
+.ph-action:focus-visible,
+.ph-more:focus-visible,
+.ph-list a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ph-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ph-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    'priority trend'
+    'reviews trend'
+    'games games';
+  gap: 14px;
+  align-items: start;
+}
+
+/* Only when the homework feature hands a list in; otherwise no empty row. */
+.ph-grid.has-homework {
+  grid-template-areas:
+    'priority trend'
+    'reviews trend'
+    'homework trend'
+    'games games';
+}
+
+.ph-priority { grid-area: priority; }
+.ph-trend { grid-area: trend; }
+.ph-reviews { grid-area: reviews; }
+.ph-homework { grid-area: homework; }
+.ph-games { grid-area: games; }
+
+.ph-card {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.ph-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+/* The priority and the trend are the page; they get the wide slots. */
+.ph-priority {
+  border-left: 3px solid var(--accent);
+}
+
+.ph-priority-label {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin: 0 0 4px;
+}
+
+.ph-priority .ph-action {
+  margin-top: 6px;
+}
+
+.ph-trend-headline {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.ph-categories {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ph-categories li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.ph-categories li.ph-hidden {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ph-cat-label {
+  min-width: 0;
+}
+
+.ph-words {
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.ph-level {
+  min-width: 3ch;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.ph-trend-chip {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Colour is never the only signal: the chip always says "up", "down" or "steady". */
+.ph-trend-chip.up {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.ph-trend-chip.down {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.ph-trend-chip.steady,
+.ph-trend-chip.none {
+  color: var(--text-muted);
+}
+
+.ph-count {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ph-count .mono {
+  font-size: 1.5rem;
+  font-weight: 650;
+}
+
+.ph-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ph-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ph-list a,
+.ph-more {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.ph-list a:hover,
+.ph-more:hover {
+  text-decoration: underline;
+}
+
+.ph-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.ph-overdue {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.ph-games li {
+  flex-wrap: nowrap;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.ph-games li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ph-outcome {
+  flex: none;
+  width: 8.5ch;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* A loss is not painted red: this is a teenager's own page, and the result
+   is already in words. */
+.ph-outcome.win { color: var(--good); }
+.ph-outcome.loss,
+.ph-outcome.draw,
+.ph-outcome.unfinished { color: var(--text-muted); }
+
+.ph-game-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Online usernames run long; break inside the name, never push the page wide. */
+.ph-opponent {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.ph-game-meta {
+  display: block;
+}
+
+.ph-accuracy {
+  flex: none;
+  text-align: right;
+}
+
+.ph-empty p:first-child {
+  margin-top: 0;
+}
+
+/* The coach's local "Preview as" picker on the Club page. */
+.ph-preview-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.ph-preview-picker select {
+  max-width: 100%;
+}
+
+@media (max-width: 760px) {
+  .ph-grid,
+  .ph-grid.has-homework {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+
+  .ph-grid > * {
+    grid-area: auto;
+  }
+
+  .ph-games li {
+    flex-wrap: wrap;
+  }
+
+  .ph-accuracy {
+    flex-basis: 100%;
+    text-align: left;
+    padding-left: calc(8.5ch + 8px);
+  }
+
+  .ph-next {
+    width: 100%;
+    text-align: center;
+  }
+}
