@@ -240,6 +240,45 @@ export function validateEventDraft({ name, rounds, format, entrantCount }) {
 }
 
 /**
+ * The next club night on or after `from` (a Date), as YYYY-MM-DD in local
+ * time. The club meets on Tuesdays (weekday 2), so a new event defaults to
+ * the coming Tuesday rather than today.
+ */
+export function nextWeekday(from, weekday = 2) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  d.setDate(d.getDate() + ((weekday - d.getDay() + 7) % 7));
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** "Tue 6 Oct" from YYYY-MM-DD, without the timezone shift Date.parse would add. */
+export function shortDate(isoDate) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || ''));
+  if (!m) return '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+/**
+ * Pairing numbers for the wall chart: seed order at the start, late entries
+ * numbered after everyone who started, in the round they joined.
+ */
+export function pairingNumbers(entrants) {
+  const sorted = [...(entrants || [])].sort((a, b) => {
+    const la = a.lateEntryRound || 0;
+    const lb = b.lateEntryRound || 0;
+    if (la !== lb) return la - lb;
+    const ra = a.rating ?? -Infinity;
+    const rb = b.rating ?? -Infinity;
+    if (ra !== rb) return rb - ra;
+    return String(a.name || '').localeCompare(String(b.name || '')) || String(a.playerId).localeCompare(String(b.playerId));
+  });
+  return new Map(sorted.map((e, i) => [e.playerId, i + 1]));
+}
+
+/**
  * Half-point byes for the rounds a late entrant missed, when the coach
  * grants them (US Chess leaves this to the director; the default is to
  * grant nothing, so these rows exist only if the coach ticks the box).

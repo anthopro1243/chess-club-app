@@ -13,6 +13,9 @@ import {
   lateEntryByes,
   isValidResult,
   engineEntrants,
+  nextWeekday,
+  shortDate,
+  pairingNumbers,
 } from './eventOps.js';
 
 const entrants = Array.from({ length: 6 }, (_, i) => ({
@@ -181,6 +184,26 @@ test('lateEntryByes: one half-point bye per missed round, none for a round-1 ent
     [2, 'half', 'P9'],
   ]);
   assert.deepEqual(lateEntryByes('P9', 1), []);
+});
+
+test('nextWeekday: the coming Tuesday, or today when it is Tuesday', () => {
+  assert.equal(nextWeekday(new Date(2026, 8, 26)), '2026-09-29'); // Sat → Tue
+  assert.equal(nextWeekday(new Date(2026, 8, 29)), '2026-09-29'); // Tue stays
+  assert.equal(nextWeekday(new Date(2026, 9, 21), 6), '2026-10-24'); // Wed → Sat (the district event)
+  assert.equal(shortDate('2026-10-06'), 'Tue 6 Oct');
+  assert.equal(shortDate(''), '');
+  assert.equal(shortDate('not a date'), '');
+});
+
+test('pairingNumbers: seed order, late entries after the starters', () => {
+  const numbers = pairingNumbers([
+    { playerId: 'a', name: 'A', rating: 900 },
+    { playerId: 'late', name: 'L', rating: 1500, lateEntryRound: 2 },
+    { playerId: 'b', name: 'B', rating: 1200 },
+    { playerId: 'c', name: 'C', rating: null },
+  ]);
+  assert.deepEqual([...numbers.entries()], [['b', 1], ['a', 2], ['c', 3], ['late', 4]]);
+  assert.equal(pairingNumbers(null).size, 0);
 });
 
 test('isValidResult and engineEntrants guard the edges', () => {
