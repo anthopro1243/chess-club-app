@@ -7,6 +7,7 @@ import {
   playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor,
 } from '../analysis/presentation.js';
 import { improvementPlan } from '../analysis/scoring.js';
+import TimeUseChart from './TimeUseChart.jsx';
 import { CATEGORY_LABELS } from '../analysis/scoring.js';
 
 /*
@@ -146,6 +147,8 @@ function SideReport({ row, game, staff }) {
           );
         })}
       </ul>
+
+      <TimeUseChart row={row} game={game} />
 
       {/*
         One priority, not a ranked list of every failure. A teenager handed

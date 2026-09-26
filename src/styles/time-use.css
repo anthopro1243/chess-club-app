@@ -1,0 +1,94 @@
+.time-use {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-use-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.time-use .small {
+  font-size: 0.8rem;
+}
+
+.time-use-plot {
+  position: relative;
+  height: 110px;
+  padding-top: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.time-use-axis {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.time-use-bars {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  /* The 2px surface gap between adjacent bars. */
+  gap: 2px;
+}
+
+.time-use-bar {
+  flex: 1 1 0;
+  max-width: 24px;
+  min-width: 2px;
+  padding: 0;
+  border: none;
+  /* Rounded at the data end, square at the baseline. */
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  position: relative;
+  cursor: default;
+}
+
+.time-use-bar.trouble {
+  opacity: 0.55;
+}
+
+.time-use-bar.rushed {
+  background: var(--bad);
+  opacity: 1;
+}
+
+.time-use-bar:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.time-use-flag {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.time-use-readout {
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.time-use-headline {
+  margin: 0;
+}
+
+.time-use-list summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.time-use-list table {
+  margin-top: 6px;
+}
