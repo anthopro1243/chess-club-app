@@ -34,12 +34,15 @@ const TABS = [
 
 const TAB_KEY = 'cc-prep-tab';
 
+/** The ?tab= on the current hash (#/prep?tab=quiz), or null. */
+function tabFromHash() {
+  const query = window.location.hash.split('?')[1];
+  return query ? new URLSearchParams(query).get('tab') : null;
+}
+
 function initialTab() {
   try {
-    const query = window.location.hash.split('?')[1];
-    const wanted = query ? new URLSearchParams(query).get('tab') : null;
-    if (wanted) return wanted;
-    return localStorage.getItem(TAB_KEY) || 'event';
+    return tabFromHash() || localStorage.getItem(TAB_KEY) || 'event';
   } catch {
     return 'event';
   }
@@ -77,6 +80,17 @@ export default function PrepPage() {
   const tabs = TABS.filter((t) => isCoach || !t.coachOnly);
   const [tab, setTab] = useState(initialTab);
   const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
+  // A link to #/prep?tab=… while the page is already open changes the hash
+  // without remounting, so follow the hash as well as the first render.
+  useEffect(() => {
+    const onHash = () => {
+      const wanted = tabFromHash();
+      if (wanted) setTab(wanted);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(TAB_KEY, activeTab);
