@@ -124,6 +124,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(null);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     if (!saved) saveDraft(sheet);
@@ -146,6 +147,18 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
     const last = sheet.segments.length - 1;
     return { mode: 'append', segment: last, index: sheet.segments[last].tokens.length };
   }, [selected, checked, sheet.segments]);
+
+  // Keep the ply being entered or fixed in view inside the list, without
+  // scrolling the dialog itself (scrollIntoView would move both).
+  useEffect(() => {
+    const list = listRef.current;
+    const here = list?.querySelector('.ss-target, .ss-cursor');
+    if (!list || !here) return;
+    const top = here.offsetTop - list.offsetTop;
+    if (top < list.scrollTop || top + here.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(0, top - list.clientHeight / 2);
+    }
+  }, [sheet, target]);
 
   const targetSeg = checked.segments[target.segment];
   const targetMoves = targetSeg.replay.moves;
@@ -697,7 +710,9 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
               </div>
 
               <div className="ss-side-panel">
-                <div className="ss-list">{checked.segments.map(renderSegment)}</div>
+                <div className="ss-list" ref={listRef}>
+                  {checked.segments.map(renderSegment)}
+                </div>
 
                 {gap ? (
                   <div className="ss-gap-panel">

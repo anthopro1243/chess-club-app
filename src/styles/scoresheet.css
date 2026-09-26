@@ -236,6 +236,34 @@
   margin: 0;
 }
 
+/* The app's secondary-button look (app.css .button-grid), for the repair and
+   dialog buttons here, which do not sit in a .button-grid. */
+.ss-actions button,
+.ss-paste button:not(.primary),
+.pe-fen-row button,
+.ss-modal .import-actions button:not(.link-button):not(.primary) {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.ss-actions button:hover:not(:disabled),
+.ss-paste button:not(.primary):hover:not(:disabled),
+.pe-fen-row button:hover:not(:disabled),
+.ss-modal .import-actions button:not(.link-button):not(.primary):hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+.ss-modal button.primary {
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
 .ss-actions {
   display: flex;
   flex-wrap: wrap;
@@ -385,6 +413,23 @@
   font-size: 0.86rem;
 }
 
+/* The archive header now carries three actions; on a phone let them wrap
+   as whole labels instead of breaking each into a column of words. */
+@media (max-width: 640px) {
+  .games-layout .panel-header {
+    flex-wrap: wrap;
+  }
+
+  .games-layout .panel-header-actions {
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+
+  .games-layout .panel-header-actions .link-button {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 760px) {
   .ss-modal {
     width: calc(100vw - 16px);
@@ -413,5 +458,18 @@
 
   .ss-moves {
     grid-template-columns: 1fr;
+  }
+
+  /* On a phone the keyboard covers half the screen: the move box goes
+     straight under the board, and the list (which scrolls itself to the
+     current ply) below it. */
+  .ss-input-block,
+  .ss-gap-panel {
+    order: 1;
+  }
+
+  .ss-list {
+    order: 2;
+    max-height: 180px;
   }
 }
