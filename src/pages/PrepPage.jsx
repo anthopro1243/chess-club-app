@@ -9,6 +9,7 @@ import EventPanel from '../components/prep/EventPanel.jsx';
 import AvailabilityPoll from '../components/prep/AvailabilityPoll.jsx';
 import RegistrationHelper from '../components/prep/RegistrationHelper.jsx';
 import RulesQuiz from '../components/prep/RulesQuiz.jsx';
+import NotationTrainer from '../components/prep/NotationTrainer.jsx';
 import PractisingAs, { usePractisingAs } from '../components/prep/PractisingAs.jsx';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'availability', label: 'Availability', coachOnly: false },
   { id: 'registration', label: 'Registration', coachOnly: true },
   { id: 'quiz', label: 'Rules quiz', coachOnly: false },
+  { id: 'notation', label: 'Notation', coachOnly: false },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -132,6 +134,12 @@ export default function PrepPage() {
         <>
           <PractisingAs isCoach={isCoach} players={players} {...practising} />
           <RulesQuiz key={practising.player?.playerId || 'practice'} player={practising.player} />
+        </>
+      )}
+      {activeTab === 'notation' && (
+        <>
+          <PractisingAs isCoach={isCoach} players={players} {...practising} />
+          <NotationTrainer key={practising.player?.playerId || 'practice'} player={practising.player} />
         </>
       )}
     </div>
