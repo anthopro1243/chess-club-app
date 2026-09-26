@@ -162,7 +162,8 @@ export function wallChartCode(outcome, numberOf = () => '') {
     case 'zero-bye':
       return 'U';
     case 'pending':
-      return `${outcome.colour === 'w' ? 'W' : 'B'}?${n}`;
+      // Still playing: say who against, with no result letter to misread.
+      return `vs ${n}`;
     default:
       return 'U';
   }

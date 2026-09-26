@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
 import GameReview from '../components/GameReview.jsx';
 import { useAnalysisForGame } from '../data/analysisStore.js';
@@ -9,6 +9,16 @@ import LogGameForm from '../components/LogGameForm.jsx';
 import PgnImportModal from '../components/PgnImportModal.jsx';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
+
+/*
+ * #/games?game=<id> opens one game directly. The Events page links a board
+ * to its archived game this way, so a coach can go from the pairing sheet to
+ * the moves in one tap.
+ */
+function linkedGameId() {
+  const query = window.location.hash.split('?')[1];
+  return query ? new URLSearchParams(query).get('game') : null;
+}
 
 async function copyText(text) {
   try {
@@ -46,10 +56,26 @@ export default function GamesPage() {
   const players = usePlayers();
   const [playerFilter, setPlayerFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [openId, setOpenId] = useState(null);
+  const [openId, setOpenId] = useState(linkedGameId);
   const [logging, setLogging] = useState(false);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState('');
+
+  // Follow a link that arrives while the page is already open, and bring the
+  // linked game into view (it sits below the whole archive table).
+  useEffect(() => {
+    const follow = () => {
+      const id = linkedGameId();
+      if (!id) return;
+      setPlayerFilter('');
+      setTypeFilter('');
+      setOpenId(id);
+      requestAnimationFrame(() => document.getElementById('game-detail')?.scrollIntoView?.({ block: 'start' }));
+    };
+    follow();
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, []);
 
   const flash = (message) => {
     setToast(message);
@@ -171,9 +197,17 @@ export default function GamesPage() {
 
       {openId && (() => {
         const game = filtered.find((g) => g.id === openId);
-        if (!game) return null;
+        if (!game) {
+          // A link to a game this device has not loaded (the archive keeps the
+          // newest 500) should say so rather than show nothing.
+          return games.some((g) => g.id === openId) ? null : (
+            <section className="panel" id="game-detail">
+              <p className="hint-text">That game is not in the archive loaded on this device.</p>
+            </section>
+          );
+        }
         return (
-          <section className="panel">
+          <section className="panel" id="game-detail">
             <div className="panel-header">
               <h2>
                 {game.whiteName} vs {game.blackName}

@@ -73,6 +73,7 @@ test('wallChartCode prints US Chess crosstable codes', () => {
   assert.equal(wallChartCode(outcomeFor(bye(1, 'A', 'full'), 'A'), num), 'B');
   assert.equal(wallChartCode(outcomeFor(bye(1, 'A', 'half'), 'A'), num), 'H');
   assert.equal(wallChartCode(null, num), 'U');
+  assert.equal(wallChartCode(outcomeFor(game(1, 1, 'A', 'B'), 'A'), num), 'vs 2');
 });
 
 test('pairedRounds ignores rounds that hold only requested byes; lastCompleteRound stops at a gap', () => {

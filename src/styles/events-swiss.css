@@ -502,6 +502,19 @@ button.ev-seat.is-picked {
   align-items: center;
 }
 
+.ev-swap-toggle {
+  margin-bottom: 10px;
+}
+
+.ev-swap-help {
+  flex: 1 1 220px;
+}
+
+.ev-subhead {
+  margin-top: 0;
+  margin-bottom: 6px;
+}
+
 .ev-subpanel {
   margin-top: 16px;
   padding-top: 12px;
