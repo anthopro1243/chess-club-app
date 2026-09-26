@@ -184,3 +184,69 @@ exception
   when duplicate_object then null;
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 4. Quiz and drill results (F041, F033) — the "quiz rows".
+--
+-- One row per player per drill: the best attempt, the latest attempt, how
+-- many attempts, and when the player first passed (sticky, so a bad retake
+-- the week of the event does not un-ready them). The readiness checklist
+-- (F074) reads these.
+--
+-- A member may insert and update ONLY their own rows (owns_player); a coach
+-- may do anything, e.g. save a result for a member who took the quiz on the
+-- coach's laptop. Reads are owner-or-coach, like skill scores: a quiz score
+-- is a judgement about one student and stays between them and the coach.
+-- The drill list is closed on purpose; a new drill is a new migration.
+-- ---------------------------------------------------------------------------
+create table if not exists public.prep_results (
+  player_id     text not null references public.players(player_id) on delete cascade,
+  drill         text not null check (drill in (
+                  'rules-quiz',
+                  'notation-game-type',
+                  'notation-game-play',
+                  'notation-skills-type',
+                  'notation-skills-play'
+                )),
+  best_score    integer check (best_score >= 0),
+  best_total    integer check (best_total > 0),
+  best_seconds  integer check (best_seconds >= 0),
+  best_at       timestamptz,
+  last_score    integer check (last_score >= 0),
+  last_total    integer check (last_total > 0),
+  last_seconds  integer check (last_seconds >= 0),
+  last_at       timestamptz,
+  attempts      integer not null default 0 check (attempts >= 0),
+  passed_at     timestamptz,
+  updated_at    timestamptz not null default now(),
+  primary key (player_id, drill),
+  check (best_score is null or best_score <= best_total),
+  check (last_score is null or last_score <= last_total)
+);
+
+comment on table public.prep_results is
+  'Best and latest result per player per tournament-prep drill (rules quiz, notation trainer).';
+
+alter table public.prep_results enable row level security;
+
+drop policy if exists prep_results_select on public.prep_results;
+create policy prep_results_select on public.prep_results
+  for select to authenticated using (public.is_coach() or public.owns_player(player_id));
+drop policy if exists prep_results_insert on public.prep_results;
+create policy prep_results_insert on public.prep_results
+  for insert to authenticated with check (public.is_coach() or public.owns_player(player_id));
+drop policy if exists prep_results_update on public.prep_results;
+create policy prep_results_update on public.prep_results
+  for update to authenticated using (public.is_coach() or public.owns_player(player_id))
+  with check (public.is_coach() or public.owns_player(player_id));
+drop policy if exists prep_results_delete on public.prep_results;
+create policy prep_results_delete on public.prep_results
+  for delete to authenticated using (public.is_coach());
+
+do $$
+begin
+  alter publication supabase_realtime add table public.prep_results;
+exception
+  when duplicate_object then null;
+end
+$$;

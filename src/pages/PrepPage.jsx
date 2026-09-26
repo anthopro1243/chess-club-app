@@ -8,6 +8,8 @@ import DeadlineBanner from '../components/prep/DeadlineBanner.jsx';
 import EventPanel from '../components/prep/EventPanel.jsx';
 import AvailabilityPoll from '../components/prep/AvailabilityPoll.jsx';
 import RegistrationHelper from '../components/prep/RegistrationHelper.jsx';
+import RulesQuiz from '../components/prep/RulesQuiz.jsx';
+import PractisingAs, { usePractisingAs } from '../components/prep/PractisingAs.jsx';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
 /*
@@ -19,6 +21,7 @@ const TABS = [
   { id: 'event', label: 'Event', coachOnly: false },
   { id: 'availability', label: 'Availability', coachOnly: false },
   { id: 'registration', label: 'Registration', coachOnly: true },
+  { id: 'quiz', label: 'Rules quiz', coachOnly: false },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -53,6 +56,7 @@ export default function PrepPage() {
   // claimed a profile yet, which the member views handle.
   const players = usePlayers();
   const me = useMyProfile();
+  const practising = usePractisingAs({ isCoach, me, players });
 
   const sortedEvents = useMemo(
     () => [...events].sort((a, b) => String(a.date).localeCompare(String(b.date))),
@@ -124,6 +128,12 @@ export default function PrepPage() {
         <AvailabilityPoll event={event} players={players} me={me} isCoach={isCoach} />
       )}
       {activeTab === 'registration' && isCoach && <RegistrationHelper event={event} players={players} />}
+      {activeTab === 'quiz' && (
+        <>
+          <PractisingAs isCoach={isCoach} players={players} {...practising} />
+          <RulesQuiz key={practising.player?.playerId || 'practice'} player={practising.player} />
+        </>
+      )}
     </div>
   );
 }

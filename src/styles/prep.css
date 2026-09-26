@@ -3,6 +3,10 @@
    Kept out of app.css so this feature merges without touching the shared
    stylesheet. Uses only the tokens app.css defines on :root, so light and
    dark both work with no extra rules. Everything is prefixed `prep-`.
+
+   Load order matters: main.jsx imports App (and so this file) BEFORE
+   app.css, so app.css wins any tie on specificity. A rule here that has to
+   beat an app.css rule (.field, .badge, …) is therefore scoped under .prep.
    ========================================================================= */
 
 .prep {
@@ -375,8 +379,9 @@
   gap: 8px;
 }
 
-.prep-note-editor input {
+.prep .prep-note-editor input {
   flex: 1;
+  width: auto;
   min-width: 0;
   background: var(--bg-sunken);
   color: var(--text);
@@ -387,7 +392,7 @@
   font-size: 0.88rem;
 }
 
-.prep-note-editor input:focus {
+.prep .prep-note-editor input:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -509,14 +514,16 @@
   border-color: var(--accent);
 }
 
-.prep-inline-field {
+.prep .prep-inline-field {
   flex-direction: row;
   align-items: center;
   gap: 8px;
 }
 
-.prep-inline-field select {
+.prep .prep-inline-field select {
   width: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .prep-check {
@@ -543,4 +550,131 @@
   .prep-stack .panel-header {
     flex-wrap: wrap;
   }
+}
+
+/* ---------- rules quiz ------------------------------------------------------------ */
+
+.prep .prep-trainee {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.prep .prep-badge-good {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.prep-progress {
+  height: 4px;
+  background: var(--bg-sunken);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 4px 0 12px;
+}
+
+.prep-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.prep-quiz-prompt {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.prep-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prep-option {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.prep-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.prep-option:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.prep-option.right {
+  border-color: var(--good);
+  box-shadow: inset 0 0 0 1px var(--good);
+}
+
+.prep-option.wrong {
+  border-color: var(--bad);
+  box-shadow: inset 0 0 0 1px var(--bad);
+}
+
+.prep-option.dim {
+  opacity: 0.6;
+}
+
+.prep-option-letter {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.prep-explain {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  font-size: 0.9rem;
+}
+
+.prep-explain.right {
+  border-color: var(--good);
+}
+
+.prep-explain.wrong {
+  border-color: var(--bad);
+}
+
+.prep-rule-cite {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.prep-review .prep-rule-cite {
+  display: inline;
+}
+
+.prep-review li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
 }
