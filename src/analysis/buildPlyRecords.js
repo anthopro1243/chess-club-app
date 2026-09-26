@@ -25,6 +25,12 @@ export const OPENING_LAST_FULLMOVE = 12;
 export const HANGING_THRESHOLD = 200;
 /** Without an opening book we call the first N plies "book" and say so in the UI. */
 export const BOOK_PLIES_FALLBACK = 8;
+/**
+ * How much of the engine's reply line to keep on each ply. Enough for a mate
+ * in four (seven plies) with one to spare; the rest of a depth-14 PV is the
+ * engine's guesswork about moves nobody will read, and it is stored per ply.
+ */
+export const REPLY_PV_PLIES = 8;
 
 /** Summed non-pawn material for both sides. */
 export function nonPawnMaterial(board) {
@@ -63,8 +69,13 @@ export function hasCaptureOrCheck(board) {
   return false;
 }
 
-/** Best SEE among the side-to-move's available captures, or null if none. */
-function bestCaptureSee(board) {
+/**
+ * Best SEE among the side-to-move's available captures, or null if none.
+ * Exported so explain.js can name the capture behind `missedFreeCapture` by
+ * re-running this exact function on the stored FEN, rather than keeping a
+ * second copy of the rule that could drift from the one that set the flag.
+ */
+export function bestCaptureSee(board) {
   let best = null;
   for (const mv of board.moves({ verbose: true })) {
     if (!isCapture(mv)) continue;
@@ -201,6 +212,13 @@ export async function buildPlyRecords(game, engine, opts = {}) {
       mateAfter,
       bestUci: beforeTop.pv[0] ?? null,
       bestPv: beforeTop.pv,
+      // The opponent's best answer to the move actually played — the line
+      // `hangs` and the motifs were judged against. It is also the NEXT ply's
+      // bestPv, but that ply lives on the other side's analysis row, which a
+      // player never sees; without a copy here, the player's own review could
+      // say "this hung a piece" but never which one. Added after schema 1
+      // shipped, so older rows lack it and explain.js must cope without it.
+      replyPv: topLine(evaluations[i + 1]).pv.slice(0, REPLY_PV_PLIES),
       secondBestDelta,
       inBook: i < bookPlies,
       phase: phaseOf(step.before),

@@ -1,0 +1,631 @@
+/*
+ * explain.js — a critical moment, in words.
+ *
+ * GameReview has always shown WHERE a game turned ("−31%, better c4f7") but
+ * never WHY, and "c4f7" is not a sentence a 900-rated fourteen-year-old can do
+ * anything with. Everything needed to say why is already on the analysis row:
+ * the engine's best line, the win-probability swing, the motif tags, and the
+ * SEE verdict behind `hangs`. This module turns those into two or three
+ * sentences. No paid API and no language model: every sentence is a template
+ * filled from a field, and the fields decide which templates may speak.
+ *
+ * The rule that shapes all of it: SAY LESS RATHER THAN GUESS. A confident
+ * wrong explanation is worse than none — a child told "you missed a fork" when
+ * there was no fork learns the wrong lesson, and stops trusting the tool the
+ * first time a coach contradicts it. So:
+ *   - no motif tag, no tactical claim — not "fork", not "back rank", not
+ *     "tactic". The detectors decide; this module only puts them into words;
+ *   - no best move, no "better was";
+ *   - "hanging" only when `hangs` (or the hangingPiece tag) says so, and a
+ *     square only when SEE on the stored position pins the piece down exactly;
+ *   - the swing in winning chances, never raw centipawns, which mean nothing to
+ *     a teenager and are not what scoring.js classifies on anyway;
+ *   - never "blunder". The label badge beside the move already carries
+ *     scoring.js's classification; repeating it in prose adds a verdict and no
+ *     information, which is the opposite of presentation.js's wording rules;
+ *   - a flagged sacrifice, or the engine's own first choice, is never called a
+ *     mistake, however far the evaluation moved afterwards.
+ * Each explanation also returns `basis`, the fields its sentences rest on, so
+ * the tests can check the claims against the data rather than trusting prose.
+ *
+ * Sign convention: cpBefore/cpAfter and mateBefore/mateAfter on a PlyRecord are
+ * already in the MOVER's point of view (buildPlyRecords runs the after-score
+ * through normaliseAfter()). So winPercent() of them is the mover's chances,
+ * and a negative mateAfter means the OPPONENT now has mate. Nothing here flips
+ * a sign; if you find yourself wanting to, the input is raw engine output and
+ * the bug is upstream. Whose move it was is read off the stored FEN, which is
+ * the one field that cannot disagree with itself.
+ */
+
+import { Chess, SQUARES, KING } from '../engine/chess.js';
+import { winPercent, CLASS_THRESHOLDS, ONLY_MOVE_GAP, FAST_MOVE_SECONDS } from './scoring.js';
+import { see, PIECE_VALUES } from './see.js';
+import { attackedSquares, VALUABLE_PIECE } from './motifs.js';
+import { bestCaptureSee, HANGING_THRESHOLD, REPLY_PV_PLIES } from './buildPlyRecords.js';
+
+/**
+ * Below this loss (win% points) a move is "good" in scoring.js's terms, so
+ * there is nothing to explain and inventing a reason would be the guess this
+ * module exists to avoid.
+ */
+export const EXPLAIN_MIN_LOSS = CLASS_THRESHOLDS.good;
+/** Below this loss the wording stays soft: an inaccuracy, not a turning point. */
+export const SOFT_LOSS = CLASS_THRESHOLDS.inaccuracy;
+/** How much of the engine's best line to show. Past four plies it stops teaching. */
+export const LINE_PLIES = 4;
+
+const PIECE_NAMES = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+
+const sideName = (color) => (color === 'w' ? 'White' : color === 'b' ? 'Black' : null);
+const otherColor = (color) => (color === 'w' ? 'b' : color === 'b' ? 'w' : null);
+const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+const round = (x) => Math.round(x);
+const pieceOn = ({ type, square }) =>
+  type === KING ? 'the king' : `the ${PIECE_NAMES[type]} on ${square}`;
+
+/* ── how the game stood, in words ────────────────────────────────────────── */
+
+/**
+ * A win percentage (or a mate) as a phrase, from the point of view of the side
+ * the number belongs to. Bands are symmetric around 50 so "a small advantage"
+ * for one side is exactly "a small disadvantage" for the other.
+ *
+ * @returns {{key: string, noun: string, short: string}|null}
+ */
+export function chancesBand(wp, mate = null) {
+  if (mate != null && mate > 0) return { key: 'forcedWin', noun: 'a forced win', short: 'a forced win' };
+  if (mate != null && mate < 0) return { key: 'lost', noun: 'a lost position', short: 'lost' };
+  if (wp == null || Number.isNaN(wp)) return null;
+  const d = wp - 50;
+  if (d >= 40) return { key: 'winning', noun: 'a winning position', short: 'winning' };
+  if (d >= 20) return { key: 'clearlyBetter', noun: 'a clear advantage', short: 'clearly better' };
+  if (d >= 7) return { key: 'slightlyBetter', noun: 'a small advantage', short: 'slightly better' };
+  if (d > -7) return { key: 'even', noun: 'a roughly even game', short: 'roughly even' };
+  if (d > -20) return { key: 'slightlyWorse', noun: 'a small disadvantage', short: 'slightly worse' };
+  if (d > -40) return { key: 'clearlyWorse', noun: 'a clear disadvantage', short: 'clearly worse' };
+  return { key: 'losing', noun: 'a losing position', short: 'losing' };
+}
+
+/* ── board helpers: everything read off the stored FEN ───────────────────── */
+
+function boardFrom(fen) {
+  if (typeof fen !== 'string' || !fen.trim()) return null;
+  try {
+    return new Chess(fen);
+  } catch {
+    return null;
+  }
+}
+
+function parseUci(uci) {
+  if (typeof uci !== 'string' || !/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(uci)) return null;
+  return { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined };
+}
+
+/** Play a UCI move on a copy. Null when it will not go — never a thrown error. */
+function play(board, uci) {
+  const parts = parseUci(uci);
+  if (!board || !parts) return null;
+  const next = board.clone();
+  const played = next.move(parts);
+  return played ? { board: next, played } : null;
+}
+
+/** A UCI move as SAN in the given position (a FEN or a Chess), or null. */
+export function uciToSan(position, uci) {
+  const board = typeof position === 'string' ? boardFrom(position) : position;
+  const result = play(board, uci);
+  return result ? result.played.san : null;
+}
+
+/** SAN for a UCI line, stopping at the first move that will not play. */
+export function lineToSan(board, pv, max = Infinity) {
+  const out = [];
+  if (!board || !Array.isArray(pv)) return out;
+  let current = board;
+  for (const uci of pv.slice(0, max)) {
+    const result = play(current, uci);
+    if (!result) break;
+    out.push(result.played.san);
+    current = result.board;
+  }
+  return out;
+}
+
+/** "5... dxe5 6. Qxg4 Nc6" — numbered from the position the line starts in. */
+export function formatLine(board, sans) {
+  if (!board || !Array.isArray(sans) || !sans.length) return null;
+  let moveNo = board.moveNumber;
+  let color = board.turn;
+  const parts = [];
+  sans.forEach((san, i) => {
+    if (color === 'w') parts.push(`${moveNo}. ${san}`);
+    else parts.push(i === 0 ? `${moveNo}... ${san}` : san);
+    if (color === 'b') moveNo += 1;
+    color = otherColor(color);
+  });
+  return parts.join(' ');
+}
+
+/** Placement, turn, castling, en passant: the part of a FEN that is the position. */
+const positionPart = (fen) => (typeof fen === 'string' ? fen.split(' ').slice(0, 4).join(' ') : null);
+
+/* ── the specific claims, each re-derived from the position ──────────────── */
+
+/**
+ * Which of the mover's pieces `hangs` is about.
+ *
+ * With the engine's reply known this is exactly the test buildPlyRecords ran:
+ * the reply's target, SEE >= HANGING_THRESHOLD. Without it (rows analysed
+ * before replyPv was stored), every piece of the mover's is SEE-tested and one
+ * is named only if it is the ONLY candidate — two candidates means we cannot
+ * know which the engine meant, so we name neither.
+ */
+function findHungPiece(after, mover, replyUci) {
+  if (!after || !mover) return null;
+  if (replyUci) {
+    const parts = parseUci(replyUci);
+    const victim = parts && after.get(parts.to);
+    if (!victim || victim.color !== mover) return null;
+    const gain = see(after, parts.to);
+    return gain >= HANGING_THRESHOLD
+      ? { square: parts.to, type: victim.type, gain, byReply: true }
+      : null;
+  }
+  const found = [];
+  for (const square of Object.keys(SQUARES)) {
+    const piece = after.get(square);
+    if (!piece || piece.color !== mover || piece.type === KING) continue;
+    const gain = see(after, square);
+    if (gain >= HANGING_THRESHOLD) found.push({ square, type: piece.type, gain, byReply: false });
+  }
+  return found.length === 1 ? found[0] : null;
+}
+
+/** SEE never exceeds the victim's value; reaching it means nothing was given back. */
+const isFree = ({ type, gain }) => gain >= (PIECE_VALUES[type] || Infinity);
+
+/**
+ * The fork behind a `fork` tag: which piece lands where and what it hits.
+ * Applies the same rule as detectFork in motifs.js; if the words and the tag
+ * disagree, the tag was made against a different line, so we say nothing
+ * specific rather than describe a fork that is not on the board.
+ */
+function describeFork(after, mover, replyUci) {
+  const result = play(after, replyUci);
+  if (!result) return null;
+  const { to } = result.played;
+  const targets = attackedSquares(result.board, to)
+    .map((square) => ({ square, piece: result.board.get(square) }))
+    .filter((t) => t.piece && t.piece.color === mover);
+  const valuable = targets.filter((t) => (PIECE_VALUES[t.piece.type] || 0) >= VALUABLE_PIECE);
+  const hitsKing = targets.some((t) => t.piece.type === KING);
+  if (!(valuable.length >= 2 || (hitsKing && targets.length >= 2))) return null;
+  const named = [...targets]
+    .sort((a, b) => (PIECE_VALUES[b.piece.type] || 0) - (PIECE_VALUES[a.piece.type] || 0))
+    .slice(0, 2)
+    .map((t) => ({ type: t.piece.type, square: t.square }));
+  return { san: result.played.san, attacker: result.played.piece, targets: named };
+}
+
+/** The reply behind a `backRank` tag, if it really lands on the mover's home rank. */
+function describeBackRank(after, mover, replyUci) {
+  const result = play(after, replyUci);
+  if (!result) return null;
+  const home = mover === 'w' ? '1' : '8';
+  if (result.played.to[1] !== home) return null;
+  return { san: result.played.san, mate: result.board.isCheckmate() };
+}
+
+/**
+ * The capture behind `missedFreeCapture`, found by re-running the function that
+ * set the flag. Only trusted when the flag is set AND the re-run agrees.
+ */
+function findMissedCapture(before, ply) {
+  if (!before || ply?.missedFreeCapture !== true) return null;
+  const best = bestCaptureSee(before);
+  if (!best || best.value < HANGING_THRESHOLD || best.uci === ply.uci) return null;
+  const result = play(before, best.uci);
+  const victim = result && before.get(result.played.to);
+  if (!victim) return null;
+  return { san: result.played.san, uci: best.uci, square: result.played.to, type: victim.type, gain: best.value };
+}
+
+/* ── gathering the facts ─────────────────────────────────────────────────── */
+
+/**
+ * Everything the templates may use, each value null unless a field backs it.
+ * The ply record is dropped outright if it belongs to a different move: facts
+ * borrowed from the wrong position produce fluent nonsense.
+ */
+function gatherFacts(moment, { ply: givenPly = null, nextPly = null } = {}) {
+  // A PlyRecord can be explained directly; a critical entry needs its ply.
+  let ply = givenPly ?? (typeof moment.fen === 'string' ? moment : null);
+  if (ply && moment.ply != null && ply.ply != null && ply.ply !== moment.ply) ply = null;
+  if (ply && moment.played && ply.uci && ply.uci !== moment.played) ply = null;
+
+  const played = ply?.uci ?? moment.played ?? null;
+  let before = boardFrom(ply?.fen);
+  const moved = before && played ? play(before, played) : null;
+  if (!moved) before = null; // the stored move does not replay here: trust no board fact
+  const after = moved?.board ?? null;
+  const side = before?.turn ?? moment.side ?? ply?.side ?? null;
+
+  const mateBefore = ply?.mateBefore ?? null;
+  const mateAfter = ply?.mateAfter ?? null;
+  const wpBefore = ply ? winPercent(ply.cpBefore ?? null, mateBefore) : null;
+  const wpAfter = ply ? winPercent(ply.cpAfter ?? null, mateAfter) : null;
+  const winLoss =
+    wpBefore != null && wpAfter != null
+      ? Math.max(0, wpBefore - wpAfter)
+      : typeof moment.winPercentLost === 'number'
+        ? moment.winPercentLost
+        : null;
+
+  const bestUci = ply?.bestUci ?? moment.better ?? null;
+  const bestSan = before && bestUci ? uciToSan(before, bestUci) : null;
+
+  // The opponent's best answer: stored on the ply since replyPv existed; for
+  // older rows, the next ply's best line is the same search — but only if that
+  // ply really starts from the position this move produced.
+  let replyPv = Array.isArray(ply?.replyPv) && ply.replyPv.length ? ply.replyPv : null;
+  if (
+    !replyPv &&
+    after &&
+    nextPly &&
+    nextPly.ply === (ply?.ply ?? moment.ply) + 1 &&
+    positionPart(nextPly.fen) === positionPart(after.fen()) &&
+    Array.isArray(nextPly.bestPv) &&
+    nextPly.bestPv.length
+  ) {
+    replyPv = nextPly.bestPv;
+  }
+  const replySans = after && replyPv ? lineToSan(after, replyPv, REPLY_PV_PLIES) : [];
+  if (!replySans.length) replyPv = null;
+
+  const motifs = Array.isArray(moment.motifs)
+    ? moment.motifs
+    : Array.isArray(ply?.motifs)
+      ? ply.motifs
+      : [];
+
+  return {
+    ply,
+    san: moment.san ?? ply?.san ?? null,
+    played,
+    side,
+    label: moment.label ?? null,
+    before,
+    after,
+    mateBefore,
+    mateAfter,
+    wpBefore,
+    wpAfter,
+    winLoss,
+    bestUci,
+    bestSan,
+    bestPv: Array.isArray(ply?.bestPv) ? ply.bestPv : [],
+    secondBestDelta: ply?.secondBestDelta ?? null,
+    replyUci: replyPv ? replyPv[0] : null,
+    replyPv,
+    replySans,
+    motifs,
+    hangs: ply?.hangs === true || motifs.includes('hangingPiece'),
+    sacrifice: ply?.sacrifice === true,
+    playedBest: !!bestUci && !!played && played === bestUci,
+    secondsUsed: moment.secondsUsed ?? ply?.moveSeconds ?? null,
+  };
+}
+
+/* ── sentences ───────────────────────────────────────────────────────────── */
+
+function swingSentence(f) {
+  const who = sideName(f.side);
+  const before = chancesBand(f.wpBefore, f.mateBefore);
+  const after = chancesBand(f.wpAfter, f.mateAfter);
+  if (before && after) {
+    const numbers =
+      f.mateBefore == null && f.mateAfter == null
+        ? ` (winning chances fell from about ${round(f.wpBefore)}% to ${round(f.wpAfter)}%)`
+        : '';
+    if (before.key !== after.key) {
+      return {
+        text: `This turned ${before.noun} into ${after.noun}${who ? ` for ${who}` : ''}${numbers}.`,
+        basis: ['cpBefore', 'cpAfter'],
+      };
+    }
+    if (numbers) {
+      return {
+        text: `${who ? `${who}'s w` : 'W'}inning chances fell from about ${round(f.wpBefore)}% to ${round(f.wpAfter)}%, though it is still ${after.noun}.`,
+        basis: ['cpBefore', 'cpAfter'],
+      };
+    }
+  }
+  if (f.winLoss != null) {
+    return {
+      text: `This cost ${who ?? 'this player'} about ${round(f.winLoss)}% in winning chances.`,
+      basis: ['winPercentLost'],
+    };
+  }
+  return null;
+}
+
+function betterSentence(f) {
+  if (!f.bestSan) return null;
+  const onlyMove = f.secondBestDelta != null && f.secondBestDelta >= ONLY_MOVE_GAP;
+  return onlyMove
+    ? { text: `Better was ${f.bestSan}, and nothing else came close.`, basis: ['bestUci', 'secondBestDelta'] }
+    : { text: `Better was ${f.bestSan}.`, basis: ['bestUci'] };
+}
+
+function fastSentence(f) {
+  const s = f.secondsUsed;
+  if (typeof s !== 'number' || s < 0 || s >= FAST_MOVE_SECONDS) return null;
+  const n = round(s);
+  const text = n < 1 ? 'It was played in under a second.' : `It was played in ${n} second${n === 1 ? '' : 's'}.`;
+  return { text, basis: ['moveSeconds'] };
+}
+
+/** The engine's best line from the position before the move, numbered. */
+function engineLine(f, plies = LINE_PLIES) {
+  if (!f.before || !f.bestSan) return null;
+  const sans = lineToSan(f.before, f.bestPv, plies);
+  return sans.length >= 2 ? formatLine(f.before, sans) : null;
+}
+
+function finish({ kind, headline, sentences, line = null, confidence, better = null }) {
+  const kept = sentences.filter(Boolean);
+  return {
+    kind,
+    headline,
+    detail: kept.map((s) => s.text).join(' '),
+    better,
+    line,
+    confidence,
+    basis: [...new Set(kept.flatMap((s) => s.basis))],
+  };
+}
+
+/* ── the templates that must never read as a mistake ─────────────────────── */
+
+function explainSacrifice(f) {
+  const who = sideName(f.side) ?? 'This player';
+  const why = f.playedBest
+    ? "it was the engine's own first choice"
+    : 'the engine rates it about as highly as its first choice';
+  return finish({
+    kind: 'sacrifice',
+    headline: 'A sacrifice, not a mistake',
+    sentences: [
+      {
+        text: `${who} leaves material to be taken here, but ${why}, so it counts as a sacrifice, not a mistake.`,
+        basis: f.playedBest ? ['sacrifice', 'bestUci'] : ['sacrifice', 'cpBefore', 'cpAfter'],
+      },
+    ],
+    // The engine's line after its own choice IS the point of the sacrifice.
+    line: f.playedBest ? engineLine(f) : null,
+    confidence: 'medium',
+  });
+}
+
+function explainEngineChoice(f) {
+  const who = sideName(f.side);
+  return finish({
+    kind: 'engineChoice',
+    headline: "The engine's own choice",
+    sentences: [
+      {
+        text: `This was the engine's first choice${who ? ` for ${who}` : ''}, so it isn't counted as a mistake. The drop shown here is the engine changing its mind a move later.`,
+        basis: ['bestUci', 'winPercentLost'],
+      },
+    ],
+    confidence: 'medium',
+  });
+}
+
+/* ── the public API ──────────────────────────────────────────────────────── */
+
+/**
+ * Explain one critical moment in plain English.
+ *
+ * @param {object} moment  a `critical` entry from a game_analyses row
+ *        ({ply, fullmove, san, played, better, winPercentLost, label, motifs,
+ *        secondsUsed}, plus `side` as GameReview adds it) — or a PlyRecord.
+ * @param {{ply?: object, nextPly?: object}} context
+ *        ply     — the full PlyRecord for this move (FEN, evals, flags, PVs)
+ *        nextPly — the following PlyRecord, used only for rows analysed before
+ *                  replyPv was stored, and only if it starts where this ended
+ * @returns {null | {kind: string, headline: string, detail: string,
+ *          better: string|null, line: string|null,
+ *          confidence: 'high'|'medium'|'low', basis: string[]}}
+ *          null when there is nothing honest to say.
+ */
+export function explainMoment(moment, context = {}) {
+  if (!moment || typeof moment !== 'object') return null;
+  const f = gatherFacts(moment, context);
+  if (f.label === 'book') return null; // repeating theory is not a decision
+
+  if (f.sacrifice) return explainSacrifice(f);
+
+  const allowedMate = f.mateAfter != null && f.mateAfter < 0 && !(f.mateBefore != null && f.mateBefore < 0);
+  const missedMate = f.mateBefore != null && f.mateBefore > 0 && !(f.mateAfter != null && f.mateAfter > 0);
+  const mateStory = allowedMate || missedMate;
+
+  if (f.playedBest) {
+    return f.winLoss != null && f.winLoss >= EXPLAIN_MIN_LOSS ? explainEngineChoice(f) : null;
+  }
+  // A decided position teaches nothing (scoring.js excludes it for that reason)
+  // — except a mate, found or missed, which is the most teachable thing there is.
+  if (f.label === 'forced' && !mateStory) return null;
+  if (!mateStory && (f.winLoss == null || f.winLoss < EXPLAIN_MIN_LOSS)) return null;
+
+  const who = sideName(f.side);
+  const opp = sideName(otherColor(f.side));
+  const Who = who ?? 'This player';
+  const Opp = opp ?? 'The opponent';
+  const after = f.san ? `After ${f.san}, ` : 'After this, ';
+
+  let kind;
+  let headline;
+  let cause = null;
+  let secondary = null;
+  let located = false;
+  let skipBetter = false;
+  let linePlies = LINE_PLIES;
+
+  const hung = f.hangs ? findHungPiece(f.after, f.side, f.replyUci) : null;
+  const missed = findMissedCapture(f.before, f.ply);
+
+  if (allowedMate) {
+    const n = -f.mateAfter;
+    kind = 'allowedMate';
+    headline = `Allowed mate in ${n}`;
+    located = true;
+    const full = f.replySans.length >= 2 * n - 1 && f.replySans[2 * n - 2]?.endsWith('#');
+    if (n === 1 && f.replySans[0]?.endsWith('#')) {
+      cause = { text: `${after}${Opp} can checkmate at once with ${f.replySans[0]}.`, basis: ['mateAfter', 'replyPv'] };
+    } else if (full) {
+      const mateLine = formatLine(f.after, f.replySans.slice(0, 2 * n - 1));
+      cause = { text: `${after}${Opp} has a forced checkmate in ${n}: ${mateLine}.`, basis: ['mateAfter', 'replyPv'] };
+    } else if (f.replySans.length) {
+      cause = { text: `${after}${Opp} has a forced checkmate in ${n}, starting with ${f.replySans[0]}.`, basis: ['mateAfter', 'replyPv'] };
+    } else {
+      cause = { text: `${after}${Opp} has a forced checkmate in ${n}.`, basis: ['mateAfter'] };
+    }
+    if (f.motifs.includes('backRank')) {
+      const rank = describeBackRank(f.after, f.side, f.replyUci);
+      if (rank) {
+        secondary = {
+          text: `${rank.san} comes in on ${Who}'s back rank, where the king is walled in by its own pawns.`,
+          basis: ['motifs', 'replyPv'],
+        };
+      }
+    }
+  } else if (missedMate) {
+    const n = f.mateBefore;
+    kind = 'missedMate';
+    headline = `Missed mate in ${n}`;
+    located = true;
+    skipBetter = true; // the mating move IS the better move; saying it twice is noise
+    linePlies = Math.min(2 * n - 1, REPLY_PV_PLIES);
+    if (f.bestSan && n === 1 && f.bestSan.endsWith('#')) {
+      cause = { text: `${f.bestSan} was checkmate.`, basis: ['mateBefore', 'bestUci'] };
+    } else if (f.bestSan) {
+      cause = { text: `${Who} had a forced checkmate in ${n}, starting with ${f.bestSan}.`, basis: ['mateBefore', 'bestUci'] };
+    } else {
+      cause = { text: `${Who} had a forced checkmate in ${n} here.`, basis: ['mateBefore'] };
+    }
+  } else if (f.motifs.includes('fork')) {
+    kind = 'fork';
+    const fork = f.replyUci ? describeFork(f.after, f.side, f.replyUci) : null;
+    if (fork) {
+      located = true;
+      headline = `Allowed a ${PIECE_NAMES[fork.attacker]} fork`;
+      cause = {
+        text: `${Opp} can answer with ${fork.san}, attacking ${fork.targets.map(pieceOn).join(' and ')} at once.`,
+        basis: ['motifs', 'replyPv'],
+      };
+    } else {
+      headline = 'Allowed a fork';
+      cause = {
+        text: `This allowed a fork: ${Opp}'s best reply attacks two of ${Who}'s pieces at once.`,
+        basis: ['motifs'],
+      };
+    }
+  } else if (f.motifs.includes('backRank')) {
+    kind = 'backRank';
+    headline = 'Left the back rank weak';
+    const rank = f.replyUci ? describeBackRank(f.after, f.side, f.replyUci) : null;
+    if (rank) {
+      located = true;
+      cause = {
+        text: `${Opp} can answer with ${rank.san} on ${Who}'s back rank, where the king is walled in by its own pawns${rank.mate ? ', and it is checkmate' : ''}.`,
+        basis: ['motifs', 'replyPv'],
+      };
+    } else {
+      cause = {
+        text: `This left ${Who}'s back rank weak: the king is walled in by its own pawns, and ${Opp}'s best reply lands on that rank.`,
+        basis: ['motifs'],
+      };
+    }
+  } else if (f.hangs) {
+    kind = 'hangingPiece';
+    if (hung) {
+      located = true;
+      headline = `Left ${pieceOn(hung)} hanging`;
+      const how = hung.byReply ? ` with ${f.replySans[0]}` : '';
+      cause = isFree(hung)
+        ? { text: `${after}${Opp} can win ${pieceOn(hung)} for free${how}.`, basis: ['hangs', 'see'] }
+        : { text: `${after}${Opp} can win material by taking ${pieceOn(hung)}${how}.`, basis: ['hangs', 'see'] };
+      if (hung.byReply) cause.basis.push('replyPv');
+    } else {
+      headline = 'Left material hanging';
+      cause = {
+        text: `${after}${Opp} can win material: the engine's best reply is a capture that comes out ahead.`,
+        basis: ['hangs'],
+      };
+    }
+  } else if (f.ply?.missedFreeCapture === true) {
+    kind = 'missedCapture';
+    if (missed) {
+      located = true;
+      headline = isFree(missed) ? `Missed a free ${PIECE_NAMES[missed.type]}` : 'Missed a chance to win material';
+      cause = isFree(missed)
+        ? { text: `${Who} could have taken ${pieceOn(missed)} for free with ${missed.san}.`, basis: ['missedFreeCapture', 'see'] }
+        : { text: `${Who} could have won material with ${missed.san}, taking ${pieceOn(missed)}.`, basis: ['missedFreeCapture', 'see'] };
+      skipBetter = missed.uci === f.bestUci;
+    } else {
+      headline = 'Missed a chance to win material';
+      cause = { text: `${Who} had a capture here that would have won material.`, basis: ['missedFreeCapture'] };
+    }
+  } else {
+    // No tag, no flag: the swing and the better move are all the data supports.
+    const b = chancesBand(f.wpBefore, f.mateBefore);
+    const a = chancesBand(f.wpAfter, f.mateAfter);
+    if (f.winLoss < SOFT_LOSS) {
+      kind = 'slip';
+      headline = 'A small slip';
+    } else {
+      kind = 'swing';
+      headline = b && a && b.key !== a.key ? `From ${b.short} to ${a.short}` : 'A turning point';
+    }
+  }
+
+  // One extra fact at most — two flags on one move are worth a sentence each,
+  // but four sentences on one move is a paragraph nobody reads at the board.
+  if (!secondary && (kind === 'fork' || kind === 'backRank') && hung?.byReply) {
+    secondary = { text: `${f.replySans[0]} also wins ${pieceOn(hung)}.`, basis: ['hangs', 'see', 'replyPv'] };
+  }
+  if (!secondary && ['fork', 'backRank', 'hangingPiece'].includes(kind) && missed) {
+    secondary = {
+      text: `${Who} also had ${missed.san}, winning ${pieceOn(missed)}${isFree(missed) ? ' for free' : ''}.`,
+      basis: ['missedFreeCapture', 'see'],
+    };
+  }
+
+  const better = skipBetter ? null : betterSentence(f);
+  const confidence = located ? 'high' : cause || (better && f.wpBefore != null) ? 'medium' : 'low';
+
+  return finish({
+    kind,
+    headline,
+    sentences: [cause, secondary, swingSentence(f), better, fastSentence(f)],
+    line: engineLine(f, linePlies),
+    better: f.bestSan,
+    confidence,
+  });
+}
+
+/**
+ * Explain every turning point of a review. `plyByNumber` is a Map of ply
+ * number to PlyRecord, merged across whichever sides the viewer may see.
+ */
+export function explainTurningPoints(moments, plyByNumber) {
+  const lookup = (n) => (plyByNumber instanceof Map ? plyByNumber.get(n) ?? null : null);
+  return (moments || []).map((moment) => ({
+    ...moment,
+    explanation: explainMoment(moment, { ply: lookup(moment.ply), nextPly: lookup(moment.ply + 1) }),
+  }));
+}
+
+export default explainMoment;

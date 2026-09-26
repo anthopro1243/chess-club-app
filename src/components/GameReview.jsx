@@ -4,6 +4,17 @@ import { parsePgn } from '../analysis/pgn.js';
 import Board from './Board.jsx';
 import MoveList from './MoveList.jsx';
 import { winPercent } from '../analysis/scoring.js';
+import { explainTurningPoints, uciToSan } from '../analysis/explain.js';
+import '../styles/explain.css';
+
+/*
+ * The "big mistakes" the research says players under 1500 should review first:
+ * hung pieces, mates found or missed, and the tactics the detectors name.
+ * Everything else is a swing in the evaluation, which is real but less
+ * teachable at this level, so it's one click away rather than first.
+ */
+const BIG_KINDS = new Set(['hangingPiece', 'missedMate', 'allowedMate', 'fork', 'backRank', 'missedCapture']);
+const MAX_MOMENTS = 5;
 
 /*
  * GameReview — the board viewer the app has never had.
@@ -32,6 +43,7 @@ const LABEL_CLASS = {
 
 export default function GameReview({ game, analyses = [], orientation = 'w' }) {
   const [viewPly, setViewPly] = useState(0);
+  const [bigOnly, setBigOnly] = useState(true);
 
   // Replay the PGN once into a position per ply.
   const replay = useMemo(() => {
@@ -74,6 +86,16 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
     [analyses],
   );
 
+  // Each moment in words, built only from fields the analysis actually has.
+  const explained = useMemo(() => explainTurningPoints(critical, plyDetail), [critical, plyDetail]);
+  const big = explained.filter((c) => BIG_KINDS.has(c.explanation?.kind));
+  const showingBig = bigOnly && big.length > 0;
+  const moments = (showingBig ? big : explained).slice(0, MAX_MOMENTS);
+  const explanationByPly = useMemo(
+    () => new Map(explained.filter((c) => c.explanation).map((c) => [c.ply, c.explanation])),
+    [explained],
+  );
+
   const total = replay.moves.length;
   const clamp = (n) => Math.max(0, Math.min(total, n));
 
@@ -96,6 +118,11 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
   // The move that LED to the position on screen, and what the engine made of it.
   const current = viewPly > 0 ? plyDetail.get(viewPly) : null;
   const evalText = describeEval(current);
+  const currentExplanation = viewPly > 0 ? explanationByPly.get(viewPly) : null;
+  // The better move in normal notation, played from the position before this move.
+  const betterSan = current?.bestUci && current.uci !== current.bestUci
+    ? uciToSan(replay.positions[clamp(viewPly - 1)], current.bestUci)
+    : null;
 
   if (replay.error) {
     return <p className="error">This game&rsquo;s PGN could not be replayed: {replay.error}</p>;
@@ -124,32 +151,50 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
             <strong>{current.san}</strong>{' '}
             {current.label && <span className={`badge ${LABEL_CLASS[current.label] || ''}`}>{current.label}</span>}{' '}
             {evalText}
-            {current.bestUci && current.uci !== current.bestUci && (
-              <> &middot; better: <span className="mono">{current.bestUci}</span></>
+            {betterSan && (
+              <> &middot; better: <span className="mono">{betterSan}</span></>
             )}
           </p>
+        )}
+        {currentExplanation && (
+          <div className="explain-current" aria-live="polite">
+            <strong>{currentExplanation.headline}</strong>
+            <p>{currentExplanation.detail}</p>
+            {currentExplanation.line && <p className="muted small">Better line: <span className="mono">{currentExplanation.line}</span></p>}
+          </div>
         )}
       </div>
 
       <div className="game-review-side">
         <MoveList moves={replay.moves} viewPly={viewPly} onSelectPly={setViewPly} />
 
-        {!!critical.length && (
+        {!!explained.length && (
           <div className="critical-panel">
-            <h4>Turning points</h4>
+            <div className="critical-head">
+              <h4>{showingBig ? 'Big mistakes' : 'Turning points'}</h4>
+              {big.length > 0 && big.length < explained.length && (
+                <button type="button" className="link-button" onClick={() => setBigOnly((v) => !v)}>
+                  {showingBig ? 'Show all turning points' : 'Big mistakes only'}
+                </button>
+              )}
+            </div>
             <ol className="critical-list">
-              {critical.slice(0, 6).map((c) => (
-                <li key={`${c.side}-${c.ply}`}>
+              {moments.map((c) => (
+                <li key={`${c.side}-${c.ply}`} className={viewPly === c.ply ? 'active' : ''}>
                   <button type="button" className="link-button" onClick={() => setViewPly(c.ply)}>
                     {c.fullmove}. {c.side === 'b' ? '…' : ''}{c.san}
                   </button>{' '}
-                  <span className="muted">
-                    &minus;{c.winPercentLost}% {c.better && <>&middot; better <span className="mono">{c.better}</span></>}
-                  </span>
+                  <span className="muted">&minus;{c.winPercentLost}%</span>
+                  {c.explanation && (
+                    <div className="critical-explain">
+                      <strong>{c.explanation.headline}</strong>
+                      <span className="muted"> {c.explanation.detail}</span>
+                    </div>
+                  )}
                 </li>
               ))}
             </ol>
-            <p className="muted small">Click a turning point to jump to the position.</p>
+            <p className="muted small">Click a move to see the position.</p>
           </div>
         )}
 
