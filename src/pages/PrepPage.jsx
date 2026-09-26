@@ -10,6 +10,11 @@ import AvailabilityPoll from '../components/prep/AvailabilityPoll.jsx';
 import RegistrationHelper from '../components/prep/RegistrationHelper.jsx';
 import RulesQuiz from '../components/prep/RulesQuiz.jsx';
 import NotationTrainer from '../components/prep/NotationTrainer.jsx';
+import ReadinessPanel from '../components/prep/ReadinessPanel.jsx';
+import { useGames } from '../data/gamesStore.js';
+import { usePrepResults } from '../data/prepResultsStore.js';
+import { useEventRegistrations } from '../data/eventRegistrationStore.js';
+import { readinessByPlayer } from '../data/readiness.js';
 import PractisingAs, { usePractisingAs } from '../components/prep/PractisingAs.jsx';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
@@ -24,6 +29,7 @@ const TABS = [
   { id: 'registration', label: 'Registration', coachOnly: true },
   { id: 'quiz', label: 'Rules quiz', coachOnly: false },
   { id: 'notation', label: 'Notation', coachOnly: false },
+  { id: 'readiness', label: 'Readiness', coachOnly: false },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -81,6 +87,16 @@ export default function PrepPage() {
 
   const daysToEvent = event ? daysBetween(today, event.date) : null;
 
+  // Readiness is computed once here and shared: the Readiness tab shows it,
+  // and the registration suggestions can be ordered by it.
+  const games = useGames();
+  const results = usePrepResults();
+  const registrations = useEventRegistrations();
+  const readinessById = useMemo(
+    () => readinessByPlayer({ players, results, games, event, registrations }),
+    [players, results, games, event, registrations],
+  );
+
   return (
     <div className="prep">
       <header className="prep-header">
@@ -129,7 +145,9 @@ export default function PrepPage() {
       {activeTab === 'availability' && (
         <AvailabilityPoll event={event} players={players} me={me} isCoach={isCoach} />
       )}
-      {activeTab === 'registration' && isCoach && <RegistrationHelper event={event} players={players} />}
+      {activeTab === 'registration' && isCoach && (
+        <RegistrationHelper event={event} players={players} readinessById={readinessById} />
+      )}
       {activeTab === 'quiz' && (
         <>
           <PractisingAs isCoach={isCoach} players={players} {...practising} />
@@ -141,6 +159,16 @@ export default function PrepPage() {
           <PractisingAs isCoach={isCoach} players={players} {...practising} />
           <NotationTrainer key={practising.player?.playerId || 'practice'} player={practising.player} />
         </>
+      )}
+      {activeTab === 'readiness' && (
+        <ReadinessPanel
+          event={event}
+          players={players}
+          me={me}
+          isCoach={isCoach}
+          readinessById={readinessById}
+          onOpenTab={setTab}
+        />
       )}
     </div>
   );

@@ -790,3 +790,147 @@
     margin: 0 auto;
   }
 }
+
+/* ---------- readiness --------------------------------------------------------------- */
+
+.prep-meter {
+  display: block;
+  height: 6px;
+  min-width: 60px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.prep-meter span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+
+.prep-checklist {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.prep-checklist li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.prep-checklist li:last-child {
+  border-bottom: none;
+}
+
+.prep-check-mark {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--text-faint);
+  font-weight: 700;
+}
+
+.prep-checklist .status-done .prep-check-mark {
+  background: var(--good);
+  border-color: var(--good);
+  color: var(--accent-text);
+}
+
+.prep-checklist .status-coming-soon {
+  opacity: 0.65;
+}
+
+.prep-check-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.prep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.prep-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  padding: 8px 10px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.prep-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.prep-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.prep-table-name {
+  font-weight: 600;
+}
+
+.prep-pct {
+  display: inline-block;
+  min-width: 4ch;
+}
+
+.prep-table .prep-meter {
+  display: inline-block;
+  vertical-align: middle;
+  width: 60px;
+  margin-left: 6px;
+}
+
+.prep-cell {
+  text-align: center;
+  font-weight: 700;
+}
+
+.prep-cell.status-done {
+  color: var(--good);
+}
+
+.prep-cell.status-todo {
+  color: var(--text-faint);
+}
+
+.prep-cell.status-coming-soon {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.prep-tick input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+/* On a phone the checklist columns scroll sideways; the name stays put. */
+.prep-table th:first-child,
+.prep-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.prep-table td:first-child {
+  background: var(--bg-raised);
+}
