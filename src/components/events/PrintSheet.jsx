@@ -40,9 +40,9 @@ export default function PrintSheet({ mode, tournament, entrants, pairings, stand
           <tbody>
             {state.games.map((g) => (
               <tr key={g.id}>
-                <td className="board">{g.board}</td>
+                <td className="ev-print-board">{g.board}</td>
                 <td>{name(g.white)}</td>
-                <td className="result">{g.result ? RESULT_LABEL[g.result] : ''}</td>
+                <td className="ev-print-result">{g.result ? RESULT_LABEL[g.result] : ''}</td>
                 <td>{name(g.black)}</td>
               </tr>
             ))}

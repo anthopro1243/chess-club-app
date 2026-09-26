@@ -3,6 +3,11 @@
    Kept out of app.css on purpose so the tournament feature can be read, and
    removed, as one piece. Uses app.css's tokens only; no new colours, so both
    themes work unchanged. Everything is prefixed ev- to avoid collisions.
+
+   ORDER TRAP: main.jsx imports App (and so this file) BEFORE app.css, so on
+   equal specificity app.css wins. Where a rule here overrides one of app.css's
+   generic rules (.field input, .roster-table tbody tr) it carries one extra
+   class on purpose.
    ========================================================================= */
 
 .events-page {
@@ -292,8 +297,9 @@
   background: var(--accent-soft);
 }
 
-.ev-pick input {
+.ev-picker .ev-pick input {
   accent-color: var(--accent);
+  padding: 0;
   width: 18px;
   height: 18px;
   flex: none;
@@ -414,11 +420,12 @@ button.ev-seat.is-picked {
   font-weight: 600;
 }
 
+/* A disc, like a piece: a square read as an unticked checkbox. */
 .ev-colour {
   flex: none;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: 50%;
   border: 1px solid var(--border-strong);
 }
 
@@ -543,8 +550,19 @@ button.ev-seat.is-picked {
   font-variant-numeric: tabular-nums;
 }
 
-.ev-table tbody tr {
+.roster-table.ev-table tbody tr {
   cursor: default;
+}
+
+.roster-table.ev-table tbody tr:hover {
+  background: none;
+}
+
+/* Names wrap so the points column stays on a phone screen. */
+.roster-table.ev-table td.ev-name {
+  white-space: normal;
+  min-width: 110px;
+  overflow-wrap: anywhere;
 }
 
 .ev-table td.ev-strong {
@@ -692,13 +710,13 @@ button.ev-seat.is-picked {
     padding: 6pt 8pt;
   }
 
-  .ev-print.pairings td.board {
+  .ev-print.pairings td.ev-print-board {
     width: 1%;
     text-align: center;
     font-weight: 700;
   }
 
-  .ev-print.pairings td.result {
+  .ev-print.pairings td.ev-print-result {
     width: 14%;
     text-align: center;
   }

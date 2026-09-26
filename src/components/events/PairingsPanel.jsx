@@ -159,7 +159,7 @@ export default function PairingsPanel({
     }
     if (!isCoach) return null;
     const candidates = archiveCandidates(games, row, tournament.startsOn);
-    if (!candidates.length) return <span className="ev-note">No archived game yet</span>;
+    if (!candidates.length) return null;
     return (
       <select value="" aria-label={`Board ${row.board}: link an archived game`} onChange={(e) => e.target.value && linkGame(row.id, e.target.value)}>
         <option value="">Link game ({candidates.length})…</option>
@@ -282,6 +282,14 @@ export default function PairingsPanel({
               </li>
             ))}
           </ol>
+
+          {isCoach &&
+            !state.games.some((g) => g.gameId || archiveCandidates(games, g, tournament.startsOn).length) && (
+              <p className="ev-legend">
+                Once a game is in the archive (logged or imported on the Games page) with the same White and Black,
+                its board offers a link to it here.
+              </p>
+            )}
 
           {state.byes.length > 0 && (
             <ul className="ev-byes">

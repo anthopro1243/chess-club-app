@@ -27,15 +27,15 @@ export function StandingsTable({ standings, tournament, myPlayerId }) {
             <tr>
               <th className="num">#</th>
               <th>Player</th>
-              <th className="num" title={`Seeding rating: ${ratingSourceLabel(tournament.ratingSource)}`}>
-                Rating
-              </th>
               <th className="num">Pts</th>
               {order.map((id) => (
                 <th key={id} className="num" title={tiebreakLabel(id)}>
                   {SHORT[id]}
                 </th>
               ))}
+              <th className="num" title={`Seeding rating: ${ratingSourceLabel(tournament.ratingSource)}`}>
+                Rating
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -45,17 +45,17 @@ export function StandingsTable({ standings, tournament, myPlayerId }) {
                 className={`${row.playerId === myPlayerId ? 'is-mine' : ''} ${row.withdrawnFromRound ? 'is-out' : ''}`}
               >
                 <td className="num">{row.tied ? `${row.rank}=` : row.rank}</td>
-                <td>
+                <td className="ev-name">
                   {screenName(row)}
                   {row.withdrawnFromRound && <span className="hint-text"> · withdrew before round {row.withdrawnFromRound}</span>}
                 </td>
-                <td className="num">{row.rating ?? <span className="ev-unrated">unr.</span>}</td>
                 <td className="num ev-strong">{formatPoints(row.score)}</td>
                 {order.map((id) => (
                   <td key={id} className="num">
                     {formatPoints(row.tiebreaks[id])}
                   </td>
                 ))}
+                <td className="num">{row.rating ?? <span className="ev-unrated">unr.</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -95,7 +95,7 @@ export function WallChart({ standings, numbers, tournament, myPlayerId }) {
             {rows.map((row) => (
               <tr key={row.playerId} className={row.playerId === myPlayerId ? 'is-mine' : ''}>
                 <td className="num">{numberOf(row.playerId)}</td>
-                <td>{screenName(row)}</td>
+                <td className="ev-name">{screenName(row)}</td>
                 <td className="num">{row.rating ?? <span className="ev-unrated">unr.</span>}</td>
                 {row.outcomes.map((o, i) => (
                   <td key={i} className="num mono">

@@ -85,9 +85,9 @@ export default function PlayersPanel({ tournament, entrants, players, numbers, i
               {sorted.map((e) => (
                 <tr key={e.playerId} className={e.withdrawnFromRound ? 'is-out' : ''}>
                   <td className="num">{numbers.get(e.playerId)}</td>
-                  <td>{screenName(e)}</td>
+                  <td className="ev-name">{screenName(e)}</td>
                   <td className="num">{e.rating ?? <span className="ev-unrated">unrated</span>}</td>
-                  <td>{status(e)}</td>
+                  <td className="ev-name">{status(e)}</td>
                   {isCoach && !draft && open && swiss && (
                     <td>
                       {e.withdrawnFromRound ? (
