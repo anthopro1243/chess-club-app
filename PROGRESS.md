@@ -12,30 +12,42 @@ Musts first. Up to three agents work in parallel in isolated worktrees and I mer
 
 ### Live in the database (applied with the Supabase connector, verified after)
 - `supabase/pending/skip-cc003-games.sql` applied: 38 CC-003-only games skipped, 0 failed / 0 pending left.
-- `0023_media_release_and_announcements.sql` applied (`players.media_release`, `announcements` + RLS).
+- Applied and verified (tables exist, RLS on, policies present): `0019_tournaments`, `0020_homework`,
+  `0021_official_events` (seeds the Oct 24 district event at W.T. White), `0022_game_otb_tags`,
+  `0023_media_release_and_announcements`. All additive; nothing dropped or rewritten.
 - Every write path the new code uses was exercised against production **inside a rolled-back
-  transaction**: as the coach and as a player login, under real RLS. That covers the engine-assessment
-  fix (the old upsert reproduces the production error; the new path inserts, then updates), roster
-  import rows plus the private table (a duplicate student ID is refused), PGN save (a re-import can't
-  overwrite), queueing, the retired skip, and announcements (player posts refused). Nothing persisted,
-  and no test accounts were created.
+  transaction**, as the coach and as a player login, under real RLS: engine-assessment fix, roster
+  import + private table, PGN save, the CC-003 skip, announcements (player posts refused), events,
+  availability poll (a player answers only for themselves), homework and tournaments (player writes
+  refused), prep results. Nothing persisted, and no test accounts were created.
 
-### Built so far (research IDs)
-F001/F114 media release + grade sections · F110 announcements · F121 noindex · F081 team-score
-projector · F082 board order · F054 time-per-move chart · F050 big-mistakes review with plain-English
-explanations (owner item 5) · F096 private player home · F043/F044 daily club sync with 429 back-off.
+### Built so far (research IDs) — all merged on the branch, tests green
+- **Tournament (Oct 24):** F070 event + DISD deadlines (Prep page, deadline line on the dashboard) ·
+  F071 availability poll · F072/F073 registration helper (10 per coach) · F041 rules quiz · F033
+  notation trainer · F074 readiness checklist (now counts the endgame band too) · F081 team-score
+  projector · F082 board order.
+- **Club events:** F075–F080, F084 club Swiss + round robin: US Chess pairing, byes, withdrawals,
+  override log, five tiebreaks, printable pairings/standings (initials unless media release), clock
+  default from the event (Events page).
+- **Learning:** F050 big-mistakes review with plain-English explanations · F054 time-per-move chart ·
+  F096 private player home (priority, trend, reviews, homework) · F019/F020 homework (Coach page →
+  Homework; members see it on their home page and on Training) · F025 endgame trainer (13
+  engine-verified positions in four rating bands) · F013 club-weaknesses panel (Coach page).
+- **Games:** F065/F066/F068 scoresheet entry (type moves from a paper scoresheet, OTB tags) ·
+  F043/F044 daily club sync with 429 back-off.
+- **Club:** F001/F114 media release + grade sections · F110 announcements · F121 noindex.
 
-### In progress (agents, resumed after a 17:00–21:00 UTC usage-limit pause)
-- Club Swiss (F075–F080): engine, tiebreaks, round robin and store done; UI in progress. Needs 0019.
-- Tournament prep (F070–F074, F041, F033): events/deadlines, availability poll, registration helper and
-  rules quiz done; notation trainer and readiness in progress. Needs 0021.
-- Homework (F019/F020) done; scoresheet entry (F065/F066/F068) in progress. Needs 0020 and 0022.
+### In progress (agents)
+- Tuesday sessions, session planner, attendance % (F003, F006, F007, F017).
+- Repertoire view, then five motifs one at a time: pin, skewer, discovered attack, trapped piece,
+  deflection.
+- Board accessibility: arrow keys, typed moves, moves announced to screen readers.
 
 ### Blocked, logged, moved on
 - **Browser tests against the live database are blocked** by the environment's network policy
   (`rftlozmdyetubhjcutht.supabase.co` refused by the proxy). The rolled-back SQL checks above stand in.
   To allow it: cloud environment menu → Edit → Network access.
-- A usage limit stopped all work 17:00–21:00 UTC; the hourly wake-up resumed it.
+- Usage limits stopped all work 17:00–21:00 UTC and briefly around 02:10 UTC; the hourly wake-up resumed it.
 
 ### Decisions this run (details in GAP-ANALYSIS.md → Cycle 2, D1–D4)
 D1 keep the club leaderboard for now, members see their private page first · D2 coach sessions sync all

@@ -197,6 +197,15 @@ ever appears not to deploy, check there first.
 
 ## 5. DATABASE
 
+> **Update 2026-09-27 (autonomous run).** Applied to production with the Supabase connector and
+> verified (RLS on, one policy per operation, rolled-back tests as coach and player):
+> `0019_tournaments` (tournaments, tournament_entrants, tournament_pairings, tournament_overrides —
+> approved read, coach write), `0020_homework` (homework assignments), `0021_official_events`
+> (official_events seeded with `disd-hs-fall-2026` Oct 24; event_availability and prep_results
+> owner-or-coach; event_registrations coach write), `0022_game_otb_tags` (OTB tag columns on games),
+> `0023_media_release_and_announcements` (`players.media_release`, announcements). The CC-003 skip
+> file is applied (queue: done 114, skipped 38, 0 failed / 0 pending). Next migration number: 0024.
+
 Supabase project `rftlozmdyetubhjcutht`. RLS is on for every table and is genuinely well built —
 **do not rewrite the policies** (§10).
 
@@ -288,6 +297,15 @@ this session).
 
 ## 6. FEATURES BY PAGE
 
+> **Update 2026-09-27.** New since this section was written (all on the branch): **Prep** page
+> (Oct 24 event + DISD deadlines, availability poll, registration helper, rules quiz, notation
+> trainer, readiness checklist) · **Events** page (club Swiss / round robin with overrides,
+> tiebreaks, printable sheets) · **Club** page: announcements on top, then the member's private home
+> (priority, trend, reviews, homework) and a local-mode "preview as" picker · **Coach** page: team
+> tools (top-N projector, board order), homework panel, club weaknesses · **Training**: endgame
+> trainer, homework list · **Games**: scoresheet entry, time-use chart, big-mistake explanations,
+> `#/games?game=<id>` deep link · **Roster**: grade section, media release.
+
 Routes are defined in `src/App.jsx` as `ROUTES`. Everything is behind `AccessGate` — signed out,
 you see only "Club members only".
 
@@ -373,6 +391,11 @@ you see only "Club members only".
 
 ## 7. CURRENT STATE
 
+> **Update 2026-09-27.** The autonomous run (2026-09-26 16:25 → 2026-09-27 12:30 UTC) is building
+> the research backlog on `feature/roster-import-9cg3im`; the newest state, decisions and what is
+> live in the database are at the top of PROGRESS.md ("Morning summary"), feature statuses in
+> GAP-ANALYSIS.md → Cycle 2. `master` is still untouched.
+
 As of 2026-09-25 evening, **all current work is on branch `feature/roster-import-9cg3im`** (pushed;
 it contains everything on `feature/roster-import` plus the overnight and evening commits). Neither
 branch is merged to `master`. `master` is unchanged at `286f7e6` and is what production
@@ -430,6 +453,9 @@ unbuilt. The five remaining motifs are unbuilt (§11).
 ---
 
 ## 8. TESTS
+
+> **Update 2026-09-27:** `npm test` → legacy runners 93/45/42 + 675 node:test, 0 fail;
+> `npm run test:engine` 15/15; `npm run build` OK.
 
 ```
 $ npm test

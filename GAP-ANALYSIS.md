@@ -134,7 +134,7 @@ Uncertain rows were checked in the files, not from memory.
 
 | ID | Priority | Status | In the app today |
 |---|---|---|---|
-| F001 | Must | 🟡 | Roster has grade, usernames, US Chess ID; **no media-release flag, no grade section (9–10 / 11–12)** |
+| F001 | Must | ✅ | **Built (branch, 2026-09-26/27):** Media-release flag (unknown = no) and grade section 9–10 / 11–12 on the roster; printed sheets use initials without a release |
 | F002 | Should | ✅ | Roster CSV import (built; live check pending) |
 | F003 | Must | 🟡 | Attendance by date exists; **no per-member attendance %**, not one-tap from a Tuesday list |
 | F004 | Should | ❌ | Skill groups |
@@ -148,12 +148,12 @@ Uncertain rows were checked in the files, not from memory.
 | F012 | Should | 🟡 | One coach note per player (not timestamped entries) |
 | F013 | Should | 🟡 | One free-text "goal" field; no process goals shown on the player's home |
 | F014 | Should | ❌ | "Needs attention" list |
-| F015 | Must | 🟡 | Club skill profile + 3 weakest categories; **no missed tactic themes, decisive-error phase or openings faced** |
+| F015 | Must | ✅ | **Built (branch, 2026-09-26/27):** Club weaknesses panel (Coach page): missed tactic themes, openings where games go wrong, weakest categories; min 5 games |
 | F016 | Could | ❌ | Buddy pairing |
 | F017 | Must | ❌ | Coach "Tuesday dashboard" |
 | F018 | Should | ❌ | Beginner "start here" path |
-| F019 | Must | 🟡 | Homework WIP patch (unmerged) |
-| F020 | Must | 🟡 | Homework WIP (completion from puzzle_attempts); games-played targets not covered |
+| F019 | Must | ✅ | **Built (branch, 2026-09-26/27):** Homework: coach assigns themed puzzles, a puzzle set or games to the club, a group or players, with due dates |
+| F020 | Must | ✅ | **Built (branch, 2026-09-26/27):** Completion tracked from puzzle attempts and archived games; members see it on their home page and Training |
 | F021 | Must | 🟡 | 402 puzzles with theme + difficulty filters; **not served near the player's rating; tiny set** |
 | F022 | Should | 🟡 | "Your mistakes" = own positions; no matching Lichess puzzles by weak motif |
 | F023 | Should | 🟡 | Accuracy + 3 weakest themes on Training; no per-theme trend |
@@ -161,33 +161,33 @@ Uncertain rows were checked in the files, not from memory.
 | F025 | Could | ❌ | Woodpecker cycles |
 | F026 | Could | ❌ | Tournament-mode puzzles |
 | F027 | Should | ❌ | Club puzzle race |
-| F028 | Must | ❌ | **Endgame curriculum by rating band** |
+| F028 | Must | ✅ | **Built (branch, 2026-09-26/27):** Endgame trainer: 13 engine-verified positions in four rating bands, played out against Stockfish |
 | F029 | Should | ❌ | Play out endgame positions vs engine (Play starts from the initial position only) |
 | F030 | Could | ❌ | Tablebase check |
 | F031 | Should | ❌ | Mini-repertoire per player (repertoire.js reports, no stored repertoire) |
 | F032 | Could | ❌ | Repertoire drill |
-| F033 | Must | ❌ | **Notation trainer** |
+| F033 | Must | ✅ | **Built (branch, 2026-09-26/27):** Notation trainer (type and play modes, 40-move game at 95%+) |
 | F034 | Could | ❌ | Coordinate trainer |
 | F035 | Should | ❌ | Thinking checklist in practice games |
-| F036 | Must | 🟡 | Clock with G/30 d5, G/60 d5 exists on Play; **no tracking of slow practice games per player** |
+| F036 | Must | ✅ | **Built (branch, 2026-09-26/27):** Slow games (G/30+) counted per player this season on the readiness checklist |
 | F037 | Could | 🟡 | Clock is tied to a game on the Play board; no standalone OTB clock |
 | F038 | Could | ❌ | Weekly personal plan |
 | F039 | Could | ❌ | Guess the move |
 | F040 | Could | ❌ | Play from any position vs engine |
-| F041 | Must | ❌ | **Rules & etiquette quiz** |
+| F041 | Must | ✅ | **Built (branch, 2026-09-26/27):** Rules quiz with sticky pass |
 | F042 | Could | ❌ | Offline puzzle pack |
-| F043 | Must | 🟡 | Sync + auto-sync on open for the member's OWN accounts; **no daily sync of all members** |
-| F044 | Should→Must | 🟡 | Serial + `since`; no ETag, no 429 back-off |
+| F043 | Must | ✅ | **Built (branch, 2026-09-26/27):** Daily club sync of every member's Chess.com/Lichess games from the coach's session |
+| F044 | Should→Must | ✅ | **Built (branch, 2026-09-26/27):** 429 back-off (1 min doubling to 1 h), batches of 8; no ETag |
 | F045 | Should | ❌ | Bullet excluded from coaching views |
 | F046 | Must | ✅ | Stockfish lite in a worker + DB-backed queue |
 | F047 | Could | ❌ | Lichess cloud eval |
 | F048 | Should | ✅ | Analyses stored once in game_analyses |
 | F049 | Should | ✅ | Win-probability classification (scoring.js) |
-| F050 | Must | 🟡 | Critical moments exist; **no "big blunders only, ≤5, with motif" view**; plain-English explanation WIP |
+| F050 | Must | ✅ | **Built (branch, 2026-09-26/27):** Big-mistakes review with plain-English explanations and the better move/line in SAN |
 | F051 | Must | ✅ | Own-game blunders become retry puzzles with spaced repetition |
 | F052 | Should | ❌ | Self-annotation before engine lines |
 | F053 | Should | 🟡 | One coach note per analysis, not per move |
-| F054 | Must | 🟡 | %clk parsed and feeds the time-management score; **no time-use chart, no "fast blunder" flag** |
+| F054 | Must | ✅ | **Built (branch, 2026-09-26/27):** Time-per-move chart and rushed/long-think headline in game analysis |
 | F055 | Should | 🟡 | Skill history + ratings; no blunders/100, time-trouble rate |
 | F056 | Should | 🟡 | repertoire.js computes it; UI WIP patch |
 | F057 | Should | 🟡 | Uses the PGN's own Opening/ECO tags; no local CC0 dataset |
@@ -198,26 +198,26 @@ Uncertain rows were checked in the files, not from memory.
 | F062 | Should | 🟡 | Filter by player and type only |
 | F063 | Should | ❌ | Game of the week |
 | F064 | Should | 🟡 | Copy/download PGN; no "open in Lichess" |
-| F065 | Must | 🟡 | PGN paste checks legality and names the first illegal move; **no move-by-move scoresheet entry** |
-| F066 | Should | ❌ | Repair gaps / continue from FEN |
+| F065 | Must | ✅ | **Built (branch, 2026-09-26/27):** Scoresheet entry: type moves from a paper scoresheet, forgiving SAN matching |
+| F066 | Should | ✅ | **Built (branch, 2026-09-26/27):** Scoresheet repair: illegal move flagged with candidate fixes |
 | F067 | Could | ❌ | Scoresheet photo |
-| F068 | Must | 🟡 | Tags kept inside the PGN only; **no structured event/round/board** |
+| F068 | Must | ✅ | **Built (branch, 2026-09-26/27):** OTB tags (event, round, board, time control) on archived games |
 | F069 | Should | ✅ | "Log a game" form |
-| F070 | Must | ❌ | **Event calendar with DISD deadlines + reminders** |
-| F071 | Must | ❌ | **Availability poll** |
-| F072 | Must | ❌ | **Registration helper (10 per coach, <6 stipend warning, sections)** |
-| F073 | Should | ❌ | Registration export |
-| F074 | Must | ❌ | **Per-player readiness checklist** |
-| F075 | Must | ❌ | **Mock tournament** (needs Swiss) |
-| F076 | Must | ❌ | **Club Swiss pairing** |
-| F077 | Must | ❌ | **Pairing overrides** |
-| F078 | Could | ❌ | Round robin |
-| F079 | Should | ❌ | Printable pairings/standings |
-| F080 | Could | ❌ | US Chess tiebreak set |
-| F081 | Must | ❌ | **Team-score projector (top 3/4)** |
-| F082 | Must | ❌ | **Board-order tool** |
+| F070 | Must | ✅ | **Built (branch, 2026-09-26/27):** Prep page: Oct 24 event, DISD deadlines (registration Fri Oct 16, transport Fri Oct 2), dashboard deadline line |
+| F071 | Must | ✅ | **Built (branch, 2026-09-26/27):** Availability poll: yes/maybe/no + transport note; coach can record for the room |
+| F072 | Must | ✅ | **Built (branch, 2026-09-26/27):** Registration helper: 10 per coach, ordered by readiness |
+| F073 | Should | ✅ | **Built (branch, 2026-09-26/27):** Registration export for the district form |
+| F074 | Must | ✅ | **Built (branch, 2026-09-26/27):** Readiness checklist: rules quiz, notation, slow games, endgame band, repertoire reviewed |
+| F075 | Must | ✅ | **Built (branch, 2026-09-26/27):** Club Swiss (US Chess pairing rules) on the Events page |
+| F076 | Must | ✅ | **Built (branch, 2026-09-26/27):** Byes, withdrawals, late entries |
+| F077 | Must | ✅ | **Built (branch, 2026-09-26/27):** Override log: who changed a pairing or result, and why |
+| F078 | Could | ✅ | **Built (branch, 2026-09-26/27):** Printable pairings, standings and wall chart |
+| F079 | Should | ✅ | **Built (branch, 2026-09-26/27):** Five US Chess tiebreaks in announced order |
+| F080 | Could | ✅ | **Built (branch, 2026-09-26/27):** Round robin |
+| F081 | Must | ✅ | **Built (branch, 2026-09-26/27):** Team-score projector (top 3/4, what-ifs, ceiling, rivals) |
+| F082 | Must | ✅ | **Built (branch, 2026-09-26/27):** Board-order proposer and legality check |
 | F083 | Should | ✅ | Ratings shown with platform + time control; coach override |
-| F084 | Should | ❌ | Event time-control profile |
+| F084 | Should | ✅ | **Built (branch, 2026-09-26/27):** Event time-control profile; Play clock defaults from the event |
 | F085 | Must | ❌ | **Tournament-day result entry** |
 | F086 | Must | 🟡 | Stores are local-first; **failed writes are not queued for retry; no offline tournament mode** |
 | F087 | Should | ❌ | Arrival check-in |
@@ -229,7 +229,7 @@ Uncertain rows were checked in the files, not from memory.
 | F093 | Could | ❌ | Link Lichess/Chess.com club events |
 | F094 | Could | ❌ | TRF export |
 | F095 | Could | 🟡 | US Chess ID stored; no link to the official lookup |
-| F096 | Must | 🟡 | Player home WIP patch; **app currently shows a club-wide leaderboard to every member (see decision D1)** |
+| F096 | Must | ✅ | **Built (branch, 2026-09-26/27):** Private player home: one priority, trend, reviews, homework, next step |
 | F097 | Should | ❌ | Weekly streak with grace |
 | F098 | Should | ❌ | Effort badges |
 | F099 | Should | ❌ | Opt-in ladder |
@@ -243,18 +243,18 @@ Uncertain rows were checked in the files, not from memory.
 | F107 | Should | ❌ | Choice in training |
 | F108 | Should | 🟡 | Glicko club_rating exists but mixes online games (known wrong, HANDOFF §9.5) |
 | F109 | Should | ✅ | Dark mode; neutral look |
-| F110 | Must | ❌ | **Announcement board** |
+| F110 | Must | ✅ | **Built (branch, 2026-09-26/27):** Announcements (coach posts, members read; archive not delete) |
 | F111 | Should | ❌ | Parent update drafts |
 | F112 | Must | ❌ | **Pre-tournament parent info sheet** |
 | F113 | Should | ❌ | Media-filtered post-tournament summary |
-| F114 | Must | ❌ | **Media-release flag respected by exports and printouts** |
+| F114 | Must | ✅ | **Built (branch, 2026-09-26/27):** Grade sections for DISD divisions |
 | F115 | Could | 🟡 | Excel export |
 | F116 | Should | ❌ | .ics calendar export |
 | F117 | Should | ❌ | Weekly digest drafts |
 | F118 | Could | ❌ | QR handouts |
 | F119 | Should | ❌ | Packing and conduct list |
 | F120 | Must | 🟡 | Soft delete exists; **no graduate archive that strips personal fields** |
-| F121 | Must | 🟡 | Everything behind sign-in; **no `noindex`** |
+| F121 | Must | ✅ | **Built (branch, 2026-09-26/27):** noindex meta + robots.txt |
 | F122 | Should | ✅ | Linking checks the profile exists (404 → error) |
 | F123 | Should | ❌ | Free-tier size guard |
 | F124 | Should | 🟡 | 402 puzzles; research wants ≥200 per theme in 600–1600 |
