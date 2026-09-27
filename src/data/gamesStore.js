@@ -54,8 +54,16 @@ function fromRow(row) {
     analysisAttempts: row.analysis_attempts ?? 0,
     analysisError: row.analysis_error || null,
     analysisDepth: row.analysis_depth ?? null,
+    // Over-the-board tags (0022). Absent before that migration, and for
+    // every online or casual game, so they default to empty.
+    event: row.event || '',
+    round: row.round || '',
+    board: row.board ?? null,
+    timeControl: row.time_control || '',
   };
 }
+
+const OTB_COLUMNS = ['event', 'round', 'board', 'time_control'];
 
 function toRow(game) {
   return {
@@ -71,8 +79,31 @@ function toRow(game) {
     mode: game.mode,
     computer_elo: game.computerElo,
     pgn: game.pgn,
+    // Sent only when set, so the Play page, sync and PGN import write exactly
+    // the columns they always did, whether or not 0022 has been applied.
+    ...(game.event ? { event: game.event } : {}),
+    ...(game.round ? { round: game.round } : {}),
+    ...(game.board != null && game.board !== '' ? { board: game.board } : {}),
+    ...(game.timeControl ? { time_control: game.timeControl } : {}),
   };
 }
+
+/*
+ * Before 0022 is applied, PostgREST refuses a row naming a column it does
+ * not know ("Could not find the 'board' column of 'games' in the schema
+ * cache"). The same tags are inside the PGN, so the game is worth saving
+ * without them rather than not at all.
+ */
+function missingOtbColumn(error) {
+  const message = String(error?.message || '');
+  return /schema cache|does not exist/i.test(message) && OTB_COLUMNS.some((c) => message.includes(c));
+}
+
+const withoutOtb = (row) => {
+  const copy = { ...row };
+  for (const column of OTB_COLUMNS) delete copy[column];
+  return copy;
+};
 
 async function syncFromCloud() {
   const { data, error } = await supabase
@@ -193,9 +224,13 @@ export async function recordImportedGames(games) {
 
   if (!added.length || !isSupabaseConfigured || !cloudReady) return { ok: true, added, local: true };
 
-  const { error } = await supabase
-    .from('games')
-    .upsert(added.map(toRow), { onConflict: 'id', ignoreDuplicates: true });
+  const rows = added.map(toRow);
+  let { error } = await supabase.from('games').upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+  if (error && missingOtbColumn(error)) {
+    ({ error } = await supabase
+      .from('games')
+      .upsert(rows.map(withoutOtb), { onConflict: 'id', ignoreDuplicates: true }));
+  }
   if (error) {
     // Take them back out of the local view: showing games that were never
     // saved is how people lose a Tuesday's worth of scoresheets.

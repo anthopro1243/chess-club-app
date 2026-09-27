@@ -1,0 +1,475 @@
+/* =========================================================================
+   Scoresheet entry (ScoresheetModal) and the set-up board (PositionEditor).
+   Kept out of app.css so the feature reads, and comes out, in one place.
+   Only app.css's tokens are used, so light and dark both work.
+   ========================================================================= */
+
+.ss-modal {
+  width: min(1040px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ss-modal .panel-header {
+  margin-bottom: 0;
+}
+
+.ss-modal h3,
+.ss-modal h4 {
+  margin: 0;
+}
+
+.ss-modal .muted {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.ss-modal .small {
+  font-size: 0.84rem;
+}
+
+.ss-error {
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--bad);
+}
+
+.ss-restored {
+  font-size: 0.86rem;
+}
+
+/* ---------- game details ------------------------------------------------- */
+
+.ss-tags {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 14px;
+}
+
+.ss-side,
+.ss-wide {
+  grid-column: span 2;
+}
+
+.ss-side input {
+  margin-top: 4px;
+}
+
+/* ---------- moves -------------------------------------------------------- */
+
+.ss-entry {
+  display: grid;
+  grid-template-columns: minmax(260px, 400px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.ss-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ss-flip {
+  align-self: flex-end;
+}
+
+.ss-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ss-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: 6px;
+}
+
+.ss-moves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 2px 10px;
+}
+
+.ss-row {
+  display: grid;
+  grid-template-columns: 2.6em 1fr 1fr;
+  align-items: center;
+  gap: 4px;
+}
+
+.ss-num {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.ss-ply {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  text-align: left;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.ss-ply:hover {
+  background: var(--accent-soft);
+}
+
+.ss-ply-pending {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* The first bad ply: red outline AND a mark, so colour is not the only cue. */
+.ss-ply-error {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.ss-ply-error::after {
+  content: ' ⚠';
+}
+
+.ss-target {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.ss-cursor {
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  cursor: default;
+}
+
+.ss-empty {
+  cursor: default;
+}
+
+.ss-empty:hover {
+  background: none;
+}
+
+.ss-segment + .ss-segment {
+  margin-top: 8px;
+}
+
+.ss-gap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px dashed var(--warn);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.ss-flag {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--bad);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.ss-move-field > span {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ss-move-input {
+  font-size: 1.05rem !important;
+  padding: 9px 11px !important;
+}
+
+.ss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ss-chip {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  min-height: 34px;
+  min-width: 48px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ss-chip:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.ss-help {
+  margin: 0;
+}
+
+/* The app's secondary-button look (app.css .button-grid), for the repair and
+   dialog buttons here, which do not sit in a .button-grid. */
+.ss-actions button,
+.ss-paste button:not(.primary),
+.pe-fen-row button,
+.ss-modal .import-actions button:not(.link-button):not(.primary) {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.ss-actions button:hover:not(:disabled),
+.ss-paste button:not(.primary):hover:not(:disabled),
+.pe-fen-row button:hover:not(:disabled),
+.ss-modal .import-actions button:not(.link-button):not(.primary):hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+.ss-modal button.primary {
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.ss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ss-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ss-gap-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.ss-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  min-height: 30px;
+  cursor: pointer;
+}
+
+.ss-radio input {
+  accent-color: var(--accent);
+}
+
+.ss-unknown input {
+  max-width: 90px;
+}
+
+.ss-problems {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ss-save {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.ss-saved {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- position editor ---------------------------------------------- */
+
+.pe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pe-tools {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.pe-tool {
+  padding: 2px;
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pe-tool .piece {
+  width: 28px;
+  height: 28px;
+}
+
+.pe-tool-move {
+  font-size: 0.78rem;
+  grid-column: span 1;
+}
+
+.pe-tool.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pe-board .square {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.pe-help {
+  margin: 0;
+}
+
+.pe-fen summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: var(--accent);
+}
+
+.pe-fen-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.pe-fen-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+/* ---------- Games page: tags and gap note on a game ---------------------- */
+
+.game-otb-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.game-gap-note {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--warn);
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+/* The archive header now carries three actions; on a phone let them wrap
+   as whole labels instead of breaking each into a column of words. */
+@media (max-width: 640px) {
+  .games-layout .panel-header {
+    flex-wrap: wrap;
+  }
+
+  .games-layout .panel-header-actions {
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+
+  .games-layout .panel-header-actions .link-button {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .ss-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 14px 12px;
+  }
+
+  .ss-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .ss-board {
+    max-width: 360px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .ss-tags {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ss-side,
+  .ss-wide {
+    grid-column: 1 / -1;
+  }
+
+  .ss-moves {
+    grid-template-columns: 1fr;
+  }
+
+  /* On a phone the keyboard covers half the screen: the move box goes
+     straight under the board, and the list (which scrolls itself to the
+     current ply) below it. */
+  .ss-input-block,
+  .ss-gap-panel {
+    order: 1;
+  }
+
+  .ss-list {
+    order: 2;
+    max-height: 180px;
+  }
+}
