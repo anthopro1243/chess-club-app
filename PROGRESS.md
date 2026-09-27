@@ -13,6 +13,17 @@ report card's homework/attendance lines.
 analysis (explanations, big mistakes, time use), member home page, Training (puzzles, own-mistake
 review, endgame trainer), Chess.com/Lichess sync, Roster, Coach analysis views, report card.
 
+**Added after the cut (same day):**
+- Five more tactic detectors in game analysis: pin, skewer, discovered attack, trapped piece,
+  deflection (each with a must-fire and a must-not-fire test; explained in plain words in review).
+  They tag games analysed from now on; games analysed earlier keep their old tags.
+- Puzzles matched to each player's rating (Training's default difficulty). The bigger puzzle set is
+  **blocked**: the environment's network policy refuses database.lichess.org and huggingface.co.
+- Review queue (Coach page + each member's home): in-person games first, then games with the most
+  big mistakes; "Mark reviewed". Migration **0024_game_review** applied to production and verified.
+- Archive graduate (Roster, coach only, type the name to confirm): removes name, accounts, US Chess
+  ID, guardian email, goal/notes and private IDs; replaces the name in their games; keeps stats.
+
 ---
 
 # Morning summary: autonomous run, Sat 2026-09-26 16:25 UTC → Sun 2026-09-27 02:45 UTC
