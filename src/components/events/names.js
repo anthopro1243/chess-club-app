@@ -9,13 +9,12 @@
  * guidance is not to publish a student's name without a media release on file.
  * printName() is the single place that decides a printed name.
  *
- * MERGE POINT: the main branch has src/data/privacy.js with
- * publicName(player) (full name only when player.mediaRelease === true,
- * otherwise initials). This branch predates it, so printName() still returns
- * the full name. At merge, replace its body with
- *   return publicName(player || { name: screenName(entrant) });
- * and every printed sheet follows the media-release rule.
+ * printName() uses privacy.js's publicName(): a full name only with a media
+ * release on file (player.mediaRelease === true), initials otherwise. A
+ * player who has left the roster has no release on record, so initials.
  */
+
+import { publicName } from '../../data/privacy.js';
 
 /** Name for on-screen use. `entrant` is an entrant row (name snapshot + playerId). */
 export function screenName(entrant) {
@@ -26,7 +25,6 @@ export function screenName(entrant) {
  * Name for printed sheets. `player` is the live roster row for the entrant
  * (carries mediaRelease once privacy.js lands), or null if they left the roster.
  */
-// `player` is unused until the merge swaps in publicName(player).
 export function printName(entrant, player) {
-  return screenName(entrant);
+  return publicName(player ? { ...player, name: player.name || screenName(entrant) } : { name: screenName(entrant) });
 }
