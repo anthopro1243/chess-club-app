@@ -1,0 +1,1233 @@
+diff --git a/src/components/LiveRegion.jsx b/src/components/LiveRegion.jsx
+new file mode 100644
+index 0000000..89d6e93
+--- /dev/null
++++ b/src/components/LiveRegion.jsx
+@@ -0,0 +1,37 @@
++import { useCallback, useState } from 'react';
++
++/**
++ * useAnnouncer — one page-wide voice for the board.
++ *
++ * Moves, selections and typed-move errors all go through the same region.
++ * Two regions speaking at once make screen readers drop or interleave
++ * messages, and the most recent thing said is what the player needs.
++ *
++ * @returns {[{text: string, serial: number}, (text: string) => void]}
++ */
++export function useAnnouncer() {
++  const [message, setMessage] = useState({ text: '', serial: 0 });
++  const announce = useCallback((text) => {
++    if (!text) return;
++    setMessage((prev) => ({ text, serial: prev.serial + 1 }));
++  }, []);
++  return [message, announce];
++}
++
++/**
++ * LiveRegion — the polite aria-live element that useAnnouncer speaks into.
++ *
++ * A screen reader only speaks when the region's text CHANGES, so the same
++ * sentence twice ("Not the move. Try again.") would be heard once. A
++ * no-break space is toggled on alternate messages to make each one new.
++ * The region is visually hidden: sighted players already see the move on
++ * the board and in the move list.
++ */
++export default function LiveRegion({ message }) {
++  return (
++    <div className="sr-only board-live" role="status" aria-live="polite" aria-atomic="true">
++      {message.text}
++      {message.serial % 2 ? ' ' : ''}
++    </div>
++  );
++}
+diff --git a/src/components/SanInput.jsx b/src/components/SanInput.jsx
+new file mode 100644
+index 0000000..72d80f6
+--- /dev/null
++++ b/src/components/SanInput.jsx
+@@ -0,0 +1,76 @@
++import { useId, useState } from 'react';
++import { matchSanInput } from '../data/sanInput.js';
++
++/**
++ * SanInput — type a move instead of clicking it ("Nf3", "O-O", "e8=Q").
++ *
++ * The parsing and every explanation live in src/data/sanInput.js; this is
++ * only the box. It never plays anything itself: a legal match is handed to
++ * `onMove` exactly as a board click would be, so the page's own rules (the
++ * puzzle's expected line, the clock, the computer's turn) still apply.
++ *
++ * It is deliberately never disabled. Disabling a focused input throws focus
++ * back to the page body, so a player who typed a move and pressed Enter
++ * would lose their place the moment the computer started thinking. Instead
++ * a submit while the board is locked explains why (`lockedMessage`).
++ */
++export default function SanInput({ game, onMove, lockedMessage = null, onAnnounce }) {
++  const id = useId();
++  const [text, setText] = useState('');
++  const [error, setError] = useState('');
++
++  const report = (message) => {
++    setError(message);
++    onAnnounce?.(message);
++  };
++
++  const submit = (event) => {
++    event.preventDefault();
++    if (lockedMessage) {
++      report(lockedMessage);
++      return;
++    }
++    const result = matchSanInput(game, text);
++    if (!result.ok) {
++      report(result.message);
++      return;
++    }
++    // Clear first: the move below re-renders the page, and the box should
++    // be empty and ready for the next move when it does.
++    setText('');
++    setError('');
++    onMove(result.move);
++  };
++
++  return (
++    <form className="san-input" onSubmit={submit} noValidate>
++      <label className="san-input-label" htmlFor={`${id}-move`}>
++        Type a move
++      </label>
++      <div className="san-input-row">
++        <input
++          id={`${id}-move`}
++          type="text"
++          value={text}
++          onChange={(event) => {
++            setText(event.target.value);
++            if (error) setError('');
++          }}
++          placeholder="e.g. Nf3"
++          autoComplete="off"
++          autoCorrect="off"
++          // Phones capitalise the first letter by default, which turns
++          // "e4" into "E4" and every pawn move into an error.
++          autoCapitalize="none"
++          spellCheck={false}
++          aria-invalid={error ? 'true' : 'false'}
++          aria-describedby={`${id}-feedback`}
++        />
++        <button type="submit">Play</button>
++      </div>
++      <p id={`${id}-feedback`} className={error ? 'san-input-error' : 'hint-text san-input-hint'}>
++        {error || 'Standard notation: Nf3, exd5, O-O, e8=Q. On the board: arrow keys, then Enter to pick up and put down.'}
++      </p>
++    </form>
++  );
++}
+diff --git a/src/data/boardA11y.js b/src/data/boardA11y.js
+new file mode 100644
+index 0000000..d53c31a
+--- /dev/null
++++ b/src/data/boardA11y.js
+@@ -0,0 +1,221 @@
++/*
++ * boardA11y.js — what the chessboard says to someone who cannot see it, and
++ * how its keyboard focus moves.
++ *
++ * Kept out of Board.jsx on purpose: every sentence a screen reader speaks is
++ * decided here, as a pure function of the move or square, so the wording can
++ * be pinned in node:test without a browser. The board component only decides
++ * WHEN to speak.
++ *
++ * Wording rules, in the order they matter to a player listening at speed:
++ *   1. Say who moved before what moved ("White knight", not "Knight, white"),
++ *      because a player tracking the game needs the side first.
++ *   2. Name the captured piece. "captures on e5" alone makes a listener
++ *      reconstruct the position to learn what was lost.
++ *   3. Check and mate come last, after a comma, where a listener expects them.
++ * Squares are spoken as written ("e4"). Screen readers pronounce that well,
++ * and it is the same notation the player types into the move box.
++ */
++
++export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
++
++export const PIECE_WORDS = {
++  p: 'pawn',
++  n: 'knight',
++  b: 'bishop',
++  r: 'rook',
++  q: 'queen',
++  k: 'king',
++};
++
++const COLOR_WORDS = { w: 'white', b: 'black' };
++
++const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
++
++export function isSquare(value) {
++  return typeof value === 'string' && /^[a-h][1-8]$/.test(value);
++}
++
++/** "White" or "Black", for the start of a sentence. */
++export function sideName(color) {
++  return color === 'b' ? 'Black' : 'White';
++}
++
++/** "white knight", or '' when there is no piece. */
++export function pieceName(piece) {
++  if (!piece || !PIECE_WORDS[piece.type] || !COLOR_WORDS[piece.color]) return '';
++  return `${COLOR_WORDS[piece.color]} ${PIECE_WORDS[piece.type]}`;
++}
++
++/**
++ * The accessible name of one square, e.g. "e4, white knight".
++ *
++ * An empty square says "empty" rather than just its name, so a listener
++ * arrowing across the board hears a definite answer on every square instead
++ * of having to notice that nothing followed the coordinate.
++ *
++ * @param {string} square
++ * @param {{type: string, color: string} | null} piece
++ * @param {{selected?: boolean, target?: 'move' | 'capture' | null,
++ *          check?: boolean, lastMoveFrom?: boolean, lastMoveTo?: boolean}} state
++ */
++export function describeSquare(square, piece, state = {}) {
++  const parts = [square, piece ? pieceName(piece) : 'empty'];
++  if (state.check) parts.push('in check');
++  if (state.selected) parts.push('selected');
++  // Decided by the move, not by whether the square is occupied: an en
++  // passant capture lands on an empty square and is still a capture.
++  if (state.target === 'capture') parts.push('legal capture');
++  else if (state.target === 'move') parts.push('legal move');
++  if (state.lastMoveTo) parts.push('last move ended here');
++  else if (state.lastMoveFrom) parts.push('last move started here');
++  return parts.join(', ');
++}
++
++const NAV_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
++
++const clamp = (n) => Math.min(7, Math.max(0, n));
++
++/**
++ * Where keyboard focus goes from `square` when `key` is pressed.
++ *
++ * Arrows follow the SCREEN, not the rank numbers: with Black at the bottom,
++ * ArrowUp goes from e5 to e4, because that is the square above it on the
++ * screen. A sighted helper pointing at the board and a keyboard player must
++ * agree on what "up" means. Focus stops at the edge instead of wrapping,
++ * which is the ARIA grid convention and stops a8 silently becoming h1.
++ *
++ * @returns {string|null} the new square, or null if `key` is not a
++ *   navigation key (so the caller knows not to swallow it).
++ */
++export function stepSquare(square, key, orientation = 'w') {
++  if (!isSquare(square) || !NAV_KEYS.has(key)) return null;
++  let file = FILES.indexOf(square[0]);
++  let rank = Number(square[1]) - 1;
++  const flip = orientation === 'b' ? -1 : 1;
++  switch (key) {
++    case 'ArrowUp':
++      rank += flip;
++      break;
++    case 'ArrowDown':
++      rank -= flip;
++      break;
++    case 'ArrowRight':
++      file += flip;
++      break;
++    case 'ArrowLeft':
++      file -= flip;
++      break;
++    case 'Home':
++      file = orientation === 'b' ? 7 : 0;
++      break;
++    case 'End':
++      file = orientation === 'b' ? 0 : 7;
++      break;
++    default:
++      return null;
++  }
++  return FILES[clamp(file)] + (clamp(rank) + 1);
++}
++
++/**
++ * The square that takes the board's single tab stop before the player has
++ * moved focus anywhere: the last move's destination if there is one (that is
++ * what they will want to inspect after the opponent moves), otherwise the
++ * bottom-left corner as they see the board.
++ */
++export function defaultFocusSquare(orientation = 'w', lastMove = null) {
++  if (lastMove && isSquare(lastMove.to)) return lastMove.to;
++  return orientation === 'b' ? 'h8' : 'a1';
++}
++
++const isCastle = (move) => move.flags === 'k' || move.flags === 'q';
++
++/**
++ * One move as a spoken sentence, e.g. "White knight to f3." or
++ * "Black knight captures pawn on e5, check."
++ *
++ * @param {object} move a verbose move from the engine ({color, piece, to,
++ *   captured, promotion, flags, san}).
++ * @param {object|null} status the engine's status() AFTER the move. Used for
++ *   draws, which the move's SAN cannot express; checkmate and check are read
++ *   from the SAN suffix and cross-checked against it.
++ * @returns {string} a complete sentence ending in a full stop, or '' for no move.
++ */
++export function describeMove(move, status = null) {
++  if (!move || !PIECE_WORDS[move.piece]) return '';
++  const side = sideName(move.color);
++  let text;
++  if (isCastle(move)) {
++    text = `${side} castles ${move.flags === 'k' ? 'kingside' : 'queenside'}`;
++  } else {
++    const mover = `${side} ${PIECE_WORDS[move.piece]}`;
++    if (move.captured) {
++      const enPassant = typeof move.flags === 'string' && move.flags.includes('e');
++      text = `${mover} captures ${PIECE_WORDS[move.captured]} on ${move.to}${enPassant ? ' en passant' : ''}`;
++    } else {
++      text = `${mover} to ${move.to}`;
++    }
++    if (move.promotion) text += `, promotes to ${PIECE_WORDS[move.promotion]}`;
++  }
++
++  const san = move.san || '';
++  const mate = san.endsWith('#') || status?.reason === 'checkmate';
++  if (mate) return `${text}, checkmate. ${side} wins.`;
++  if (san.endsWith('+') || status?.reason === 'check') text += ', check';
++
++  let sentence = `${text}.`;
++  // Stalemate, repetition and the rest end the game without any mark in the
++  // SAN, so without this a listener would never learn the game was over.
++  if (status?.over && status.text) sentence += ` ${status.text}.`;
++  return sentence;
++}
++
++/** A list read the way people say it: "a", "a or b", "a, b or c". */
++export function joinOr(items) {
++  if (items.length <= 1) return items.join('');
++  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
++}
++
++/**
++ * What the board says when a piece is picked up: which piece, and where it
++ * can go. Listing the destinations is the keyboard equivalent of the dots a
++ * sighted player sees, and saves arrowing over every square to find them.
++ *
++ * @param {string} square
++ * @param {{type, color}} piece
++ * @param {object[]} moves the piece's legal verbose moves.
++ */
++export function describeSelection(square, piece, moves) {
++  const who = capitalise(pieceName(piece));
++  // A promotion appears four times, once per piece; the square is one choice.
++  const seen = new Set();
++  const destinations = [];
++  for (const move of moves) {
++    if (seen.has(move.to)) continue;
++    seen.add(move.to);
++    if (isCastle(move)) destinations.push(`${move.to} (castles)`);
++    else if (move.captured) destinations.push(`takes ${move.to}`);
++    else destinations.push(move.to);
++  }
++  if (destinations.length === 0) return `${who} on ${square} selected. It has no legal moves.`;
++  const count = destinations.length;
++  return `${who} on ${square} selected. ${count} legal move${count === 1 ? '' : 's'}: ${destinations.join(', ')}.`;
++}
++
++/** Why pressing Enter on this square picked nothing up. */
++export function describeCannotSelect(square, piece, turn) {
++  const side = sideName(turn);
++  if (!piece) return `${square} is empty. Pick one of ${side}'s pieces.`;
++  return `${square} has a ${pieceName(piece)}. It is ${side}'s move.`;
++}
++
++/** Why the chosen destination was refused. The selection is cleared, as a click would. */
++export function describeIllegalTarget(from, piece, to) {
++  return `${capitalise(pieceName(piece))} on ${from} can't move to ${to}. Selection cleared.`;
++}
++
++export const SELECTION_CLEARED = 'Selection cleared.';
++
++export const BOARD_INSTRUCTIONS =
++  'Arrow keys move around the board. Enter or Space picks up a piece, and again on a square puts it down. Escape cancels.';
+diff --git a/src/data/boardA11y.test.js b/src/data/boardA11y.test.js
+new file mode 100644
+index 0000000..9507bfc
+--- /dev/null
++++ b/src/data/boardA11y.test.js
+@@ -0,0 +1,261 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import { Chess } from '../engine/chess.js';
++import {
++  pieceName,
++  sideName,
++  describeSquare,
++  stepSquare,
++  defaultFocusSquare,
++  describeMove,
++  describeSelection,
++  describeCannotSelect,
++  describeIllegalTarget,
++  joinOr,
++  isSquare,
++} from './boardA11y.js';
++
++/** Play `san` in `fen` and describe it the way the pages do. */
++const say = (fen, san) => {
++  const game = new Chess(fen);
++  const move = game.move(san);
++  assert.ok(move, `${san} should be legal in ${fen}`);
++  return describeMove(move, game.status());
++};
++
++// --- square names ----------------------------------------------------------
++
++test('a square is named, then its piece', () => {
++  assert.equal(describeSquare('e4', { type: 'n', color: 'w' }), 'e4, white knight');
++  assert.equal(describeSquare('d8', { type: 'q', color: 'b' }), 'd8, black queen');
++});
++
++test('an empty square says so instead of trailing off', () => {
++  assert.equal(describeSquare('e4', null), 'e4, empty');
++});
++
++test('board cues are spoken after the piece', () => {
++  const knight = { type: 'n', color: 'w' };
++  assert.equal(describeSquare('g1', knight, { selected: true }), 'g1, white knight, selected');
++  assert.equal(describeSquare('f3', null, { target: 'move' }), 'f3, empty, legal move');
++  assert.equal(
++    describeSquare('d5', { type: 'p', color: 'b' }, { target: 'capture' }),
++    'd5, black pawn, legal capture',
++  );
++  // En passant: a capture onto an empty square.
++  assert.equal(describeSquare('d6', null, { target: 'capture' }), 'd6, empty, legal capture');
++  assert.equal(
++    describeSquare('e1', { type: 'k', color: 'w' }, { check: true }),
++    'e1, white king, in check',
++  );
++  assert.equal(describeSquare('e4', { type: 'p', color: 'w' }, { lastMoveTo: true }), 'e4, white pawn, last move ended here');
++  assert.equal(describeSquare('e2', null, { lastMoveFrom: true }), 'e2, empty, last move started here');
++});
++
++test('pieceName and sideName', () => {
++  assert.equal(pieceName({ type: 'b', color: 'b' }), 'black bishop');
++  assert.equal(pieceName(null), '');
++  assert.equal(pieceName({ type: 'x', color: 'w' }), '');
++  assert.equal(sideName('w'), 'White');
++  assert.equal(sideName('b'), 'Black');
++});
++
++// --- arrow-key navigation --------------------------------------------------
++
++test('arrows follow the screen with White at the bottom', () => {
++  assert.equal(stepSquare('e4', 'ArrowUp', 'w'), 'e5');
++  assert.equal(stepSquare('e4', 'ArrowDown', 'w'), 'e3');
++  assert.equal(stepSquare('e4', 'ArrowLeft', 'w'), 'd4');
++  assert.equal(stepSquare('e4', 'ArrowRight', 'w'), 'f4');
++  assert.equal(stepSquare('e4', 'Home', 'w'), 'a4');
++  assert.equal(stepSquare('e4', 'End', 'w'), 'h4');
++});
++
++test('arrows follow the screen, not the rank numbers, with Black at the bottom', () => {
++  assert.equal(stepSquare('e4', 'ArrowUp', 'b'), 'e3');
++  assert.equal(stepSquare('e4', 'ArrowDown', 'b'), 'e5');
++  assert.equal(stepSquare('e4', 'ArrowLeft', 'b'), 'f4');
++  assert.equal(stepSquare('e4', 'ArrowRight', 'b'), 'd4');
++  assert.equal(stepSquare('e4', 'Home', 'b'), 'h4');
++  assert.equal(stepSquare('e4', 'End', 'b'), 'a4');
++});
++
++test('focus stops at the edge of the board rather than wrapping', () => {
++  assert.equal(stepSquare('a8', 'ArrowUp', 'w'), 'a8');
++  assert.equal(stepSquare('a8', 'ArrowLeft', 'w'), 'a8');
++  assert.equal(stepSquare('h1', 'ArrowDown', 'w'), 'h1');
++  assert.equal(stepSquare('h1', 'ArrowRight', 'w'), 'h1');
++  assert.equal(stepSquare('a1', 'ArrowDown', 'b'), 'a2');
++  assert.equal(stepSquare('a1', 'ArrowUp', 'b'), 'a1');
++});
++
++test('keys that are not navigation return null so they are not swallowed', () => {
++  assert.equal(stepSquare('e4', 'Enter', 'w'), null);
++  assert.equal(stepSquare('e4', 'Tab', 'w'), null);
++  assert.equal(stepSquare('e4', 'a', 'w'), null);
++  assert.equal(stepSquare('z9', 'ArrowUp', 'w'), null);
++  assert.equal(stepSquare(null, 'ArrowUp', 'w'), null);
++});
++
++test('the default tab stop is the last move, else the bottom-left corner', () => {
++  assert.equal(defaultFocusSquare('w', null), 'a1');
++  assert.equal(defaultFocusSquare('b', null), 'h8');
++  assert.equal(defaultFocusSquare('w', { from: 'g8', to: 'f6' }), 'f6');
++  assert.equal(defaultFocusSquare('w', { from: 'g8', to: 'zz' }), 'a1');
++});
++
++test('isSquare', () => {
++  assert.equal(isSquare('a1'), true);
++  assert.equal(isSquare('h8'), true);
++  assert.equal(isSquare('i1'), false);
++  assert.equal(isSquare('a0'), false);
++  assert.equal(isSquare(''), false);
++  assert.equal(isSquare(undefined), false);
++});
++
++// --- move announcements ----------------------------------------------------
++
++const START = new Chess().fen();
++
++test('a quiet move: side, piece, destination', () => {
++  assert.equal(say(START, 'Nf3'), 'White knight to f3.');
++  assert.equal(say(START, 'e4'), 'White pawn to e4.');
++  assert.equal(
++    say('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', 'Nf6'),
++    'Black knight to f6.',
++  );
++});
++
++test('a capture names the piece taken', () => {
++  assert.equal(say('4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1', 'exd5'), 'White pawn captures pawn on d5.');
++  assert.equal(say('4k3/8/2n5/4P3/8/8/7P/3K4 b - - 0 1', 'Nxe5'), 'Black knight captures pawn on e5.');
++});
++
++test('the task example: black captures on e5, check', () => {
++  // The knight lands on e5 attacking the white king on d3.
++  assert.equal(
++    say('4k3/8/2n5/4P3/8/3K4/7P/8 b - - 0 1', 'Nxe5+'),
++    'Black knight captures pawn on e5, check.',
++  );
++});
++
++test('a quiet check', () => {
++  assert.equal(say('4k3/8/8/8/7p/5n2/8/5K2 b - - 0 1', 'Nd2+'), 'Black knight to d2, check.');
++});
++
++test('capture with check', () => {
++  // Black queen takes the e5 pawn and checks the king on e1 down the file.
++  assert.equal(
++    say('4k3/8/8/4P3/8/8/8/q3K3 b - - 0 1', 'Qxe5+'),
++    'Black queen captures pawn on e5, check.',
++  );
++});
++
++test('en passant is said out loud', () => {
++  assert.equal(
++    say('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1', 'exd6'),
++    'White pawn captures pawn on d6 en passant.',
++  );
++});
++
++test('castling is named as castling, not as a king move', () => {
++  const fen = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1';
++  assert.equal(say(fen, 'O-O'), 'White castles kingside.');
++  assert.equal(say(fen, 'O-O-O'), 'White castles queenside.');
++  assert.equal(say('r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1', 'O-O'), 'Black castles kingside.');
++});
++
++test('promotion says the piece chosen, including an underpromotion', () => {
++  assert.equal(say('4k3/P7/8/8/8/8/7P/4K3 w - - 0 1', 'a8=Q+'), 'White pawn to a8, promotes to queen, check.');
++  assert.equal(say('4k3/P7/8/8/8/8/7P/4K3 w - - 0 1', 'a8=N'), 'White pawn to a8, promotes to knight.');
++  assert.equal(
++    say('1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1', 'axb8=R+'),
++    'White pawn captures rook on b8, promotes to rook, check.',
++  );
++});
++
++test('checkmate names the winner and is not followed by a second status line', () => {
++  // Fool's mate.
++  const game = new Chess();
++  for (const san of ['f3', 'e5', 'g4']) game.move(san);
++  const mate = game.move('Qh4#');
++  assert.equal(describeMove(mate, game.status()), 'Black queen to h4, checkmate. Black wins.');
++});
++
++test('insufficient material after a move is announced too', () => {
++  // K+N v K: the knight's check is the last thing that can happen.
++  assert.equal(
++    say('4k3/8/8/8/8/5n2/8/5K2 b - - 0 1', 'Nd2+'),
++    'Black knight to d2, check. Draw — insufficient material.',
++  );
++});
++
++test('a draw with no mark in the SAN is still announced', () => {
++  // Qb6 stalemates the black king on a8.
++  const text = say('k7/8/2Q5/8/8/8/8/4K3 w - - 0 1', 'Qb6');
++  assert.equal(text, 'White queen to b6. Draw by stalemate.');
++});
++
++test('describeMove without a status reads check from the SAN alone', () => {
++  const move = { color: 'w', piece: 'q', to: 'h5', captured: null, promotion: null, flags: 'n', san: 'Qh5+' };
++  assert.equal(describeMove(move), 'White queen to h5, check.');
++});
++
++test('describeMove refuses what is not a move', () => {
++  assert.equal(describeMove(null), '');
++  assert.equal(describeMove(undefined), '');
++  assert.equal(describeMove({ color: 'w', piece: 'x', to: 'e4' }), '');
++});
++
++// --- selection feedback ----------------------------------------------------
++
++test('picking up a piece lists where it can go', () => {
++  const game = new Chess();
++  const moves = game.moves({ square: 'g1', verbose: true });
++  assert.equal(
++    describeSelection('g1', { type: 'n', color: 'w' }, moves),
++    'White knight on g1 selected. 2 legal moves: f3, h3.',
++  );
++});
++
++test('a piece with no moves is still reported, and says it cannot move', () => {
++  assert.equal(
++    describeSelection('a1', { type: 'r', color: 'w' }, []),
++    'White rook on a1 selected. It has no legal moves.',
++  );
++});
++
++test('selection lists a promotion square once and marks captures and castling', () => {
++  const promo = new Chess('1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1');
++  assert.equal(
++    describeSelection('a7', { type: 'p', color: 'w' }, promo.moves({ square: 'a7', verbose: true })),
++    'White pawn on a7 selected. 2 legal moves: a8, takes b8.',
++  );
++  const castle = new Chess('4k3/8/8/8/8/8/8/4K2R w K - 0 1');
++  const text = describeSelection('e1', { type: 'k', color: 'w' }, castle.moves({ square: 'e1', verbose: true }));
++  assert.match(text, /g1 \(castles\)/);
++  assert.match(text, /^White king on e1 selected\. 6 legal moves: /);
++});
++
++test('why nothing was picked up', () => {
++  assert.equal(describeCannotSelect('e4', null, 'w'), "e4 is empty. Pick one of White's pieces.");
++  assert.equal(
++    describeCannotSelect('e7', { type: 'p', color: 'b' }, 'w'),
++    "e7 has a black pawn. It is White's move.",
++  );
++});
++
++test('why a destination was refused', () => {
++  assert.equal(
++    describeIllegalTarget('g1', { type: 'n', color: 'w' }, 'e5'),
++    "White knight on g1 can't move to e5. Selection cleared.",
++  );
++});
++
++test('joinOr reads a list the way people say it', () => {
++  assert.equal(joinOr([]), '');
++  assert.equal(joinOr(['Nbd2']), 'Nbd2');
++  assert.equal(joinOr(['Nbd2', 'Nfd2']), 'Nbd2 or Nfd2');
++  assert.equal(joinOr(['a', 'b', 'c']), 'a, b or c');
++});
+diff --git a/src/data/sanInput.js b/src/data/sanInput.js
+new file mode 100644
+index 0000000..02b0a29
+--- /dev/null
++++ b/src/data/sanInput.js
+@@ -0,0 +1,297 @@
++/*
++ * sanInput.js — turn a move somebody typed into exactly one legal move, or
++ * say precisely why it isn't one.
++ *
++ * The engine's own move('Nf3') accepts SAN only as it would write it and
++ * answers null for anything else. That is right for replaying a PGN and
++ * useless to a player at a keyboard, who needs to hear "ambiguous: Nbd2 or
++ * Nfd2", not silence. This module matches typed text against the engine's
++ * legal move list (it never edits or second-guesses chess.js) and explains
++ * every refusal.
++ *
++ * What is ACCEPTED, and why each tolerance is safe (none can mean two moves):
++ *   - Standard SAN: Nf3, exd5, Rae1, N1c3, Qh4xe1, e8=Q, O-O-O.
++ *   - Check/mate marks and !/? glyphs, present or absent. They describe the
++ *     position, they do not choose the move, and PGN readers ignore them too.
++ *   - "x" left out of a capture: Ne5 for Nxe5, ed5 for exd5.
++ *   - Castling with digit zero or lowercase o: 0-0, o-o-o.
++ *   - Promotion without "=" (e8Q) or with a lowercase piece (e8=q): after
++ *     the destination square a letter can only be the promotion piece.
++ *   - Lowercase n, r, q, k as piece letters. No file is called n, r, q or
++ *     k, so "nf3" cannot mean anything but the knight.
++ *   - Coordinates: e2e4, g1-f3, e7e8q. That is how the board's square
++ *     announcements speak, so it is what a screen-reader user will type.
++ *   - A leading move number copied from a book: "1. e4", "12...Nf6".
++ *
++ * What is REFUSED, on purpose, with a suggestion where one is certain:
++ *   - Lowercase b as a bishop. "bc4" is how b-pawn moves are written, and
++ *     guessing would play a move nobody asked for. The error offers Bc4.
++ *   - "x" on a move that captures nothing. The player has misread the
++ *     board, and playing the quiet move anyway could be a blunder they
++ *     never meant. Tournament scoresheets are SAN, so saying so also teaches.
++ *   - A promotion with no piece named. The engine would quietly default to
++ *     a queen, and choosing the piece is the whole point of asking.
++ *   - Kg1 meaning castling. SAN writes castling as O-O; "Kg1" is a king step.
++ *   - A "P" in front of a pawn move, and capital square letters (E4): both
++ *     are refused with the corrected spelling, since a scoresheet needs it.
++ */
++
++import { joinOr } from './boardA11y.js';
++
++const PROMOTABLE = new Set(['q', 'r', 'b', 'n']);
++
++const PIECE_RE = /^([KQRBNkqrn])([a-h])?([1-8])?([x-])?([a-h][1-8])$/;
++const PAWN_PUSH_RE = /^([a-h][1-8])(?:=?([A-Za-z]))?$/;
++const PAWN_CAPTURE_RE = /^([a-h])(x)?([a-h][1-8])(?:=?([A-Za-z]))?$/;
++const COORD_RE = /^([a-h][1-8])([x-])?([a-h][1-8])(?:=?([A-Za-z]))?$/;
++const CASTLE_RE = /^[O0o]-[O0o](-[O0o])?$/;
++
++/** Strip what carries no information about WHICH move: spaces, numbers, marks. */
++function clean(raw) {
++  return String(raw ?? '')
++    .replace(/\s+/g, '')
++    .replace(/^\d+\.+/, '')
++    .replace(/[+#!?]+$/, '')
++    .replace(/e\.p\.$/i, '')
++    .replace(/[+#!?]+$/, '');
++}
++
++/** Validate an optional promotion letter; returns the parse or an invalid marker. */
++function promotionOf(letter) {
++  if (!letter) return { promotion: null };
++  const lower = letter.toLowerCase();
++  if (PROMOTABLE.has(lower)) return { promotion: lower };
++  if (lower === 'k' || lower === 'p') return { invalid: 'bad-promotion' };
++  return { invalid: 'unreadable' };
++}
++
++function parsePawnOrCoord(body) {
++  let m = COORD_RE.exec(body);
++  if (m) {
++    const promo = promotionOf(m[4]);
++    if (promo.invalid) return { kind: 'invalid', reason: promo.invalid };
++    return { kind: 'coord', from: m[1], to: m[3], capture: m[2] === 'x', promotion: promo.promotion };
++  }
++  m = PAWN_PUSH_RE.exec(body);
++  if (m) {
++    const promo = promotionOf(m[2]);
++    if (promo.invalid) return { kind: 'invalid', reason: promo.invalid };
++    return { kind: 'pawn', fromFile: null, to: m[1], capture: false, promotion: promo.promotion };
++  }
++  m = PAWN_CAPTURE_RE.exec(body);
++  if (m) {
++    const promo = promotionOf(m[4]);
++    if (promo.invalid) return { kind: 'invalid', reason: promo.invalid };
++    return { kind: 'pawn', fromFile: m[1], to: m[3], capture: true, promotion: promo.promotion };
++  }
++  return null;
++}
++
++/**
++ * Read typed text into a structured move description, without looking at
++ * any position. Split from matching so the grammar can be tested on its own.
++ *
++ * @returns {{kind: 'empty'} |
++ *   {kind: 'castle', side: 'k'|'q'} |
++ *   {kind: 'piece', piece, fromFile, fromRank, capture, to} |
++ *   {kind: 'pawn', fromFile, capture, to, promotion} |
++ *   {kind: 'coord', from, to, capture, promotion} |
++ *   {kind: 'invalid', reason, suggestion?}}
++ */
++export function parseSanInput(raw) {
++  const body = clean(raw);
++  if (!body) return { kind: 'empty' };
++
++  if (CASTLE_RE.test(body)) return { kind: 'castle', side: body.length > 3 ? 'q' : 'k' };
++
++  let m = PIECE_RE.exec(body);
++  if (m) {
++    return {
++      kind: 'piece',
++      piece: m[1].toLowerCase(),
++      fromFile: m[2] || null,
++      fromRank: m[3] || null,
++      capture: m[4] === 'x',
++      to: m[5],
++    };
++  }
++
++  const pawn = parsePawnOrCoord(body);
++  if (pawn) return pawn;
++
++  // Near misses that have exactly one correct spelling get it suggested.
++  if (/^[Pp]/.test(body) && parsePawnOrCoord(body.slice(1))) {
++    return { kind: 'invalid', reason: 'pawn-letter', suggestion: body.slice(1) };
++  }
++  if (/^[A-H]/.test(body) && parsePawnOrCoord(body.toLowerCase())) {
++    return { kind: 'invalid', reason: 'uppercase-square', suggestion: body.toLowerCase() };
++  }
++  const pieceFirst = body[0] + body.slice(1).toLowerCase();
++  if (/^[KQRBN]/.test(body) && pieceFirst !== body && PIECE_RE.test(pieceFirst)) {
++    return { kind: 'invalid', reason: 'uppercase-square', suggestion: pieceFirst };
++  }
++  return { kind: 'invalid', reason: 'unreadable' };
++}
++
++const sideName = (color) => (color === 'b' ? 'Black' : 'White');
++const stripSuffix = (san) => san.replace(/[+#]+$/, '');
++const fail = (code, message) => ({ ok: false, code, message });
++
++const PIECE_WORDS = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
++const COLOR_WORDS = { w: 'white', b: 'black' };
++
++/** One move per origin square: a promotion is listed four times by the engine. */
++function distinctByOrigin(moves) {
++  const seen = new Set();
++  return moves.filter((m) => (seen.has(m.from) ? false : (seen.add(m.from), true)));
++}
++
++/**
++ * Apply the promotion and capture claims the player typed to a set of
++ * candidate moves, and pick one. Shared by every notation.
++ *
++ * @param {object[]} candidates legal verbose moves consistent with the text
++ * @param {object} parsed the parse (for `capture` and `promotion`)
++ * @param {{shown: string, example: (piece: string) => string}} spelling how
++ *   to echo the player's own notation back in a message
++ */
++function resolve(candidates, parsed, { shown, example }) {
++  if (parsed.capture && candidates.every((m) => !m.captured)) {
++    const quiet = distinctByOrigin(candidates);
++    const hint = quiet.length === 1 ? ` Did you mean ${stripSuffix(quiet[0].san)}?` : '';
++    return fail('not-a-capture', `${shown} captures nothing: ${quiet[0].to} is empty.${hint}`);
++  }
++
++  const promotes = candidates.some((m) => m.promotion);
++  if (promotes && !parsed.promotion) {
++    return fail(
++      'promotion-needed',
++      `That move promotes a pawn: add the piece, for example ${example('q')} or ${example('n')}.`,
++    );
++  }
++  if (!promotes && parsed.promotion) {
++    return fail('not-a-promotion', `${shown}: only a pawn reaching the last rank can promote.`);
++  }
++  const chosen = promotes ? candidates.filter((m) => m.promotion === parsed.promotion) : candidates;
++
++  const distinct = distinctByOrigin(chosen);
++  if (distinct.length > 1) {
++    return fail('ambiguous', `Ambiguous: ${joinOr(distinct.map((m) => m.san))}.`);
++  }
++  const move = distinct[0];
++  return {
++    ok: true,
++    move: { from: move.from, to: move.to, ...(move.promotion ? { promotion: move.promotion } : {}) },
++    san: move.san,
++  };
++}
++
++/**
++ * Match typed text against the legal moves in `game`. Never changes `game`.
++ *
++ * @param {import('../engine/chess.js').Chess} game
++ * @param {string} raw what the player typed
++ * @returns {{ok: true, move: {from, to, promotion?}, san: string} |
++ *           {ok: false, code: string, message: string}}
++ */
++export function matchSanInput(game, raw) {
++  const parsed = parseSanInput(raw);
++  const shown = clean(raw);
++  const side = sideName(game.turn);
++
++  switch (parsed.kind) {
++    case 'empty':
++      return fail('empty', 'Type a move first, for example Nf3.');
++    case 'invalid':
++      if (parsed.reason === 'pawn-letter') {
++        return fail('pawn-letter', `Pawn moves are written without a P: try ${parsed.suggestion}.`);
++      }
++      if (parsed.reason === 'uppercase-square') {
++        return fail('uppercase-square', `Squares are lowercase: try ${parsed.suggestion}.`);
++      }
++      if (parsed.reason === 'bad-promotion') {
++        return fail('bad-promotion', 'A pawn promotes to a queen, rook, bishop or knight.');
++      }
++      return fail(
++        'unreadable',
++        `Couldn't read "${shown}" as a move. Try something like Nf3, exd5, O-O or e8=Q.`,
++      );
++    default:
++      break;
++  }
++
++  const legal = game.moves({ verbose: true });
++  const checkNote = game.inCheck() ? ` ${side} is in check.` : '';
++  const noMatch = () => fail('no-match', `No legal move matches ${shown}.${checkNote}`);
++
++  if (parsed.kind === 'castle') {
++    const move = legal.find((m) => m.flags === parsed.side);
++    if (!move) {
++      return fail(
++        'castle-illegal',
++        `Castling ${parsed.side === 'k' ? 'kingside' : 'queenside'} isn't legal right now.${checkNote}`,
++      );
++    }
++    return { ok: true, move: { from: move.from, to: move.to }, san: move.san };
++  }
++
++  if (parsed.kind === 'piece') {
++    const candidates = legal.filter(
++      (m) =>
++        m.piece === parsed.piece &&
++        m.to === parsed.to &&
++        m.flags !== 'k' &&
++        m.flags !== 'q' &&
++        (!parsed.fromFile || m.from[0] === parsed.fromFile) &&
++        (!parsed.fromRank || m.from[1] === parsed.fromRank),
++    );
++    if (candidates.length === 0) {
++      const castle = parsed.piece === 'k' && legal.find((m) => (m.flags === 'k' || m.flags === 'q') && m.to === parsed.to);
++      if (castle) return fail('castle-notation', `To castle, type ${castle.flags === 'k' ? 'O-O' : 'O-O-O'}.`);
++      return noMatch();
++    }
++    return resolve(candidates, parsed, { shown, example: () => shown });
++  }
++
++  if (parsed.kind === 'pawn') {
++    const candidates = legal.filter(
++      (m) =>
++        m.piece === 'p' &&
++        m.to === parsed.to &&
++        (parsed.fromFile
++          ? m.from[0] === parsed.fromFile && m.from[0] !== parsed.to[0]
++          : m.from[0] === parsed.to[0]),
++    );
++    if (candidates.length === 0) {
++      // "bc4" is b-pawn notation. If only a bishop could have been meant,
++      // say so, but never play it: the player may have meant the pawn.
++      if (parsed.fromFile === 'b') {
++        const bishops = distinctByOrigin(legal.filter((m) => m.piece === 'b' && m.to === parsed.to));
++        if (bishops.length) {
++          return fail(
++            'lowercase-bishop',
++            `No pawn move matches ${shown}. A bishop takes a capital B: ${joinOr(bishops.map((m) => m.san))}.`,
++          );
++        }
++      }
++      return noMatch();
++    }
++    const base = parsed.fromFile ? `${parsed.fromFile}x${parsed.to}` : parsed.to;
++    return resolve(candidates, parsed, { shown, example: (p) => `${base}=${p.toUpperCase()}` });
++  }
++
++  // Coordinates: the origin is named, so explain what is wrong with it.
++  const candidates = legal.filter((m) => m.from === parsed.from && m.to === parsed.to);
++  if (candidates.length === 0) {
++    const piece = game.get(parsed.from);
++    if (!piece) return fail('no-piece', `There is no piece on ${parsed.from}.`);
++    if (piece.color !== game.turn) {
++      return fail('wrong-side', `${parsed.from} has a ${COLOR_WORDS[piece.color]} ${PIECE_WORDS[piece.type]}. It is ${side}'s move.`);
++    }
++    return fail(
++      'no-match',
++      `The ${COLOR_WORDS[piece.color]} ${PIECE_WORDS[piece.type]} on ${parsed.from} can't move to ${parsed.to}.${checkNote}`,
++    );
++  }
++  return resolve(candidates, parsed, { shown, example: (p) => `${parsed.from}${parsed.to}${p}` });
++}
+diff --git a/src/data/sanInput.test.js b/src/data/sanInput.test.js
+new file mode 100644
+index 0000000..d2c0c9d
+--- /dev/null
++++ b/src/data/sanInput.test.js
+@@ -0,0 +1,305 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import { Chess } from '../engine/chess.js';
++import { parseSanInput, matchSanInput } from './sanInput.js';
++
++const START = new Chess().fen();
++const AFTER_E4_E5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
++// White knights on b1 and f3 can both reach d2.
++const TWO_KNIGHTS = '4k3/8/8/8/8/5N2/8/1N2K3 w - - 0 1';
++// Three knights (b1, f1, f3) can reach d2.
++const THREE_KNIGHTS = '4k3/8/8/8/8/5N2/8/1N2KN2 w - - 0 1';
++// Rooks on a1 and a5 can both reach a3: disambiguated by rank.
++const TWO_ROOKS = '4k3/8/8/R7/8/8/8/R3K3 w - - 0 1';
++const CASTLING = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1';
++const PROMOTE = '4k3/P7/8/8/8/8/8/4K3 w - - 0 1';
++const PROMOTE_CAPTURE = '1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1';
++const EN_PASSANT = '4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1';
++const PAWN_TAKES = '4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1';
++// b2 pawn and e1 bishop can both take on c3; "bxc3" must be the pawn.
++const B_PAWN_OR_BISHOP = '4k3/8/8/8/8/2n5/1P6/4B1K1 w - - 0 1';
++// White is in check from the rook on e8.
++const IN_CHECK = '4r1k1/8/8/8/8/8/8/4K1N1 w - - 0 1';
++
++const play = (fen, text) => matchSanInput(new Chess(fen), text);
++
++const expectMove = (fen, text, from, to, promotion) => {
++  const result = play(fen, text);
++  assert.equal(result.ok, true, `${text}: ${result.message}`);
++  assert.equal(result.move.from, from, text);
++  assert.equal(result.move.to, to, text);
++  assert.equal(result.move.promotion, promotion, text);
++  return result;
++};
++
++const expectError = (fen, text, code) => {
++  const result = play(fen, text);
++  assert.equal(result.ok, false, `${text} should have been refused`);
++  assert.equal(result.code, code, `${text}: ${result.message}`);
++  assert.equal(typeof result.message, 'string');
++  assert.ok(result.message.length > 0);
++  return result;
++};
++
++// --- accepted forms --------------------------------------------------------
++
++test('standard SAN plays the one legal move it names', () => {
++  const result = expectMove(START, 'Nf3', 'g1', 'f3', undefined);
++  assert.equal(result.san, 'Nf3');
++  expectMove(START, 'e4', 'e2', 'e4', undefined);
++  expectMove(START, 'e3', 'e2', 'e3', undefined);
++});
++
++test('check, mate and annotation marks are ignored either way', () => {
++  expectMove(START, 'Nf3+', 'g1', 'f3', undefined);
++  expectMove(START, 'Nf3#', 'g1', 'f3', undefined);
++  expectMove(START, 'Nf3!?', 'g1', 'f3', undefined);
++  expectMove(START, '  Nf3  ', 'g1', 'f3', undefined);
++});
++
++test('a capture is accepted with or without the x', () => {
++  expectMove(PAWN_TAKES, 'exd5', 'e4', 'd5', undefined);
++  expectMove(PAWN_TAKES, 'ed5', 'e4', 'd5', undefined);
++  const knight = '4k3/8/8/4p3/8/5N2/8/4K3 w - - 0 1';
++  expectMove(knight, 'Nxe5', 'f3', 'e5', undefined);
++  expectMove(knight, 'Ne5', 'f3', 'e5', undefined);
++});
++
++test('castling in letter O, digit zero and lowercase o', () => {
++  expectMove(CASTLING, 'O-O', 'e1', 'g1', undefined);
++  expectMove(CASTLING, '0-0', 'e1', 'g1', undefined);
++  expectMove(CASTLING, 'o-o', 'e1', 'g1', undefined);
++  expectMove(CASTLING, 'O-O-O', 'e1', 'c1', undefined);
++  expectMove(CASTLING, '0-0-0+', 'e1', 'c1', undefined);
++});
++
++test('castling can also be typed as king coordinates, the UCI way', () => {
++  const result = expectMove(CASTLING, 'e1g1', 'e1', 'g1', undefined);
++  assert.equal(result.san, 'O-O');
++});
++
++test('disambiguation by file, by rank and by full square', () => {
++  expectMove(TWO_KNIGHTS, 'Nbd2', 'b1', 'd2', undefined);
++  expectMove(TWO_KNIGHTS, 'Nfd2', 'f3', 'd2', undefined);
++  expectMove(TWO_KNIGHTS, 'N1d2', 'b1', 'd2', undefined);
++  expectMove(TWO_KNIGHTS, 'Nf3d2', 'f3', 'd2', undefined);
++  expectMove(TWO_ROOKS, 'R1a3', 'a1', 'a3', undefined);
++  expectMove(TWO_ROOKS, 'R5a3', 'a5', 'a3', undefined);
++});
++
++test('over-disambiguated SAN is still accepted when it names one move', () => {
++  expectMove(START, 'Ngf3', 'g1', 'f3', undefined);
++  expectMove(START, 'Ng1f3', 'g1', 'f3', undefined);
++  expectMove(START, 'Ng1-f3', 'g1', 'f3', undefined);
++});
++
++test('lowercase n, r, q and k are read as pieces: no file has those names', () => {
++  expectMove(START, 'nf3', 'g1', 'f3', undefined);
++  expectMove(TWO_KNIGHTS, 'nbd2', 'b1', 'd2', undefined);
++  expectMove(TWO_ROOKS, 'r1a3', 'a1', 'a3', undefined);
++  expectMove(AFTER_E4_E5, 'qh5', 'd1', 'h5', undefined);
++  expectMove(AFTER_E4_E5, 'ke2', 'e1', 'e2', undefined);
++});
++
++test('coordinates, with or without a separator', () => {
++  expectMove(START, 'e2e4', 'e2', 'e4', undefined);
++  expectMove(START, 'g1f3', 'g1', 'f3', undefined);
++  expectMove(START, 'e2-e4', 'e2', 'e4', undefined);
++  expectMove(PAWN_TAKES, 'e4xd5', 'e4', 'd5', undefined);
++});
++
++test('a leading move number copied from a book is ignored', () => {
++  expectMove(START, '1. e4', 'e2', 'e4', undefined);
++  expectMove(START, '1.Nf3', 'g1', 'f3', undefined);
++  const black = new Chess();
++  black.move('e4');
++  const result = matchSanInput(black, '1...e5');
++  assert.equal(result.ok, true);
++  assert.equal(result.move.to, 'e5');
++});
++
++test('promotion with =, without =, and with a lowercase piece', () => {
++  expectMove(PROMOTE, 'a8=Q', 'a7', 'a8', 'q');
++  expectMove(PROMOTE, 'a8Q', 'a7', 'a8', 'q');
++  expectMove(PROMOTE, 'a8=q', 'a7', 'a8', 'q');
++  expectMove(PROMOTE, 'a8=N', 'a7', 'a8', 'n');
++  expectMove(PROMOTE, 'a8=R+', 'a7', 'a8', 'r');
++  expectMove(PROMOTE, 'a7a8n', 'a7', 'a8', 'n');
++  expectMove(PROMOTE_CAPTURE, 'axb8=R', 'a7', 'b8', 'r');
++  expectMove(PROMOTE_CAPTURE, 'ab8=B', 'a7', 'b8', 'b');
++});
++
++test('en passant is a capture onto an empty square', () => {
++  const result = expectMove(EN_PASSANT, 'exd6', 'e5', 'd6', undefined);
++  assert.equal(result.san, 'exd6');
++  expectMove(EN_PASSANT, 'e5d6', 'e5', 'd6', undefined);
++  expectMove(EN_PASSANT, 'exd6 e.p.', 'e5', 'd6', undefined);
++});
++
++test('lowercase b is always the b-pawn, even when a bishop could take too', () => {
++  expectMove(B_PAWN_OR_BISHOP, 'bxc3', 'b2', 'c3', undefined);
++  expectMove(B_PAWN_OR_BISHOP, 'Bxc3', 'e1', 'c3', undefined);
++});
++
++test('the SAN returned is the engine spelling, with its check mark', () => {
++  const result = expectMove(PROMOTE, 'a8=Q', 'a7', 'a8', 'q');
++  assert.equal(result.san, 'a8=Q+');
++});
++
++test('matching never changes the position it is asked about', () => {
++  const game = new Chess(TWO_KNIGHTS);
++  const before = game.fen();
++  matchSanInput(game, 'Nd2');
++  matchSanInput(game, 'Nbd2');
++  matchSanInput(game, 'nonsense');
++  assert.equal(game.fen(), before);
++  assert.equal(game.moveHistory().length, 0);
++});
++
++// --- refusals --------------------------------------------------------------
++
++test('illegal SAN: no legal move matches', () => {
++  const result = expectError(START, 'Nf4', 'no-match');
++  assert.equal(result.message, 'No legal move matches Nf4.');
++  expectError(START, 'e5', 'no-match'); // Black's move, White to play
++  expectError(START, 'Qh5', 'no-match');
++  expectError(START, 'Ke2', 'no-match');
++  expectError(TWO_KNIGHTS, 'Ncd2', 'no-match'); // no knight on the c-file
++  expectError(START, 'ee4', 'no-match'); // a pawn cannot capture along its file
++});
++
++test('illegal SAN while in check says so', () => {
++  const result = expectError(IN_CHECK, 'Nf3', 'no-match');
++  assert.match(result.message, /White is in check/);
++});
++
++test('ambiguous SAN lists every reading in engine SAN', () => {
++  const result = expectError(TWO_KNIGHTS, 'Nd2', 'ambiguous');
++  assert.match(result.message, /^Ambiguous: /);
++  assert.match(result.message, /Nbd2/);
++  assert.match(result.message, /Nfd2/);
++  assert.match(result.message, / or /);
++  assert.equal(result.message, 'Ambiguous: Nfd2 or Nbd2.');
++
++  const rooks = expectError(TWO_ROOKS, 'Ra3', 'ambiguous');
++  assert.match(rooks.message, /R5a3/);
++  assert.match(rooks.message, /R1a3/);
++});
++
++test('three-way ambiguity reads as a list', () => {
++  const result = expectError(THREE_KNIGHTS, 'Nd2', 'ambiguous');
++  assert.equal(result.message, 'Ambiguous: N3d2, Nbd2 or Nf1d2.');
++  // A file that two of them share still leaves it ambiguous.
++  const byFile = expectError(THREE_KNIGHTS, 'Nfd2', 'ambiguous');
++  assert.match(byFile.message, /N3d2/);
++  assert.match(byFile.message, /Nf1d2/);
++  expectMove(THREE_KNIGHTS, 'Nf1d2', 'f1', 'd2', undefined);
++});
++
++test('promotion without a piece is refused, not defaulted to a queen', () => {
++  const push = expectError(PROMOTE, 'a8', 'promotion-needed');
++  assert.match(push.message, /a8=Q/);
++  assert.match(push.message, /a8=N/);
++  const capture = expectError(PROMOTE_CAPTURE, 'axb8', 'promotion-needed');
++  assert.match(capture.message, /axb8=Q/);
++  const coord = expectError(PROMOTE, 'a7a8', 'promotion-needed');
++  assert.match(coord.message, /a7a8q/);
++});
++
++test('a promotion piece on a move that does not promote is refused', () => {
++  expectError(START, 'e4=Q', 'not-a-promotion');
++  expectError(START, 'e2e4q', 'not-a-promotion');
++});
++
++test('promoting to a king or a pawn is refused', () => {
++  expectError(PROMOTE, 'a8=K', 'bad-promotion');
++  expectError(PROMOTE, 'a8=P', 'bad-promotion');
++});
++
++test('an x on a quiet move is refused with the quiet spelling offered', () => {
++  const result = expectError(START, 'Nxf3', 'not-a-capture');
++  assert.match(result.message, /f3 is empty/);
++  assert.match(result.message, /Did you mean Nf3\?/);
++  expectError(START, 'e2xe4', 'not-a-capture');
++});
++
++test('lowercase b as a bishop is refused and the bishop move suggested', () => {
++  const result = expectError(AFTER_E4_E5, 'bc4', 'lowercase-bishop');
++  assert.match(result.message, /Bc4/);
++  expectError(AFTER_E4_E5, 'bxc4', 'lowercase-bishop');
++});
++
++test('castling that is not available is explained', () => {
++  const result = expectError(START, 'O-O', 'castle-illegal');
++  assert.match(result.message, /kingside/);
++  expectError(START, 'O-O-O', 'castle-illegal');
++  const inCheck = new Chess('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1');
++  inCheck.load('4r3/8/8/8/8/8/8/R3K2R w KQ - 0 1');
++  const blocked = matchSanInput(inCheck, 'O-O');
++  assert.equal(blocked.code, 'castle-illegal');
++  assert.match(blocked.message, /White is in check/);
++});
++
++test('Kg1 is a king step, so castling written that way is corrected', () => {
++  const result = expectError(CASTLING, 'Kg1', 'castle-notation');
++  assert.match(result.message, /O-O/);
++  const queenside = expectError(CASTLING, 'Kc1', 'castle-notation');
++  assert.match(queenside.message, /O-O-O/);
++});
++
++test('coordinates explain an empty origin, the wrong side, or an unreachable square', () => {
++  assert.match(expectError(START, 'e3e4', 'no-piece').message, /no piece on e3/);
++  assert.match(expectError(START, 'e7e5', 'wrong-side').message, /black pawn.*White's move/);
++  assert.match(expectError(START, 'e2e5', 'no-match').message, /white pawn on e2 can't move to e5/);
++});
++
++test('near misses get the correct spelling suggested, not played', () => {
++  assert.match(expectError(START, 'Pe4', 'pawn-letter').message, /try e4/);
++  assert.match(expectError(START, 'E4', 'uppercase-square').message, /try e4/);
++  assert.match(expectError(START, 'E2E4', 'uppercase-square').message, /try e2e4/);
++  assert.match(expectError(START, 'NF3', 'uppercase-square').message, /try Nf3/);
++});
++
++test('empty and unreadable input', () => {
++  expectError(START, '', 'empty');
++  expectError(START, '   ', 'empty');
++  expectError(START, undefined, 'empty');
++  const result = expectError(START, 'knight to f3', 'unreadable');
++  assert.match(result.message, /Couldn't read/);
++  expectError(START, 'xd5', 'unreadable');
++  expectError(START, 'Nf3=Q', 'unreadable');
++  expectError(START, 'e9', 'unreadable');
++  expectError(START, 'Zf3', 'unreadable');
++  expectError(START, 'e8=X', 'unreadable');
++});
++
++// --- the grammar on its own -----------------------------------------------
++
++test('parseSanInput reads the shape without a position', () => {
++  assert.deepEqual(parseSanInput('Nbd2'), {
++    kind: 'piece',
++    piece: 'n',
++    fromFile: 'b',
++    fromRank: null,
++    capture: false,
++    to: 'd2',
++  });
++  assert.deepEqual(parseSanInput('exd8=N+'), {
++    kind: 'pawn',
++    fromFile: 'e',
++    to: 'd8',
++    capture: true,
++    promotion: 'n',
++  });
++  assert.deepEqual(parseSanInput('0-0-0'), { kind: 'castle', side: 'q' });
++  assert.deepEqual(parseSanInput('g1f3'), {
++    kind: 'coord',
++    from: 'g1',
++    to: 'f3',
++    capture: false,
++    promotion: null,
++  });
++  assert.equal(parseSanInput('bc4').kind, 'pawn'); // never a bishop
++  assert.equal(parseSanInput('O-O-O-O').kind, 'invalid');
++});

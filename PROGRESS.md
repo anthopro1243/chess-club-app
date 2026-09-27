@@ -1,6 +1,7 @@
-# Morning summary: autonomous run, Sat 2026-09-26 16:25 UTC → Sun 2026-09-27 12:30 UTC
+# Morning summary: autonomous run, Sat 2026-09-26 16:25 UTC → Sun 2026-09-27 02:45 UTC
 
-_Kept current during the run; the newest state is always here._
+_**Run ended at ~02:45 UTC on the owner's instruction** (planned end was 12:30 UTC). The hourly wake-up
+Routine is deleted. This section is the final state._
 
 **Branch:** `feature/roster-import-9cg3im` (pushed after every item). **Master and the live site are
 untouched.** Preview: `chess-club-app-git-feature-roster-import-9cg3im-chess-club2.vercel.app`
@@ -41,11 +42,20 @@ Musts first. Up to three agents work in parallel in isolated worktrees and I mer
 - **Tournament-day mode** (F085 result entry, F086 offline queue, F087 arrival check-in, F090 debrief,
   F113 family summary): the owner said to skip it. Nothing was built; marked ⏸ in GAP-ANALYSIS.md.
 
-### In progress (agents)
-- Tuesday sessions, session planner, attendance % (F003, F006, F007, F017).
-- Repertoire view, then five motifs one at a time: pin, skewer, discovered attack, trapped piece,
-  deflection.
-- Board accessibility: arrow keys, typed moves, moves announced to screen readers.
+### Also built in the last hours
+- F074 readiness now counts the endgame band (endgame trainer drills passed).
+- Homework appears on each member's home page, including brand-new members.
+- F112/F119 parent info sheet + packing and conduct list (Prep → Parents & packing).
+- F011 one-page player report card (Roster → Report card, coach only, prints on one page).
+
+### Unfinished (saved, not merged) — see docs/wip-2026-09-27/README.md
+- Tuesday sessions / session planner / attendance % (F003, F006, F007, F017); needs migration 0024.
+- Repertoire view per player (owner item 10). Motifs (item 11) not started.
+- Board accessibility (owner item 12): modules only, not wired.
+
+### Still missing from the Musts
+F021 puzzles near each player's rating (bigger set), F091 post-event review queue, F120 graduate
+archive; tournament-day mode (F085–F090, F113) skipped on the owner's instruction.
 
 ### Blocked, logged, moved on
 - **Browser tests against the live database are blocked** by the environment's network policy
