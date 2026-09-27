@@ -9,6 +9,7 @@ import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/
 import { usePlayerPrivate } from '../data/playerPrivateStore.js';
 import RosterImportModal from '../components/RosterImportModal.jsx';
 import ReportCard from '../components/ReportCard.jsx';
+import ArchiveGraduateModal from '../components/ArchiveGraduateModal.jsx';
 import { gradeSection } from '../data/privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
@@ -42,6 +43,7 @@ export default function RosterPage() {
   const selected = players.find((p) => p.playerId === selectedId) || null;
   // Which member's report card is open (coach only); closes when another member is picked.
   const [cardFor, setCardFor] = useState(null);
+  const [archiving, setArchiving] = useState(false);
 
   // The engine's tracked scores for this player, mapped onto the roster's
   // 0-10 rubric. Withheld entirely where the evidence is thin - see
@@ -248,6 +250,11 @@ export default function RosterPage() {
                   <button type="button" className="link-button" onClick={startEdit}>
                     Edit
                   </button>
+                  {account.isCoach && (
+                    <button type="button" className="link-button" onClick={() => setArchiving(true)}>
+                      Archive graduate
+                    </button>
+                  )}
                   <button type="button" className="link-button danger" onClick={remove}>
                     Remove
                   </button>
@@ -533,6 +540,17 @@ export default function RosterPage() {
 
       {account.isCoach && cardFor && cardFor === selectedId && (
         <ReportCard playerId={cardFor} onClose={() => setCardFor(null)} />
+      )}
+      {archiving && selected && account.isCoach && (
+        <ArchiveGraduateModal
+          player={selected}
+          onClose={() => setArchiving(false)}
+          onArchived={() => {
+            setArchiving(false);
+            setCardFor(null);
+            setSelectedId(null);
+          }}
+        />
       )}
       {importing && (
         <RosterImportModal

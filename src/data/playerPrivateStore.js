@@ -92,6 +92,26 @@ if (isSupabaseConfigured) {
  * failure: the import needs to know, because a player row written without its
  * student ID would be invisible to the next import's dedupe.
  */
+export async function clearPrivateRow(playerId) {
+  store.set((current) => {
+    const next = { ...current };
+    delete next[playerId];
+    return next;
+  });
+  if (!isSupabaseConfigured || !cloudReady) return true;
+  // Blank the fields rather than delete the row: the archive removes what
+  // identifies the student and nothing else.
+  const { error } = await supabase
+    .from('player_private')
+    .update({ student_id: null, school_email: null, updated_at: new Date().toISOString() })
+    .eq('player_id', playerId);
+  if (error) {
+    reportSyncError('clearing the private roster fields', error.message);
+    return false;
+  }
+  return true;
+}
+
 export async function savePrivateRows(rows) {
   const usable = rows.filter((row) => row?.playerId && (row.studentId || row.schoolEmail));
   if (!usable.length) return;

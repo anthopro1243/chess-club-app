@@ -420,6 +420,28 @@ export function removePlayer(playerId) {
   retireInCloud(playerId);
 }
 
+/**
+ * Archive a graduate (graduateArchive.js): write the scrubbed fields first,
+ * then retire the row, in that order, so a retired row never keeps the name.
+ * Returns false if the scrub did not reach the database (the row is then
+ * left active, so the coach can try again).
+ */
+export async function archiveGraduate(playerId, patch) {
+  const current = store.get().find((p) => p.playerId === playerId);
+  if (!current) return false;
+  const scrubbed = { ...current, ...patch };
+  if (cloudActive()) {
+    const { error } = await supabase.from('players').upsert(toRow(scrubbed));
+    if (error) {
+      reportSyncError('archiving that member', error.message);
+      return false;
+    }
+  }
+  store.set((players) => players.filter((p) => p.playerId !== playerId));
+  await retireInCloud(playerId);
+  return true;
+}
+
 /** Called when a trainee solves a puzzle — writes the result onto their row. */
 export function recordPuzzleSolved(playerId, puzzleId) {
   let updated = null;

@@ -266,6 +266,27 @@ export function setGameReviewed(id, reviewed = true) {
   }
 }
 
+/**
+ * Replace names on archived games (graduateArchive.js): each update is
+ * { id, whiteName?, blackName?, pgn }. Only those columns are written.
+ * Resolves to the number of games the database refused.
+ */
+export async function renameInGames(updates = []) {
+  const byId = new Map(updates.map((u) => [u.id, u]));
+  store.set((games) => games.map((g) => (byId.has(g.id) ? { ...g, ...byId.get(g.id) } : g)));
+  if (!isSupabaseConfigured || !cloudReady) return 0;
+  let failed = 0;
+  for (const u of updates) {
+    const patch = { pgn: u.pgn };
+    if (u.whiteName) patch.white_name = u.whiteName;
+    if (u.blackName) patch.black_name = u.blackName;
+    const { error } = await supabase.from('games').update(patch).eq('id', u.id);
+    if (error) failed += 1;
+  }
+  if (failed) reportSyncError('renaming archived games', `${failed} game(s) were not updated`);
+  return failed;
+}
+
 export function removeGame(id) {
   store.set((games) => games.filter((g) => g.id !== id));
   if (isSupabaseConfigured && cloudReady) {
