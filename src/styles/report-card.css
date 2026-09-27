@@ -1,0 +1,92 @@
+/* Report card (F011). Tokens from app.css only; prefixed rc-. */
+
+.rc-headline {
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+.rc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.rc-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rc-block h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.rc-block p {
+  margin: 6px 0;
+}
+
+.rc-list {
+  margin: 0;
+}
+
+.rc-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.rc-list > div:last-child {
+  border-bottom: 0;
+}
+
+.rc-list dt {
+  color: var(--text-muted);
+}
+
+.rc-list dd {
+  margin: 0;
+  text-align: right;
+}
+
+@media print {
+  html.rc-printing body {
+    background: #fff;
+    color: #000;
+  }
+
+  html.rc-printing .topbar,
+  html.rc-printing .footer,
+  html.rc-printing .auth-banner,
+  html.rc-printing .background-activity,
+  html.rc-printing .toast,
+  html.rc-printing .rc-actions,
+  html.rc-printing .content > * > *:not(.report-card) {
+    display: none !important;
+  }
+
+  html.rc-printing .report-card,
+  html.rc-printing .report-card * {
+    color: #000 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  html.rc-printing .rc-block {
+    border-color: #000;
+    break-inside: avoid;
+  }
+}
+
+@media print {
+  html.rc-printing .report-card {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    border: 0;
+  }
+}

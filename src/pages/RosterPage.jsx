@@ -8,6 +8,7 @@ import { useAccount } from '../data/accountStore.js';
 import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
 import { usePlayerPrivate } from '../data/playerPrivateStore.js';
 import RosterImportModal from '../components/RosterImportModal.jsx';
+import ReportCard from '../components/ReportCard.jsx';
 import { gradeSection, mediaReleaseLabel } from '../data/privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
@@ -39,6 +40,8 @@ export default function RosterPage() {
   const [draft, setDraft] = useState(null);
 
   const selected = players.find((p) => p.playerId === selectedId) || null;
+  // Which member's report card is open (coach only); closes when another member is picked.
+  const [cardFor, setCardFor] = useState(null);
 
   // The engine's tracked scores for this player, mapped onto the roster's
   // 0-10 rubric. Withheld entirely where the evidence is thin - see
@@ -237,6 +240,11 @@ export default function RosterPage() {
               <span className="badge mono">{selected.playerId}</span>
               {!editing && (
                 <>
+                  {account.isCoach && (
+                    <button type="button" className="link-button" onClick={() => setCardFor(selected.playerId)}>
+                      Report card
+                    </button>
+                  )}
                   <button type="button" className="link-button" onClick={startEdit}>
                     Edit
                   </button>
@@ -546,6 +554,10 @@ export default function RosterPage() {
             </>
           )}
         </section>
+      )}
+
+      {account.isCoach && cardFor && cardFor === selectedId && (
+        <ReportCard playerId={cardFor} onClose={() => setCardFor(null)} />
       )}
       {importing && (
         <RosterImportModal

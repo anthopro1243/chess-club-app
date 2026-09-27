@@ -144,7 +144,7 @@ Uncertain rows were checked in the files, not from memory.
 | F008 | Should | ❌ | Lesson library / study PGN import |
 | F009 | Could | ❌ | Coach-authored guided lessons |
 | F010 | Should | ❌ | Projector/demo board (GameReview has arrow keys, no arrows/large mode) |
-| F011 | Must | 🟡 | Roster detail has ratings, rubric, notes, goal; **no one-page report card with homework/activity/weaknesses** |
+| F011 | Must | ✅ | **Built (branch, 2026-09-27):** One-page report card from Roster → Report card (coach only): ratings by pool, 30-day activity, attendance %, homework, skills, missed tactics, goal, coach note; prints on one page |
 | F012 | Should | 🟡 | One coach note per player (not timestamped entries) |
 | F013 | Should | 🟡 | One free-text "goal" field; no process goals shown on the player's home |
 | F014 | Should | ❌ | "Needs attention" list |
