@@ -14,9 +14,8 @@ import '../styles/scoresheet.css';
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
 
 /*
- * #/games?game=<id> opens one game directly. The Events page links a board
- * to its archived game this way, so a coach can go from the pairing sheet to
- * the moves in one tap.
+ * #/games?game=<id> opens one game directly. The review queue links each
+ * game this way, so a player goes from "review this" to the moves in one tap.
  */
 function linkedGameId() {
   const query = window.location.hash.split('?')[1];

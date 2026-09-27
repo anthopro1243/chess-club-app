@@ -60,6 +60,8 @@ function fromRow(row) {
     round: row.round || '',
     board: row.board ?? null,
     timeControl: row.time_control || '',
+    // Set once the game has been gone over (0024); the review queue skips it.
+    reviewedAt: row.reviewed_at || null,
   };
 }
 
@@ -240,6 +242,28 @@ export async function recordImportedGames(games) {
     return { ok: false, added: [], error: error.message };
   }
   return { ok: true, added };
+}
+
+/**
+ * Mark a game reviewed (or, with `reviewed = false`, put it back in the
+ * review queue). Only these two columns are written, so a reviewed game's
+ * PGN and analysis are never touched. RLS (0005): a player may mark their
+ * own games, a coach any game.
+ */
+export function setGameReviewed(id, reviewed = true) {
+  const reviewedAt = reviewed ? new Date().toISOString() : null;
+  store.set((games) => games.map((g) => (g.id === id ? { ...g, reviewedAt } : g)));
+  if (isSupabaseConfigured && cloudReady) {
+    supabase.auth.getUser().then(({ data }) =>
+      supabase
+        .from('games')
+        .update({ reviewed_at: reviewedAt, reviewed_by: reviewed ? data?.user?.id ?? null : null })
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) reportSyncError('marking that game reviewed', error.message);
+        }),
+    );
+  }
 }
 
 export function removeGame(id) {

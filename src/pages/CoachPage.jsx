@@ -7,6 +7,7 @@ import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
 import ClubWeaknessesPanel from '../components/ClubWeaknessesPanel.jsx';
+import ReviewQueuePanel from '../components/ReviewQueuePanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from '../data/assessmentStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
@@ -160,6 +161,8 @@ export default function CoachPage() {
       <MemberApproval />
 
       <AnalysisQueuePanel queue={queue} />
+
+      <ReviewQueuePanel />
 
       <ClubWeaknessesPanel />
 

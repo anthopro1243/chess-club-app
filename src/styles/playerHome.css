@@ -75,24 +75,16 @@
   grid-template-areas:
     'priority trend'
     'reviews trend'
+    'queue trend'
     'games games';
   gap: 14px;
   align-items: start;
 }
 
-/* Only when the homework feature hands a list in; otherwise no empty row. */
-.ph-grid.has-homework {
-  grid-template-areas:
-    'priority trend'
-    'reviews trend'
-    'homework trend'
-    'games games';
-}
-
 .ph-priority { grid-area: priority; }
 .ph-trend { grid-area: trend; }
 .ph-reviews { grid-area: reviews; }
-.ph-homework { grid-area: homework; }
+.ph-review-queue { grid-area: queue; }
 .ph-games { grid-area: games; }
 
 .ph-card {
@@ -299,8 +291,7 @@
 }
 
 @media (max-width: 760px) {
-  .ph-grid,
-  .ph-grid.has-homework {
+  .ph-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: none;
   }

@@ -4,6 +4,7 @@ import { useAnalyses, useSkillScores } from '../data/analysisStore.js';
 import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { useOwnPuzzlesFor } from '../data/ownPuzzleStore.js';
 import { buildPlayerHome } from '../analysis/playerHome.js';
+import ReviewQueuePanel from './ReviewQueuePanel.jsx';
 import '../styles/playerHome.css';
 
 /*
@@ -71,6 +72,7 @@ export default function PlayerHome({ playerId, viewer, preview = false }) {
           />
           <Trend trend={home.trend} categories={home.categories} analysedCount={home.analysedCount} />
           <Reviews reviews={home.reviews} />
+          <ReviewQueuePanel playerId={playerId} compact />
           <RecentGames games={home.recentGames} total={home.gamesCount} />
         </div>
       )}
