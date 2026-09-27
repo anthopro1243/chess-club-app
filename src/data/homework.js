@@ -738,3 +738,21 @@ export function parseTrainingLink(hash, { themes = [], puzzleIds = [] } = {}) {
   out.puzzleIds = [...new Set(wanted.filter((pid) => known.has(pid)))];
   return out;
 }
+
+/**
+ * homeworkForPlayer() items in the shape the member's home page lists
+ * (src/analysis/playerHome.js homeworkView): one line per assignment, with
+ * its drill link and whether it is finished.
+ */
+export function toHomeItems(items, playerId) {
+  return (items || [])
+    .filter((item) => item?.assignment)
+    .map(({ assignment, progress }) => ({
+      id: assignment.id,
+      title: assignmentTitle(assignment),
+      dueAt: assignment.dueAt ?? null,
+      done: Boolean(progress?.done),
+      playerId,
+      href: drillLinkFor(assignment),
+    }));
+}

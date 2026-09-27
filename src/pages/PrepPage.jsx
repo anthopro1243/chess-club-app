@@ -15,6 +15,7 @@ import { useGames } from '../data/gamesStore.js';
 import { usePrepResults } from '../data/prepResultsStore.js';
 import { useEventRegistrations } from '../data/eventRegistrationStore.js';
 import { readinessByPlayer } from '../data/readiness.js';
+import { useAttempts } from '../data/puzzleAttemptsStore.js';
 import PractisingAs, { usePractisingAs } from '../components/prep/PractisingAs.jsx';
 import { usePlayers, useMyProfile } from '../data/rosterStore.js';
 
@@ -106,9 +107,10 @@ export default function PrepPage() {
   const games = useGames();
   const results = usePrepResults();
   const registrations = useEventRegistrations();
+  const attempts = useAttempts();
   const readinessById = useMemo(
-    () => readinessByPlayer({ players, results, games, event, registrations }),
-    [players, results, games, event, registrations],
+    () => readinessByPlayer({ players, results, games, event, registrations, attempts }),
+    [players, results, games, event, registrations, attempts],
   );
 
   return (

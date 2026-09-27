@@ -8,6 +8,7 @@ import {
   slowGamesFor,
   readinessFor,
   readinessByPlayer,
+  endgameBandFor,
   SLOW_GAME_MIN_SECONDS,
 } from './readiness.js';
 import { mergeResult } from './prepResults.js';
@@ -152,4 +153,41 @@ test('readinessByPlayer: one entry per player, using only this event\'s registra
   assert.equal(map.get('CC-1').done, 0);
   assert.equal(map.get('CC-2').done, 1);
   assert.equal(map.get('CC-2').percent, 25);
+});
+
+test('readinessByPlayer: with puzzle attempts, the endgame item is the player\'s band in the trainer', async () => {
+  const { positionsForBand } = await import('../training/endgames.js');
+  const basic = positionsForBand('basic');
+  const players = [
+    { playerId: 'CC-1', ratings: { uscf: 800 } },
+    { playerId: 'CC-2', ratings: { uscf: 800 } },
+  ];
+  // CC-1 passed every basic drill; CC-2 passed one and failed the rest.
+  const attempts = [
+    ...basic.map((p) => ({ playerId: 'CC-1', puzzleId: `endgame:${p.id}`, correct: true })),
+    { playerId: 'CC-2', puzzleId: `endgame:${basic[0].id}`, correct: true },
+    ...basic.slice(1).map((p) => ({ playerId: 'CC-2', puzzleId: `endgame:${p.id}`, correct: false })),
+  ];
+  const byId = readinessByPlayer({ players, event: EVENT, attempts });
+  const one = byId.get('CC-1').items.find((i) => i.key === 'endgame');
+  const two = byId.get('CC-2').items.find((i) => i.key === 'endgame');
+  assert.equal(one.status, 'done');
+  assert.match(one.detail, new RegExp(`${basic.length} of ${basic.length}`));
+  assert.equal(two.status, 'todo');
+  assert.match(two.detail, new RegExp(`1 of ${basic.length}`));
+  // The item now counts toward the percentage.
+  assert.equal(byId.get('CC-1').counted, 5);
+});
+
+test('readinessByPlayer: without attempts the endgame item stays out of the count (negative case)', () => {
+  const byId = readinessByPlayer({ players: [{ playerId: 'CC-1' }], event: EVENT });
+  assert.equal(byId.get('CC-1').items.find((i) => i.key === 'endgame').status, 'coming-soon');
+  assert.equal(byId.get('CC-1').counted, 4);
+});
+
+test('endgameBandFor: another player\'s passes never count, and no rating means the basic band', () => {
+  const r = endgameBandFor([{ playerId: 'CC-9', puzzleId: 'endgame:kqk', correct: true }], { playerId: 'CC-1' });
+  assert.equal(r.band, 'basic');
+  assert.equal(r.passed, 0);
+  assert.equal(r.done, false);
 });

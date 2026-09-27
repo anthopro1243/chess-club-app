@@ -184,8 +184,8 @@ function CoachReadiness({ event, players, readinessById }) {
         </div>
       )}
       <p className="hint-text">
-        ✓ done · ○ to do · … coming soon (left out of the %). The endgame-band check arrives with the endgame
-        curriculum. {SLOW_GAME_HINT}
+        ✓ done · ○ to do · … coming soon (left out of the %). Endgame: every drill in the player&rsquo;s band
+        (Training → Endgames) passed. {SLOW_GAME_HINT}
       </p>
     </section>
   );

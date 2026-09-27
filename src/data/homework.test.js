@@ -30,6 +30,7 @@ import {
   audienceLabel,
   drillLinkFor,
   parseTrainingLink,
+  toHomeItems,
 } from './homework.js';
 
 // The real library, read the way Node can (puzzles.js needs Vite's JSON loader).
@@ -741,4 +742,24 @@ test('assignmentTitle, audienceLabel and drillLinkFor for games', () => {
   assert.equal(audienceLabel(forkAssignment({ audience: 'club' })), 'Whole club');
   assert.equal(audienceLabel(forkAssignment()), '2 players');
   assert.equal(audienceLabel(null), '');
+});
+
+test('toHomeItems: maps assignments onto the home page list shape with their drill links', () => {
+  const items = [
+    { assignment: { id: 'h1', kind: 'theme', theme: 'fork', count: 5, dueAt: '2026-10-06' }, progress: { done: false } },
+    { assignment: { id: 'h2', kind: 'games', requiredCount: 2, minMinutes: 25, dueAt: '2026-10-13' }, progress: { done: true } },
+  ];
+  const out = toHomeItems(items, 'CC-1');
+  assert.equal(out.length, 2);
+  assert.equal(out[0].id, 'h1');
+  assert.equal(out[0].href, '#/training?theme=fork');
+  assert.equal(out[0].done, false);
+  assert.equal(out[0].playerId, 'CC-1');
+  assert.equal(out[1].href, '#/play');
+  assert.equal(out[1].done, true);
+});
+
+test('toHomeItems: nothing or broken rows give an empty list (negative case)', () => {
+  assert.deepEqual(toHomeItems(null, 'CC-1'), []);
+  assert.deepEqual(toHomeItems([{ progress: { done: false } }], 'CC-1'), []);
 });

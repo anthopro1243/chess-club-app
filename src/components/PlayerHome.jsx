@@ -4,6 +4,8 @@ import { useAnalyses, useSkillScores } from '../data/analysisStore.js';
 import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { useOwnPuzzlesFor } from '../data/ownPuzzleStore.js';
 import { buildPlayerHome } from '../analysis/playerHome.js';
+import { useHomeworkFor } from '../data/homeworkStore.js';
+import { toHomeItems } from '../data/homework.js';
 import '../styles/playerHome.css';
 
 /*
@@ -15,11 +17,14 @@ import '../styles/playerHome.css';
  * only lays it out. It never reads a raw score, so it cannot show a
  * low-confidence one by accident.
  *
- * `homework` is optional. The homework feature is being built separately;
- * until it passes a list in, the block does not render at all, rather than
- * telling a player they have nothing due when nobody has looked.
+ * `homework` is optional: without it, the player's own assignments come
+ * from the homework store (the coach's Homework panel), so the block shows
+ * what is due and links straight to the drill.
  */
-export default function PlayerHome({ playerId, viewer, homework, preview = false }) {
+export default function PlayerHome({ playerId, viewer, homework: homeworkProp, preview = false }) {
+  const assigned = useHomeworkFor(playerId);
+  const storeHomework = useMemo(() => toHomeItems(assigned, playerId), [assigned, playerId]);
+  const homework = homeworkProp ?? storeHomework;
   const players = usePlayers();
   const skillRows = useSkillScores();
   const analyses = useAnalyses();
@@ -62,7 +67,11 @@ export default function PlayerHome({ playerId, viewer, homework, preview = false
       </div>
 
       {home.isNewMember ? (
-        <NewMember firstName={firstName} />
+        <>
+          <NewMember firstName={firstName} />
+          {/* A new member can still have homework from the coach. */}
+          {home.homework?.items.length > 0 && <Homework homework={home.homework} />}
+        </>
       ) : (
         <div className={`ph-grid ${home.homework ? 'has-homework' : ''}`}>
           <Priority

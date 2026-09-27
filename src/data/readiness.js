@@ -22,6 +22,7 @@
 
 import { chicagoDate, isIsoDate } from './officialEvents.js';
 import { resultFor } from './prepResults.js';
+import { BANDS, bandForRating, bandProgress } from '../training/endgames.js';
 
 /** G/30: the shortest control the research counts as a slow game (F036, F074). */
 export const SLOW_GAME_MIN_SECONDS = 30 * 60;
@@ -107,7 +108,7 @@ const pct = (x) => `${Math.round(x * 100)}%`;
  * `{ key, label, status: 'done' | 'todo' | 'coming-soon', detail }`.
  * `registration` is the player's registration row for the event, if any.
  */
-export function readinessFor({ playerId, results = [], games = [], event = null, registration = null, endgameAvailable = false }) {
+export function readinessFor({ playerId, results = [], games = [], event = null, registration = null, endgameAvailable = false, endgame = null }) {
   const rules = resultFor(results, playerId, 'rules-quiz');
   const notation = resultFor(results, playerId, 'notation-game-type');
   const since = event ? seasonStart(event.date) : null;
@@ -133,12 +134,19 @@ export function readinessFor({ playerId, results = [], games = [], event = null,
       status: slow.length >= SLOW_GAMES_NEEDED ? 'done' : 'todo',
       detail: `${Math.min(slow.length, SLOW_GAMES_NEEDED)} of ${SLOW_GAMES_NEEDED} this season`,
     },
-    {
-      key: 'endgame',
-      label: READINESS_ITEMS.endgame,
-      status: endgameAvailable ? 'todo' : 'coming-soon',
-      detail: endgameAvailable ? 'Not set yet' : 'Coming soon',
-    },
+    endgame
+      ? {
+          key: 'endgame',
+          label: READINESS_ITEMS.endgame,
+          status: endgame.done ? 'done' : 'todo',
+          detail: `${endgame.passed} of ${endgame.total} drills passed${endgame.label ? ` (${endgame.label})` : ''}`,
+        }
+      : {
+          key: 'endgame',
+          label: READINESS_ITEMS.endgame,
+          status: endgameAvailable ? 'todo' : 'coming-soon',
+          detail: endgameAvailable ? 'Not set yet' : 'Coming soon',
+        },
     {
       key: 'repertoire',
       label: READINESS_ITEMS.repertoire,
@@ -153,16 +161,29 @@ export function readinessFor({ playerId, results = [], games = [], event = null,
 }
 
 /**
+ * The endgame-trainer band for a player (from their US Chess rating, as the
+ * trainer picks it) and how many of its drills they have passed.
+ */
+export function endgameBandFor(attempts, player) {
+  const band = bandForRating(player?.ratings?.uscf ?? null);
+  const label = BANDS.find((b) => b.key === band)?.label ?? '';
+  return { band, label, ...bandProgress(attempts, player?.playerId, band) };
+}
+
+/**
  * Readiness for many players at once, keyed by player id. The page uses it
  * for the coach's table and to order registration suggestions.
  */
-export function readinessByPlayer({ players = [], results = [], games = [], event = null, registrations = [] }) {
+export function readinessByPlayer({ players = [], results = [], games = [], event = null, registrations = [], attempts = null }) {
   const out = new Map();
   for (const player of players) {
     if (!player?.playerId) continue;
     const registration =
       registrations.find((r) => r.playerId === player.playerId && (!event || r.eventId === event.id)) || null;
-    out.set(player.playerId, readinessFor({ playerId: player.playerId, results, games, event, registration }));
+    // With puzzle attempts supplied, the endgame item is the player's own band
+    // in the endgame trainer (rated on US Chess, like the trainer's default).
+    const endgame = attempts ? endgameBandFor(attempts, player) : null;
+    out.set(player.playerId, readinessFor({ playerId: player.playerId, results, games, event, registration, endgame }));
   }
   return out;
 }
