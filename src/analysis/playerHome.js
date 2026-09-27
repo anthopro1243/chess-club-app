@@ -13,8 +13,6 @@
  *     and only for categories confident enough to be shown at all.
  *   - review positions due: the player's own-game puzzles, via the same
  *     spaced-repetition rules the Training page uses.
- *   - homework: only when a list is handed in (the homework feature is being
- *     built separately), so an absent list never renders as "none due".
  *   - recent games: the last few games this player actually played.
  *   - one next step: a single link, so the page ends in an action.
  */
@@ -22,7 +20,6 @@
 import { CATEGORY_KEYS, CATEGORY_LABELS, improvementPlan } from './scoring.js';
 import {
   canViewAnalysis, categoryLine, playerSummary, puzzleThemeFor, trendLabel,
-  PUZZLE_THEME_BY_TRAINING_THEME,
 } from './presentation.js';
 import { reviewSummary } from './spacedRepetition.js';
 
@@ -59,13 +56,12 @@ const ACTION_WITHOUT_THEME = Object.freeze({
   psychologicalResilience: { href: '#/play', label: 'Play on against the engine' },
 });
 
-const PUZZLE_THEME_KEYS = new Set(Object.values(PUZZLE_THEME_BY_TRAINING_THEME));
 
 const toTime = (value) => {
   if (value == null || value === '') return null;
-  // A bare date means "due by the end of that day", in the viewer's own time
-  // zone. new Date('2026-10-01') would read it as UTC midnight, which in
-  // Dallas is the evening before, and call homework overdue a day early.
+  // A bare date means the end of that day, in the viewer's own time zone.
+  // new Date('2026-10-01') would read it as UTC midnight, which in Dallas is
+  // the evening before.
   const text = String(value);
   const t = /^\d{4}-\d{2}-\d{2}$/.test(text)
     ? new Date(`${text}T23:59:59`).getTime()
@@ -213,53 +209,6 @@ function priorityAction(priority) {
   return ACTION_WITHOUT_THEME[priority.category] ?? null;
 }
 
-/*
- * Only in-app hash routes may come through as a link. The homework list comes
- * from another module, and a stray "javascript:" href rendered into an <a>
- * would run on click.
- */
-const safeHref = (href) => (typeof href === 'string' && href.startsWith('#/') ? href : null);
-
-function homeworkHref(item) {
-  const own = safeHref(item.href);
-  if (own) return own;
-  if (item.theme) {
-    const key = puzzleThemeFor(item.theme) ?? (PUZZLE_THEME_KEYS.has(item.theme) ? item.theme : null);
-    if (key) return `#/training?theme=${key}`;
-  }
-  return '#/training';
-}
-
-/**
- * Homework still to do, soonest first.
- *
- * Expected item shape (the homework feature will adapt to it, or map onto
- * it): { id, title, dueAt (ISO or YYYY-MM-DD), done?, theme?, href?, playerId? }.
- * `theme` may be a training-theme label ("Fork") or a puzzle key ("fork").
- */
-export function homeworkView(homework, playerId, now = Date.now()) {
-  if (!Array.isArray(homework)) return null;
-  const items = homework
-    .filter((item) => item && !item.done && (item.playerId == null || item.playerId === playerId))
-    .map((item) => {
-      const dueTime = toTime(item.dueAt);
-      return {
-        id: item.id ?? `${item.title}|${item.dueAt}`,
-        title: item.title || 'Homework',
-        dueAt: item.dueAt ?? null,
-        dueTime,
-        overdue: dueTime != null && dueTime < now,
-        href: homeworkHref(item),
-      };
-    })
-    .sort((a, b) => (a.dueTime ?? Infinity) - (b.dueTime ?? Infinity));
-  return {
-    items,
-    dueCount: items.length,
-    overdueCount: items.filter((i) => i.overdue).length,
-  };
-}
-
 /** The last few games this player played, newest first, with accuracy where analysed. */
 export function recentGamesFor(games = [], analyses = [], playerId, limit = RECENT_GAMES_LIMIT) {
   const mine = (games || []).filter(
@@ -288,16 +237,11 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
 }
 
 /*
- * The single next step. The coach's homework comes first (the engine
- * proposes, the coach disposes), then the plan's drill, then the player's own
+ * The single next step: the plan's drill first, then the player's own
  * mistakes due for review, then their games, and a new member is sent to
  * play one.
  */
-function nextStepFor({ homework, priority, reviews, gamesCount }) {
-  const firstHomework = homework?.items?.[0];
-  if (firstHomework) {
-    return { href: firstHomework.href, label: `Homework: ${firstHomework.title}`, reason: 'homework' };
-  }
+function nextStepFor({ priority, reviews, gamesCount }) {
   if (priority?.action) {
     return { href: priority.action.href, label: priority.action.label, reason: 'priority' };
   }
@@ -322,7 +266,6 @@ function nextStepFor({ homework, priority, reviews, gamesCount }) {
  * @param {Array}  input.analyses   analysisStore analysis rows (anyone's; filtered here)
  * @param {Array}  input.games      gamesStore rows (anyone's; filtered here)
  * @param {Array}  input.ownPuzzles ownPuzzleStore rows, in any state (anyone's; filtered here)
- * @param {Array}  [input.homework] optional; absent means "do not show the block"
  * @param {number} [input.now]      epoch ms, injected so tests need not wait
  */
 export function buildPlayerHome({
@@ -332,7 +275,6 @@ export function buildPlayerHome({
   analyses = [],
   games = [],
   ownPuzzles = [],
-  homework,
   now = Date.now(),
   recentLimit = RECENT_GAMES_LIMIT,
 } = {}) {
@@ -394,7 +336,6 @@ export function buildPlayerHome({
     href: '#/training',
   };
 
-  const homeworkBlock = homeworkView(homework, playerId, now);
   const recentGames = recentGamesFor(mineGames, mineAnalysed, playerId, recentLimit);
 
   return {
@@ -409,8 +350,7 @@ export function buildPlayerHome({
     categories,
     measuredCount: categories.filter((c) => c.showNumber).length,
     reviews,
-    homework: homeworkBlock,
     recentGames,
-    nextStep: nextStepFor({ homework: homeworkBlock, priority, reviews, gamesCount: mineGames.length }),
+    nextStep: nextStepFor({ priority, reviews, gamesCount: mineGames.length }),
   };
 }

@@ -15,7 +15,7 @@ import '../styles/endgames.css';
  * passed on mate, a safe queen, or a held draw, as endgames.js decides.
  *
  * A pass or a fail is recorded in puzzle_attempts as `endgame:<id>`, so the
- * coach sees completion per player with no new table, and the readiness
+ * coach sees completion per player with no new table, and the progress
  * checklist can count a finished band.
  */
 

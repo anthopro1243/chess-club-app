@@ -13,18 +13,15 @@ import {
   useThemeAccuracy,
   attemptSummary,
 } from '../data/puzzleAttemptsStore.js';
-import { parseTrainingLink } from '../data/homework.js';
-import { useHomeworkFor } from '../data/homeworkStore.js';
-import HomeworkList from '../components/HomeworkList.jsx';
+import { parseTrainingLink } from '../data/trainingLink.js';
 
 const TRAINEE_KEY = 'cc-trainee';
 const PUZZLE_IDS = PUZZLES.map((p) => p.id);
 
 /*
  * What the URL asks for: #/training?theme=fork&difficulty=easy, or a
- * homework set as #/training?puzzles=id1,id2. Anything not in the library is
- * dropped (homework.js → parseTrainingLink), so a stale link still lands on
- * a working page.
+ * puzzle set as #/training?puzzles=id1,id2. Anything not in the library is
+ * dropped (trainingLink.js), so a stale link still lands on a working page.
  */
 const linkFromHash = () => {
   try {
@@ -65,7 +62,7 @@ const sameMove = (a, b) =>
  * puzzle is solved once the whole line has been played out.
  */
 export default function TrainingPage() {
-  // A player arriving from their improvement plan or their homework lands
+  // A player arriving from their improvement plan lands
   // pre-filtered to the theme (or the exact set) it named, rather than on all
   // 402 puzzles with advice to remember.
   const [themeFilter, setThemeFilter] = useState(() => linkFromHash().theme);
@@ -75,7 +72,7 @@ export default function TrainingPage() {
   const difficultyTest = DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
   const filtered = useMemo(
     () => {
-      // A homework set is exactly those puzzles, in the coach's order.
+      // A linked set is exactly those puzzles, in the coach's order.
       if (setIds.length) return setIds.map((id) => PUZZLES.find((p) => p.id === id)).filter(Boolean);
       return PUZZLES.filter(
         (p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating),
@@ -97,7 +94,7 @@ export default function TrainingPage() {
   const [index, setIndex] = useState(0);
   useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source, setKey]);
 
-  // A homework link followed while already on this page changes only the
+  // A training link followed while already on this page changes only the
   // hash; the page stays mounted, so the new filter is applied here.
   useEffect(() => {
     const onHashChange = () => {
@@ -131,7 +128,6 @@ export default function TrainingPage() {
   }, [traineeId]);
 
   const trainee = players.find((p) => p.playerId === traineeId) || null;
-  const homework = useHomeworkFor(trainee ? traineeId : '');
 
   const duePuzzles = useDuePuzzles(traineeId);
   const reviewState = useReviewSummary(traineeId);
@@ -433,19 +429,6 @@ export default function TrainingPage() {
           </select>
         </div>
 
-        {trainee && (
-          <div className="panel-block">
-            <h2>
-              Homework
-              <InfoTooltip>
-                Set by the coach. It ticks itself off as you solve puzzles here (not with a hint or
-                the answer shown) and as games reach the archive.
-              </InfoTooltip>
-            </h2>
-            <HomeworkList items={homework} emptyText={`No homework for ${trainee.name} right now.`} />
-          </div>
-        )}
-
         <div className="panel-block">
           <h2>Puzzle type</h2>
           <label className="field">
@@ -496,7 +479,7 @@ export default function TrainingPage() {
           </label>
           {setIds.length > 0 && source !== 'mistakes' && (
             <div className="hw-set-chip">
-              <span>Homework set: {filtered.length} puzzles</span>
+              <span>Puzzle set: {filtered.length} puzzles</span>
               <button type="button" className="link-button" onClick={() => setSetIds([])}>
                 Show all puzzles
               </button>

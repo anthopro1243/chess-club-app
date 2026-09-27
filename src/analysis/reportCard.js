@@ -11,8 +11,6 @@
  *     with its pool, never mixed into one number;
  *   - activity: games and puzzles in the last 30 days, and the last day the
  *     member did anything;
- *   - attendance: sessions recorded on the roster row, and the share attended;
- *   - homework: assigned / done / overdue (homework.js's own rules);
  *   - skills: the same view the member's home page uses (buildPlayerHome),
  *     so the card never shows a score the member's own page would hide;
  *   - tactics missed most often in their games (motif counts);
@@ -23,7 +21,6 @@
 
 import { buildPlayerHome, motifTotals } from './playerHome.js';
 import { MOTIF_LABELS } from './clubWeaknesses.js';
-import { isTargetOf, progressFor } from '../data/homework.js';
 
 export const ACTIVITY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -87,33 +84,6 @@ export function activityFor(playerId, { games = [], attempts = [], now = Date.no
   };
 }
 
-/** Sessions recorded on the roster row and the share attended. */
-export function attendanceFor(player) {
-  const rows = (player?.attendance || []).filter((a) => a && a.date);
-  const present = rows.filter((a) => a.present).length;
-  return {
-    recorded: rows.length,
-    present,
-    percent: rows.length ? Math.round((present / rows.length) * 100) : null,
-    lastPresent: rows.filter((a) => a.present).map((a) => a.date).sort().at(-1) ?? null,
-  };
-}
-
-/** Homework assigned to this member, with how much is done and overdue. */
-export function homeworkFor(player, assignments = [], attempts = [], { games = [], now = Date.now() } = {}) {
-  let assigned = 0;
-  let done = 0;
-  let overdue = 0;
-  for (const assignment of assignments) {
-    if (!assignment || !isTargetOf(assignment, player)) continue;
-    assigned += 1;
-    const { status } = progressFor(assignment, attempts, player.playerId, { now, games });
-    if (status === 'done') done += 1;
-    else if (status === 'overdue') overdue += 1;
-  }
-  return { assigned, done, overdue, percent: assigned ? Math.round((done / assigned) * 100) : null };
-}
-
 /** The most-missed tactics in this member's own analysed games, most first. */
 export function missedTactics(analyses = [], playerId, limit = 3) {
   const totals = motifTotals(analyses.filter((a) => a && a.playerId === playerId));
@@ -135,7 +105,6 @@ export function buildReportCard({
   overrides = [],
   games = [],
   attempts = [],
-  assignments = [],
   skillRows = [],
   analyses = [],
   coachNote = '',
@@ -160,8 +129,6 @@ export function buildReportCard({
     joined: player.joined || '',
     ratings: ratingLines(player, platformRatings, overrides),
     activity: activityFor(player.playerId, { games, attempts, now }),
-    attendance: attendanceFor(player),
-    homework: homeworkFor(player, assignments, attempts, { games, now }),
     priority: home.priority,
     trend: home.trend,
     categories: home.categories,

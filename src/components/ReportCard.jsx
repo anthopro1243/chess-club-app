@@ -4,11 +4,17 @@ import { usePlayers } from '../data/rosterStore.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
 import { useGames } from '../data/gamesStore.js';
 import { useAttempts } from '../data/puzzleAttemptsStore.js';
-import { useAssignments } from '../data/homeworkStore.js';
 import { useAnalyses, useSkillScores } from '../data/analysisStore.js';
 import { useCoachNotes } from '../data/coachNotesStore.js';
 import { buildReportCard } from '../analysis/reportCard.js';
-import { formatDate } from '../data/officialEvents.js';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Sep 24" or "Sep 24, 2026" from a YYYY-MM-DD date, without time-zone drift. */
+function formatDate(date, { withYear = false } = {}) {
+  const [y, m, d] = String(date).split('-').map(Number);
+  if (!y || !m || !d) return String(date);
+  return `${MONTHS[m - 1]} ${d}${withYear ? `, ${y}` : ''}`;
+}
 import '../styles/report-card.css';
 
 /*
@@ -23,7 +29,6 @@ export default function ReportCard({ playerId, onClose }) {
   const overrides = useRatingOverrides();
   const games = useGames();
   const attempts = useAttempts();
-  const assignments = useAssignments();
   const analyses = useAnalyses();
   const skillRows = useSkillScores();
   const coachNotes = useCoachNotes();
@@ -40,13 +45,12 @@ export default function ReportCard({ playerId, onClose }) {
         overrides,
         games,
         attempts,
-        assignments,
         skillRows,
         analyses,
         coachNote: coachNotes[playerId] || '',
         now,
       }),
-    [player, account?.role, platformRatings, overrides, games, attempts, assignments, skillRows, analyses, coachNotes, playerId, now],
+    [player, account?.role, platformRatings, overrides, games, attempts, skillRows, analyses, coachNotes, playerId, now],
   );
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export default function ReportCard({ playerId, onClose }) {
   }, [printing]);
 
   if (!card.available) return null;
-  const { activity, attendance, homework } = card;
+  const { activity } = card;
 
   return (
     <section className="panel report-card" aria-label={`Report card for ${card.name}`}>
@@ -116,18 +120,6 @@ export default function ReportCard({ playerId, onClose }) {
             <div>
               <dt>Last active</dt>
               <dd>{activity.lastActiveAt ? formatDate(activity.lastActiveAt.slice(0, 10), { withWeekday: false }) : '—'}</dd>
-            </div>
-            <div>
-              <dt>Attendance</dt>
-              <dd>{attendance.percent == null ? 'Not recorded' : `${attendance.percent}% (${attendance.present} of ${attendance.recorded})`}</dd>
-            </div>
-            <div>
-              <dt>Homework done</dt>
-              <dd>
-                {homework.assigned
-                  ? `${homework.done} of ${homework.assigned}${homework.overdue ? `, ${homework.overdue} overdue` : ''}`
-                  : 'None assigned'}
-              </dd>
             </div>
           </dl>
         </div>

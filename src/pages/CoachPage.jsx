@@ -1,14 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
-import { usePlayers, recordAssessment, setAttendance } from '../data/rosterStore.js';
+import { usePlayers, recordAssessment } from '../data/rosterStore.js';
 import { useGames } from '../data/gamesStore.js';
 import { exportWorkbook } from '../data/exportWorkbook.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import MemberApproval from '../components/MemberApproval.jsx';
 import AnalysisQueuePanel from '../components/AnalysisQueuePanel.jsx';
-import TeamToolsPanel from '../components/TeamToolsPanel.jsx';
 import ClubWeaknessesPanel from '../components/ClubWeaknessesPanel.jsx';
-import HomeworkPanel from '../components/HomeworkPanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from '../data/assessmentStore.js';
 import { useSkillScores } from '../data/analysisStore.js';
@@ -66,7 +64,6 @@ export default function CoachPage() {
   const players = usePlayers();
   const games = useGames();
   const coachNotes = useCoachNotes();
-  const [sessionDate, setSessionDate] = useState(today);
   const [assessingId, setAssessingId] = useState(null);
   const [draftRubric, setDraftRubric] = useState({});
   const [engineSeeded, setEngineSeeded] = useState({});
@@ -157,10 +154,6 @@ export default function CoachPage() {
     flash('Assessment logged');
   };
 
-  const attendanceFor = (player) =>
-    (player.attendance || []).find((a) => a.date === sessionDate)?.present ?? null;
-
-  const presentCount = players.filter((p) => attendanceFor(p) === true).length;
 
   return (
     <div className="dashboard">
@@ -170,15 +163,13 @@ export default function CoachPage() {
 
       <ClubWeaknessesPanel />
 
-      <TeamToolsPanel />
-
       <section className="panel">
         <div className="panel-header">
           <h2>
             Coach tools
             <InfoTooltip>
               The spreadsheet includes a club summary, player details, skill assessments, the
-              ratings log, every archived game, and attendance, each on its own tab.
+              ratings log and every archived game, each on its own tab.
             </InfoTooltip>
           </h2>
           <button
@@ -197,52 +188,6 @@ export default function CoachPage() {
             Export spreadsheet
           </button>
         </div>
-      </section>
-
-      <HomeworkPanel players={players} />
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Attendance</h2>
-          <span className="badge">
-            {presentCount} / {players.length} present
-          </span>
-        </div>
-        <label className="field">
-          <span>Session date</span>
-          <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
-        </label>
-
-        {players.length === 0 ? (
-          <p className="hint-text">No players on the roster yet.</p>
-        ) : (
-          <ul className="attendance-list">
-            {players.map((p) => {
-              const state = attendanceFor(p);
-              return (
-                <li key={p.playerId}>
-                  <span className="attendance-name">{p.name}</span>
-                  <span className="attendance-buttons">
-                    <button
-                      type="button"
-                      className={state === true ? 'attend-on' : ''}
-                      onClick={() => setAttendance(p.playerId, sessionDate, true)}
-                    >
-                      Present
-                    </button>
-                    <button
-                      type="button"
-                      className={state === false ? 'attend-off' : ''}
-                      onClick={() => setAttendance(p.playerId, sessionDate, false)}
-                    >
-                      Absent
-                    </button>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </section>
 
       <section className="panel">

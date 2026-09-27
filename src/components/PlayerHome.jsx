@@ -4,8 +4,6 @@ import { useAnalyses, useSkillScores } from '../data/analysisStore.js';
 import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { useOwnPuzzlesFor } from '../data/ownPuzzleStore.js';
 import { buildPlayerHome } from '../analysis/playerHome.js';
-import { useHomeworkFor } from '../data/homeworkStore.js';
-import { toHomeItems } from '../data/homework.js';
 import '../styles/playerHome.css';
 
 /*
@@ -17,14 +15,8 @@ import '../styles/playerHome.css';
  * only lays it out. It never reads a raw score, so it cannot show a
  * low-confidence one by accident.
  *
- * `homework` is optional: without it, the player's own assignments come
- * from the homework store (the coach's Homework panel), so the block shows
- * what is due and links straight to the drill.
  */
-export default function PlayerHome({ playerId, viewer, homework: homeworkProp, preview = false }) {
-  const assigned = useHomeworkFor(playerId);
-  const storeHomework = useMemo(() => toHomeItems(assigned, playerId), [assigned, playerId]);
-  const homework = homeworkProp ?? storeHomework;
+export default function PlayerHome({ playerId, viewer, preview = false }) {
   const players = usePlayers();
   const skillRows = useSkillScores();
   const analyses = useAnalyses();
@@ -36,8 +28,8 @@ export default function PlayerHome({ playerId, viewer, homework: homeworkProp, p
 
   const player = players.find((p) => p.playerId === playerId) ?? null;
   const home = useMemo(
-    () => buildPlayerHome({ player, viewer, skillRows, analyses, games, ownPuzzles, homework, now }),
-    [player, viewer, skillRows, analyses, games, ownPuzzles, homework, now],
+    () => buildPlayerHome({ player, viewer, skillRows, analyses, games, ownPuzzles, now }),
+    [player, viewer, skillRows, analyses, games, ownPuzzles, now],
   );
 
   if (!home.available) return null;
@@ -69,11 +61,9 @@ export default function PlayerHome({ playerId, viewer, homework: homeworkProp, p
       {home.isNewMember ? (
         <>
           <NewMember firstName={firstName} />
-          {/* A new member can still have homework from the coach. */}
-          {home.homework?.items.length > 0 && <Homework homework={home.homework} />}
         </>
       ) : (
-        <div className={`ph-grid ${home.homework ? 'has-homework' : ''}`}>
+        <div className="ph-grid">
           <Priority
             priority={home.priority}
             analysedCount={home.analysedCount}
@@ -81,7 +71,6 @@ export default function PlayerHome({ playerId, viewer, homework: homeworkProp, p
           />
           <Trend trend={home.trend} categories={home.categories} analysedCount={home.analysedCount} />
           <Reviews reviews={home.reviews} />
-          {home.homework && <Homework homework={home.homework} />}
           <RecentGames games={home.recentGames} total={home.gamesCount} />
         </div>
       )}
@@ -191,30 +180,6 @@ function Reviews({ reviews }) {
             ? `Nothing due right now. ${reviews.active} on your list will come back on schedule.`
             : 'Positions you get wrong in analysed games land here to practise again.'}
         </p>
-      )}
-    </div>
-  );
-}
-
-function Homework({ homework }) {
-  return (
-    <div className="ph-card ph-homework">
-      <h3>Homework due</h3>
-      {homework.items.length === 0 ? (
-        <p className="muted small">Nothing assigned right now.</p>
-      ) : (
-        <ul className="ph-list">
-          {homework.items.map((item) => (
-            <li key={item.id}>
-              <a href={item.href}>{item.title}</a>
-              {item.dueAt && (
-                <span className={`small ${item.overdue ? 'ph-overdue' : 'muted'}`}>
-                  {item.overdue ? 'overdue' : `due ${String(item.dueAt).slice(0, 10)}`}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );

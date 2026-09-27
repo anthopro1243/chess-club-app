@@ -1,3 +1,20 @@
+# Scope cut — 2026-09-27 (owner's instruction)
+
+The owner: the app is for members to log in, analyse their games and see what to improve. Tournaments
+happen in person and the coach decides entries, so tournament admin and club admin are out.
+
+**Removed from the app** (code deleted on the branch; recoverable from git history; database tables left
+in place, untouched): Prep page (deadlines, availability poll, registration helper, rules quiz, notation
+trainer, readiness, parent sheet/packing list), Events page (club Swiss/round robin, print sheets),
+team tools, homework, announcements, the Coach page attendance section, the media-release field, and the
+report card's homework/attendance lines.
+
+**Kept:** Play (sounds, clock), Games (archive, PGN import, scoresheet entry for OTB games), game
+analysis (explanations, big mistakes, time use), member home page, Training (puzzles, own-mistake
+review, endgame trainer), Chess.com/Lichess sync, Roster, Coach analysis views, report card.
+
+---
+
 # Morning summary: autonomous run, Sat 2026-09-26 16:25 UTC → Sun 2026-09-27 02:45 UTC
 
 _**Run ended at ~02:45 UTC on the owner's instruction** (planned end was 12:30 UTC). The hourly wake-up

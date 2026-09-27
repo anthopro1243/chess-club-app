@@ -3,8 +3,6 @@ import { Chess } from '../engine/chess.js';
 import { createEngine } from '../engine/stockfishClient.js';
 import { usePlayers, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
 import { recordGame } from '../data/gamesStore.js';
-import { currentEventTimeControl } from '../data/tournamentStore.js';
-import { clockIdForTimeControl } from '../tournament/eventOps.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
@@ -150,11 +148,7 @@ export default function PlayPage() {
    * A flag is not something the rules engine knows about, so running out of
    * time is tracked separately and folded into the game status below.
    */
-  // A fresh game defaults to the club event's time control (F084), so
-  // practice games are played at the clock the mock and real rounds use.
-  const [timeControlId, setTimeControlId] = useState(
-    () => saved?.timeControlId || clockIdForTimeControl(currentEventTimeControl()) || 'none',
-  );
+  const [timeControlId, setTimeControlId] = useState(() => saved?.timeControlId || 'none');
   const timeControl = findControl(timeControlId);
   const clockRef = useRef(null);
   if (clockRef.current === null) clockRef.current = createClock(timeControl, gameRef.current.turn);

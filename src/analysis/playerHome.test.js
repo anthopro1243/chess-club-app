@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildPlayerHome, scoresFromSkillRows, homeworkView, recentGamesFor, gameFromPlayerSide,
+  buildPlayerHome, scoresFromSkillRows, recentGamesFor, gameFromPlayerSide,
   trendOverview, motifTotals, MIN_GAMES_FOR_TREND,
 } from './playerHome.js';
 import { NOT_ENOUGH, NOT_MEASURABLE } from './presentation.js';
@@ -372,66 +372,7 @@ test('a game against a retired member is still the player\'s own game', () => {
   assert.deepEqual(home.recentGames.map((g) => g.id), ['r1']);
 });
 
-/* ── homework (optional) ─────────────────────────────────────────────────── */
-
-test('no homework list given: no homework block at all', () => {
-  assert.equal(aliceHome().homework, null);
-  assert.equal(homeworkView(undefined, 'CC-010', NOW), null);
-});
-
-test('an empty homework list is a block with nothing due', () => {
-  assert.deepEqual(aliceHome({ homework: [] }).homework, { items: [], dueCount: 0, overdueCount: 0 });
-});
-
-test('homework: done and other players\' items dropped, soonest first, overdue flagged', () => {
-  const view = homeworkView([
-    { id: 'h1', title: 'Forks set', dueAt: new Date(NOW + 3 * DAY).toISOString(), theme: 'Fork' },
-    { id: 'h2', title: 'Back rank', dueAt: new Date(NOW - DAY).toISOString(), theme: 'backRankMate' },
-    { id: 'h3', title: 'Done already', dueAt: new Date(NOW - DAY).toISOString(), done: true },
-    { id: 'h4', title: 'Bob only', dueAt: new Date(NOW).toISOString(), playerId: 'CC-011' },
-    { id: 'h5', title: 'Whenever', theme: 'Invented theme' },
-  ], 'CC-010', NOW);
-  assert.deepEqual(view.items.map((i) => i.id), ['h2', 'h1', 'h5']);
-  assert.equal(view.overdueCount, 1);
-  assert.equal(view.items[0].href, '#/training?theme=backRankMate');
-  assert.equal(view.items[1].href, '#/training?theme=fork');
-  assert.equal(view.items[2].href, '#/training', 'an unknown theme goes to the unfiltered page');
-});
-
-test('a bare due date counts as due by the end of that day, in local time', () => {
-  // Built from NOW in the machine's own zone, so this holds in Dallas and in CI.
-  const localDate = (t) => {
-    const d = new Date(t);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-  const view = homeworkView([
-    { id: 'today', title: 'Today', dueAt: localDate(NOW) },
-    { id: 'yesterday', title: 'Yesterday', dueAt: localDate(NOW - DAY) },
-  ], 'CC-010', NOW);
-  const byId = Object.fromEntries(view.items.map((i) => [i.id, i]));
-  assert.equal(byId.today.overdue, false);
-  assert.equal(byId.yesterday.overdue, true);
-});
-
-test('homework hrefs are in-app routes only', () => {
-  const view = homeworkView([
-    { id: 'bad', title: 'x', href: 'javascript:alert(1)' },
-    { id: 'ext', title: 'y', href: 'https://example.com' },
-    { id: 'ok', title: 'z', href: '#/my-games' },
-  ], 'CC-010', NOW);
-  const byId = Object.fromEntries(view.items.map((i) => [i.id, i.href]));
-  assert.equal(byId.bad, '#/training');
-  assert.equal(byId.ext, '#/training');
-  assert.equal(byId.ok, '#/my-games');
-});
-
 /* ── the next step ───────────────────────────────────────────────────────── */
-
-test('next step: the coach\'s homework comes before the engine\'s drill', () => {
-  const home = aliceHome({ homework: [{ id: 'h', title: 'Pins', dueAt: '2026-11-12', theme: 'Pin' }] });
-  assert.deepEqual(home.nextStep, { href: '#/training?theme=pin', label: 'Homework: Pins', reason: 'homework' });
-});
 
 test('next step: the priority drill when there is one', () => {
   assert.equal(aliceHome().nextStep.href, '#/training?theme=hangingPiece');

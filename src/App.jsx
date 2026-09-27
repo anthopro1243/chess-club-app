@@ -6,8 +6,6 @@ import TrainingPage from './pages/TrainingPage.jsx';
 import GamesPage from './pages/GamesPage.jsx';
 import MyGamesPage from './pages/MyGamesPage.jsx';
 import CoachPage from './pages/CoachPage.jsx';
-import EventsPage from './pages/EventsPage.jsx';
-import PrepPage from './pages/PrepPage.jsx';
 import AccountControl from './components/AccountControl.jsx';
 import ResetPasswordModal from './components/ResetPasswordModal.jsx';
 import AccessGate from './components/AccessGate.jsx';
@@ -25,8 +23,6 @@ const ROUTES = [
   { id: 'training', label: 'Training' },
   { id: 'games', label: 'Games' },
   { id: 'my-games', label: 'My games' },
-  { id: 'prep', label: 'Prep' },
-  { id: 'events', label: 'Events' },
   { id: 'roster', label: 'Roster' },
   { id: 'coach', label: 'Coach' },
 ];
@@ -227,10 +223,8 @@ export default function App() {
             {route === 'play' && <PlayPage />}
             {route === 'training' && <TrainingPage />}
             {route === 'games' && <GamesPage />}
-            {route === 'events' && <EventsPage onNavigate={navigate} />}
             {route === 'roster' && <RosterPage />}
             {route === 'coach' && <CoachPage />}
-            {route === 'prep' && <PrepPage />}
           </>
         )}
       </main>

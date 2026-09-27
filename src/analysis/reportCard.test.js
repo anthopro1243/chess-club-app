@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReportCard, ratingLines, activityFor, attendanceFor, homeworkFor, missedTactics } from './reportCard.js';
+import { buildReportCard, ratingLines, activityFor, missedTactics } from './reportCard.js';
 
 const NOW = Date.parse('2026-09-27T12:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
@@ -67,23 +67,6 @@ test('activityFor: nothing recorded gives nulls, not zero days (negative case)',
   assert.equal(a.daysSinceActive, null);
 });
 
-test('attendanceFor: share of recorded sessions attended', () => {
-  assert.deepEqual(attendanceFor(ana), { recorded: 4, present: 3, percent: 75, lastPresent: '2026-09-22' });
-  assert.equal(attendanceFor({}).percent, null);
-});
-
-test('homeworkFor: counts assignments aimed at this player only', () => {
-  const assignments = [
-    { id: 'a', kind: 'set', puzzleIds: ['p1'], audience: 'players', playerIds: ['CC-010'], createdAt: iso(7), dueAt: iso(-3) },
-    { id: 'b', kind: 'set', puzzleIds: ['p2'], audience: 'players', playerIds: ['CC-011'], createdAt: iso(7), dueAt: iso(-3) },
-  ];
-  const attempts = [{ playerId: 'CC-010', puzzleId: 'p1', correct: true, attemptedAt: iso(1) }];
-  const hw = homeworkFor(ana, assignments, attempts, { now: NOW });
-  assert.equal(hw.assigned, 1);
-  assert.equal(hw.done, 1);
-  assert.equal(hw.percent, 100);
-});
-
 test('missedTactics: most-missed first, own analyses only, unknown motifs dropped', () => {
   const analyses = [
     { playerId: 'CC-010', motifCounts: { fork: 2, hangingPiece: 3, mystery: 9 } },
@@ -109,7 +92,6 @@ test('buildReportCard: a coach gets the whole card with a plain-words headline',
   assert.equal(card.coachNote, 'Strong in the opening.');
   assert.equal(card.goal, 'Reach 1100 US Chess');
   assert.match(card.headline, /1 game and 0 puzzles in the last 30 days/);
-  assert.equal(card.attendance.percent, 75);
 });
 
 test('buildReportCard: an inactive member is flagged in the headline', () => {

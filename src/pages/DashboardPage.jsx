@@ -3,7 +3,6 @@ import { usePlayers, useCloudStatus, useMyProfile } from '../data/rosterStore.js
 import { useAccount } from '../data/accountStore.js';
 import { isSupabaseConfigured } from '../data/supabaseClient.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
-import AnnouncementsPanel from '../components/AnnouncementsPanel.jsx';
 import PlayerHome from '../components/PlayerHome.jsx';
 import { useSkillScores } from '../data/analysisStore.js';
 import { activePlayerIdSet, onlyActiveRows } from '../data/retiredPlayers.js';
@@ -11,7 +10,6 @@ import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
 import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
-import ClubDeadlineLine from '../components/prep/ClubDeadlineLine.jsx';
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */
 export default function DashboardPage({ onNavigate }) {
@@ -97,7 +95,6 @@ export default function DashboardPage({ onNavigate }) {
 
   return (
     <div className="dashboard">
-      <AnnouncementsPanel isCoach={!!account?.isCoach} />
 
       {isSupabaseConfigured && me && account.isApproved && (
         <PlayerHome playerId={me.playerId} viewer={myViewer} />
@@ -142,7 +139,6 @@ export default function DashboardPage({ onNavigate }) {
         </div>
       </section>
 
-      <ClubDeadlineLine onNavigate={onNavigate} />
 
       <section className="stat-row">
         <Stat label="Players" value={players.length} />
