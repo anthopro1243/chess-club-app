@@ -11,6 +11,7 @@ import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
 import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
+import ClubDeadlineLine from '../components/prep/ClubDeadlineLine.jsx';
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */
 export default function DashboardPage({ onNavigate }) {
@@ -140,6 +141,8 @@ export default function DashboardPage({ onNavigate }) {
           </div>
         </div>
       </section>
+
+      <ClubDeadlineLine onNavigate={onNavigate} />
 
       <section className="stat-row">
         <Stat label="Players" value={players.length} />

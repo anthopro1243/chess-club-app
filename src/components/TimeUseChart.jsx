@@ -83,6 +83,7 @@ export default function TimeUseChart({ row, game }) {
 
       <details className="time-use-list">
         <summary className="small">Show as a list</summary>
+        <div className="table-scroll">
         <table className="roster-table">
           <thead><tr><th>Move</th><th>Time</th><th>Clock before</th><th /></tr></thead>
           <tbody>
@@ -96,6 +97,7 @@ export default function TimeUseChart({ row, game }) {
             ))}
           </tbody>
         </table>
+        </div>
       </details>
     </div>
   );
