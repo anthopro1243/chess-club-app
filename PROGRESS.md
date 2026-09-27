@@ -37,6 +37,10 @@ Musts first. Up to three agents work in parallel in isolated worktrees and I mer
   F043/F044 daily club sync with 429 back-off.
 - **Club:** F001/F114 media release + grade sections · F110 announcements · F121 noindex.
 
+### Skipped on the owner's instruction (2026-09-27 02:40 UTC)
+- **Tournament-day mode** (F085 result entry, F086 offline queue, F087 arrival check-in, F090 debrief,
+  F113 family summary): the owner said to skip it. Nothing was built; marked ⏸ in GAP-ANALYSIS.md.
+
 ### In progress (agents)
 - Tuesday sessions, session planner, attendance % (F003, F006, F007, F017).
 - Repertoire view, then five motifs one at a time: pin, skewer, discovered attack, trapped piece,

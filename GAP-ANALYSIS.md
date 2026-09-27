@@ -218,12 +218,12 @@ Uncertain rows were checked in the files, not from memory.
 | F082 | Must | ✅ | **Built (branch, 2026-09-26/27):** Board-order proposer and legality check |
 | F083 | Should | ✅ | Ratings shown with platform + time control; coach override |
 | F084 | Should | ✅ | **Built (branch, 2026-09-26/27):** Event time-control profile; Play clock defaults from the event |
-| F085 | Must | ❌ | **Tournament-day result entry** |
-| F086 | Must | 🟡 | Stores are local-first; **failed writes are not queued for retry; no offline tournament mode** |
-| F087 | Should | ❌ | Arrival check-in |
-| F088 | Should | ❌ | Between-round check-in |
+| F085 | Must | ⏸ | **Tournament-day result entry** |
+| F086 | Must | ⏸ | Stores are local-first; **failed writes are not queued for retry; no offline tournament mode** |
+| F087 | Should | ⏸ | Arrival check-in |
+| F088 | Should | ⏸ | Between-round check-in |
 | F089 | Could | ❌ | Coach prompt cards |
-| F090 | Must | ❌ | **Post-tournament debrief report** |
+| F090 | Must | ⏸ | **Post-tournament debrief report** |
 | F091 | Must | ❌ | **Post-event review queue** |
 | F092 | Should | ❌ | Tournament history |
 | F093 | Could | ❌ | Link Lichess/Chess.com club events |
@@ -245,8 +245,8 @@ Uncertain rows were checked in the files, not from memory.
 | F109 | Should | ✅ | Dark mode; neutral look |
 | F110 | Must | ✅ | **Built (branch, 2026-09-26/27):** Announcements (coach posts, members read; archive not delete) |
 | F111 | Should | ❌ | Parent update drafts |
-| F112 | Must | ❌ | **Pre-tournament parent info sheet** |
-| F113 | Should | ❌ | Media-filtered post-tournament summary |
+| F112 | Must | ✅ | **Built (branch, 2026-09-27):** Parent info sheet on Prep → Parents & packing; prints on one page or copies as text; names no students |
+| F113 | Should | ⏸ | Media-filtered post-tournament summary |
 | F114 | Must | ✅ | **Built (branch, 2026-09-26/27):** Grade sections for DISD divisions |
 | F115 | Could | 🟡 | Excel export |
 | F116 | Should | ❌ | .ics calendar export |
