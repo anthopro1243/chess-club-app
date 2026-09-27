@@ -11,6 +11,7 @@ import RegistrationHelper from '../components/prep/RegistrationHelper.jsx';
 import RulesQuiz from '../components/prep/RulesQuiz.jsx';
 import NotationTrainer from '../components/prep/NotationTrainer.jsx';
 import ReadinessPanel from '../components/prep/ReadinessPanel.jsx';
+import ParentsPanel from '../components/prep/ParentsPanel.jsx';
 import { useGames } from '../data/gamesStore.js';
 import { usePrepResults } from '../data/prepResultsStore.js';
 import { useEventRegistrations } from '../data/eventRegistrationStore.js';
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'quiz', label: 'Rules quiz', coachOnly: false },
   { id: 'notation', label: 'Notation', coachOnly: false },
   { id: 'readiness', label: 'Readiness', coachOnly: false },
+  { id: 'parents', label: 'Parents & packing', coachOnly: false },
 ];
 
 const TAB_KEY = 'cc-prep-tab';
@@ -186,6 +188,7 @@ export default function PrepPage() {
           onOpenTab={setTab}
         />
       )}
+      {activeTab === 'parents' && <ParentsPanel event={event} isCoach={isCoach} />}
     </div>
   );
 }

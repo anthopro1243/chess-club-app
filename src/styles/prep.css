@@ -934,3 +934,115 @@
 .prep-table td:first-child {
   background: var(--bg-raised);
 }
+
+/* ---------- parent info sheet + packing list (F112, F119) ---------------- */
+
+.prep-parents-grid,
+.prep-packing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 16px;
+}
+
+.prep-parents-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prep .prep-parents-fields textarea {
+  width: 100%;
+  font: inherit;
+}
+
+.prep-parents-missing {
+  color: var(--warning, var(--text-muted));
+  margin: 0;
+}
+
+.prep-parents-preview {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--bg-sunken);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.prep-parents-preview h3 {
+  margin: 0;
+}
+
+.prep-sheet-sub {
+  margin: 2px 0 8px;
+  color: var(--text-muted);
+}
+
+.prep-sheet-section h4 {
+  margin: 10px 0 4px;
+  font-size: 0.95rem;
+}
+
+.prep-sheet-section ul,
+.prep-packing-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.prep-packing-list li {
+  margin: 4px 0;
+}
+
+.prep-packing-list li strong {
+  display: block;
+}
+
+.prep-print-sheet {
+  display: none;
+}
+
+@media print {
+  html.prep-printing body {
+    background: #fff;
+    color: #000;
+  }
+
+  html.prep-printing .topbar,
+  html.prep-printing .footer,
+  html.prep-printing .auth-banner,
+  html.prep-printing .background-activity,
+  html.prep-printing .toast,
+  html.prep-printing .prep > *:not(.prep-parents),
+  html.prep-printing .prep-parents > *:not(.prep-print-sheet) {
+    display: none !important;
+  }
+
+  html.prep-printing .prep-parents {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: #fff;
+  }
+
+  html.prep-printing .prep-print-sheet {
+    display: block;
+    color: #000;
+    font-size: 12pt;
+  }
+
+  .prep-print-sheet h3,
+  .prep-print-sheet h4,
+  .prep-print-sheet .prep-sheet-sub {
+    color: #000;
+  }
+
+  .prep-print-sheet h3 {
+    font-size: 22pt;
+    margin: 0;
+  }
+
+  .prep-print-sheet h4 {
+    font-size: 13pt;
+    margin: 10pt 0 2pt;
+  }
+}
