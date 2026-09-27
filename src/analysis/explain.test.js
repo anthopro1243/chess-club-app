@@ -141,3 +141,24 @@ test('explainTurningPoints: looks each moment up by ply', () => {
   );
   assert.equal(out[0].explanation.kind, 'hangingPiece');
 });
+
+// Black to play; ...h6?? lets Bb5 pin the c6 knight to the king.
+const PIN = {
+  ply: 30, fullmove: 15, side: 'b', san: 'h6', uci: 'h7h6',
+  fen: '4k3/7p/2n5/8/8/8/8/4KB2 b - - 0 15',
+  cpBefore: 0, cpAfter: -250, bestUci: 'e8d7', bestPv: ['e8d7'], replyPv: ['f1b5'],
+  motifs: ['pin'],
+};
+
+test('pin: named as a pin, with the reply that makes it', () => {
+  const e = explainMoment(PIN);
+  assert.equal(e.kind, 'pin');
+  assert.equal(e.headline, 'Walked into a pin');
+  assert.match(e.detail, /White can answer with Bb5, pinning one of Black's pieces/);
+});
+
+test('a moment without any of the new tags is not called a pin or skewer (negative case)', () => {
+  const e = explainMoment({ ...PIN, motifs: [] });
+  assert.notEqual(e.kind, 'pin');
+  assert.ok(!/pin|skewer|deflect|trapped|discovered/i.test(words(e)));
+});

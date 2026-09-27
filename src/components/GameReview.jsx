@@ -13,7 +13,10 @@ import '../styles/explain.css';
  * Everything else is a swing in the evaluation, which is real but less
  * teachable at this level, so it's one click away rather than first.
  */
-const BIG_KINDS = new Set(['hangingPiece', 'missedMate', 'allowedMate', 'fork', 'backRank', 'missedCapture']);
+const BIG_KINDS = new Set([
+  'hangingPiece', 'missedMate', 'allowedMate', 'fork', 'backRank', 'missedCapture',
+  'pin', 'skewer', 'discoveredAttack', 'trappedPiece', 'deflection',
+]);
 const MAX_MOMENTS = 5;
 
 /*

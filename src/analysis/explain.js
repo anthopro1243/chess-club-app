@@ -425,6 +425,38 @@ function explainEngineChoice(f) {
 
 /* ── the public API ──────────────────────────────────────────────────────── */
 
+
+/*
+ * The five later motifs (motifs.js). Their detectors only fire on strict
+ * geometry, so a tag is trustworthy, but the sentence stays general: it names
+ * the reply and the idea, not squares the detector did not check.
+ */
+const NEW_MOTIFS = ['pin', 'skewer', 'discoveredAttack', 'trappedPiece', 'deflection'];
+const TACTIC_KINDS = new Set(['fork', 'backRank', ...NEW_MOTIFS]);
+const withReply = (reply) => (reply ? ` with ${reply}` : '');
+const NEW_MOTIF_TEXT = {
+  pin: {
+    headline: 'Walked into a pin',
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, pinning one of ${Who}'s pieces to a bigger one behind it, so it can no longer move safely.`,
+  },
+  skewer: {
+    headline: 'Allowed a skewer',
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking a big piece that has to move and leaving the piece behind it to be taken.`,
+  },
+  discoveredAttack: {
+    headline: 'Allowed a discovered attack',
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}: moving that piece uncovers an attack from the piece behind it, so two threats land at once.`,
+  },
+  trappedPiece: {
+    headline: 'Left a piece trapped',
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking one of ${Who}'s pieces that has no safe square left, so it will be lost.`,
+  },
+  deflection: {
+    headline: 'Allowed a deflection',
+    cause: (Opp, Who, reply) => `${Opp} can play${reply ? ` ${reply}` : ' a forcing move'} to drag one of ${Who}'s defenders away, and then win what it was guarding.`,
+  },
+};
+
 /**
  * Explain one critical moment in plain English.
  *
@@ -548,6 +580,13 @@ export function explainMoment(moment, context = {}) {
         basis: ['motifs'],
       };
     }
+  } else if (NEW_MOTIFS.some((m) => f.motifs.includes(m))) {
+    kind = NEW_MOTIFS.find((m) => f.motifs.includes(m));
+    const reply = f.replySans[0] || null;
+    const text = NEW_MOTIF_TEXT[kind];
+    located = !!reply;
+    headline = text.headline;
+    cause = { text: text.cause(Opp, Who, reply), basis: reply ? ['motifs', 'replyPv'] : ['motifs'] };
   } else if (f.hangs) {
     kind = 'hangingPiece';
     if (hung) {
@@ -593,10 +632,10 @@ export function explainMoment(moment, context = {}) {
 
   // One extra fact at most — two flags on one move are worth a sentence each,
   // but four sentences on one move is a paragraph nobody reads at the board.
-  if (!secondary && (kind === 'fork' || kind === 'backRank') && hung?.byReply) {
+  if (!secondary && TACTIC_KINDS.has(kind) && hung?.byReply) {
     secondary = { text: `${f.replySans[0]} also wins ${pieceOn(hung)}.`, basis: ['hangs', 'see', 'replyPv'] };
   }
-  if (!secondary && ['fork', 'backRank', 'hangingPiece'].includes(kind) && missed) {
+  if (!secondary && (TACTIC_KINDS.has(kind) || kind === 'hangingPiece') && missed) {
     secondary = {
       text: `${Who} also had ${missed.san}, winning ${pieceOn(missed)}${isFree(missed) ? ' for free' : ''}.`,
       basis: ['missedFreeCapture', 'see'],
