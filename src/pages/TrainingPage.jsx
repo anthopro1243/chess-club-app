@@ -14,8 +14,10 @@ import {
   attemptSummary,
 } from '../data/puzzleAttemptsStore.js';
 import { parseTrainingLink } from '../data/trainingLink.js';
+import { targetRating, matchPuzzles } from '../training/puzzleMatch.js';
 
 const TRAINEE_KEY = 'cc-trainee';
+const NEAR = 'near';
 const PUZZLE_IDS = PUZZLES.map((p) => p.id);
 
 /*
@@ -65,8 +67,29 @@ export default function TrainingPage() {
   // A player arriving from their improvement plan lands
   // pre-filtered to the theme (or the exact set) it named, rather than on all
   // 402 puzzles with advice to remember.
+  const players = usePlayers();
+  const [traineeId, setTraineeId] = useState(() => {
+    try {
+      return localStorage.getItem(TRAINEE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(TRAINEE_KEY, traineeId);
+    } catch {
+      /* storage can be unavailable; the selection still holds for this visit */
+    }
+  }, [traineeId]);
+
+  const trainee = players.find((p) => p.playerId === traineeId) || null;
+
   const [themeFilter, setThemeFilter] = useState(() => linkFromHash().theme);
-  const [difficultyFilter, setDifficultyFilter] = useState(() => linkFromHash().difficulty);
+  // Default: puzzles near the trainee's own rating (puzzleMatch.js). A link
+  // naming a difficulty, or the coach picking one, overrides it.
+  const [difficultyFilter, setDifficultyFilter] = useState(() => linkFromHash().difficulty || NEAR);
+  const target = targetRating(trainee);
   const [setIds, setSetIds] = useState(() => linkFromHash().puzzleIds);
   const setKey = setIds.join(',');
   const difficultyTest = DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
@@ -74,12 +97,18 @@ export default function TrainingPage() {
     () => {
       // A linked set is exactly those puzzles, in the coach's order.
       if (setIds.length) return setIds.map((id) => PUZZLES.find((p) => p.id === id)).filter(Boolean);
+      if (difficultyFilter === NEAR) {
+        return matchPuzzles(PUZZLES, target.rating, {
+          solvedIds: trainee?.puzzleStats?.solvedIds || [],
+          theme: themeFilter,
+        }).puzzles;
+      }
       return PUZZLES.filter(
         (p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating),
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [themeFilter, difficultyFilter, setKey],
+    [themeFilter, difficultyFilter, setKey, target.rating, trainee?.playerId],
   );
 
   /*
@@ -101,7 +130,7 @@ export default function TrainingPage() {
       if (!window.location.hash.startsWith('#/training')) return;
       const link = linkFromHash();
       setThemeFilter(link.theme);
-      setDifficultyFilter(link.difficulty);
+      setDifficultyFilter(link.difficulty || NEAR);
       setSetIds(link.puzzleIds);
       setSource('library');
     };
@@ -111,23 +140,6 @@ export default function TrainingPage() {
   // Some theme + difficulty combinations have no puzzles at all — fall back
   // to a harmless placeholder so every hook below still has a real puzzle
   // to work with; the empty case is handled in the render instead.
-  const players = usePlayers();
-  const [traineeId, setTraineeId] = useState(() => {
-    try {
-      return localStorage.getItem(TRAINEE_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(TRAINEE_KEY, traineeId);
-    } catch {
-      /* storage can be unavailable; the selection still holds for this visit */
-    }
-  }, [traineeId]);
-
-  const trainee = players.find((p) => p.playerId === traineeId) || null;
 
   const duePuzzles = useDuePuzzles(traineeId);
   const reviewState = useReviewSummary(traineeId);
@@ -470,6 +482,9 @@ export default function TrainingPage() {
                 setDifficultyFilter(event.target.value);
               }}
             >
+              <option value={NEAR}>
+                {trainee ? `Near ${trainee.name.split(' ')[0]}'s rating (~${target.rating})` : `Near ${target.rating} (pick a trainee to match a rating)`}
+              </option>
               {DIFFICULTIES.map((d) => (
                 <option key={d.key} value={d.key}>
                   {d.label}
