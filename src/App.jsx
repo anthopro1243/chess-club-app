@@ -156,14 +156,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <button type="button" className="brand" onClick={() => navigate('home')}>
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 45 45">
-              <path d="M21 4.4h3v4.1h4.1v3H24v4.2h-3v-4.2h-4.1v-3H21z" />
-              <path d="M22.5 16.4c6.4 0 11.1 3.9 12.7 9.2.9 3.2 1 5.4 1 7.2H8.8c0-1.8.1-4 1-7.2 1.6-5.3 6.3-9.2 12.7-9.2z" />
-              <path d="M9.5 32.8h26v3H9.5z" />
-              <path d="M7.6 35.8h29.8v3.1H7.6z" />
-            </svg>
-          </span>
+          <img className="brand-mark" src="./sem-logo.png" alt="" aria-hidden="true" width="34" height="34" />
           <span className="brand-name">Chess Club</span>
         </button>
 

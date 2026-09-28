@@ -153,14 +153,13 @@ code {
   padding: 0;
 }
 
-.brand-mark svg {
-  width: 26px;
-  height: 26px;
+.brand-mark {
+  /* School of Science and Engineering seal (public/sem-logo.png). */
+  width: 34px;
+  height: 34px;
   display: block;
-  fill: var(--accent);
-  stroke: var(--accent);
-  stroke-width: 1;
-  stroke-linejoin: round;
+  flex-shrink: 0;
+  border-radius: 50%;
 }
 
 .nav {
