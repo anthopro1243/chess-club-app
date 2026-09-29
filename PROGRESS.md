@@ -1,3 +1,15 @@
+# SEM red instead of gold — 2026-09-29 (owner's instruction)
+
+The gold accent (buttons, active tab, links, selected rows, focus rings, board selected/last-move
+squares) is now the red from the SEM seal, **#8B2233**, read straight off `public/sem-logo.png` (it is
+a single flat colour there). Fills, borders and board highlights use it exactly in both themes. Safe
+choice: red *text* in the dark theme uses a lighter shade of the same red (`--accent-ink`, #CA7280),
+because #8B2233 on the dark background is about 2:1 contrast and hard to read. In the light theme text
+uses #8B2233 exactly. Left alone: the orange warning colour and the mistake/inaccuracy grade colours
+in game review, which are status colours rather than highlights.
+
+---
+
 # Seamless pass — 2026-09-29 (owner's instruction: feel, speed and wording only)
 
 No features added or removed. No database changes. `src/engine/chess.js` and `src/analysis/scoring.js`

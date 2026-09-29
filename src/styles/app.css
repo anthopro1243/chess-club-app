@@ -13,17 +13,21 @@
   --text: #e7e9ee;
   --text-muted: #99a1af;
   --text-faint: #6b7280;
-  --accent: #d9a441;
-  --accent-soft: rgba(217, 164, 65, 0.16);
-  --accent-text: #1a1408;
+  /* The red from the SEM seal (public/sem-logo.png). Fills, borders and board
+     highlights use it exactly; --accent-ink is for red TEXT, lightened in the
+     dark theme so it stays readable. */
+  --accent: #8b2233;
+  --accent-ink: #ca7280;
+  --accent-soft: rgba(139, 34, 51, 0.3);
+  --accent-text: #ffffff;
   --good: #6fbf73;
   --warn: #e0a458;
   --bad: #d9695f;
 
   --square-light: #e9dcbf;
   --square-dark: #9d7f57;
-  --square-selected: rgba(217, 164, 65, 0.55);
-  --square-last: rgba(217, 164, 65, 0.28);
+  --square-selected: rgba(139, 34, 51, 0.55);
+  --square-last: rgba(139, 34, 51, 0.3);
   --square-check: rgba(217, 105, 95, 0.75);
 
   --radius: 10px;
@@ -45,8 +49,9 @@
   --text: #1d1f24;
   --text-muted: #5f6672;
   --text-faint: #8a919d;
-  --accent: #a8762a;
-  --accent-soft: rgba(168, 118, 42, 0.14);
+  --accent: #8b2233;
+  --accent-ink: #8b2233;
+  --accent-soft: rgba(139, 34, 51, 0.12);
   --accent-text: #ffffff;
   --good: #3f8f52;
   --warn: #b57a24;
@@ -186,7 +191,7 @@ code {
 }
 
 .nav-link.active {
-  color: var(--accent);
+  color: var(--accent-ink);
   background: var(--accent-soft);
   font-weight: 600;
 }
@@ -227,7 +232,7 @@ code {
 }
 
 .account-rating {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.78rem;
 }
 
@@ -381,7 +386,7 @@ code {
 .connection-user {
   font-weight: 400;
   font-size: 0.82rem;
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -753,7 +758,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .square.selected {
-  outline: 3px dashed var(--accent);
+  outline: 3px dashed var(--accent-ink);
   outline-offset: -3px;
 }
 
@@ -960,7 +965,7 @@ button.primary:hover:not(:disabled) {
 
 .reviewing {
   font-size: 0.8rem;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .movelist {
@@ -1011,7 +1016,7 @@ button.primary:hover:not(:disabled) {
 
 .move.active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 
@@ -1183,7 +1188,7 @@ button.primary:hover:not(:disabled) {
   place-items: center;
   border-radius: 50%;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -1256,7 +1261,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .track.competitive {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 
@@ -1433,7 +1438,7 @@ button.primary:hover:not(:disabled) {
 
 .puzzle-chip.current {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .puzzle-chip.solved {
@@ -1571,7 +1576,7 @@ button.primary:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .rating-trend svg {
@@ -1695,7 +1700,7 @@ textarea:focus {
 .link-button {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.82rem;
   cursor: pointer;
   padding: 0;
@@ -1850,7 +1855,7 @@ textarea:focus {
   margin-left: 8px;
   font-size: 0.72rem;
   font-style: normal;
-  color: var(--accent);
+  color: var(--accent-ink);
   opacity: 0.85;
   white-space: nowrap;
 }
@@ -1961,7 +1966,7 @@ tr.clickable:hover { background: var(--bg-sunken); }
 }
 
 .badge.import-badge-update {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 
@@ -2124,7 +2129,7 @@ button.primary:active:not(:disabled) {
 button:focus-visible,
 [role='button']:focus-visible,
 .nav-link:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
 

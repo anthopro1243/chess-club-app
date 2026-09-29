@@ -43,7 +43,7 @@
 }
 
 .rq-reason.otb {
-  color: var(--accent, var(--text));
+  color: var(--accent-ink, var(--text));
 }
 
 .rq-list .link-button {

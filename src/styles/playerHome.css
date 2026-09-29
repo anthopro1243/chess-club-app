@@ -58,7 +58,7 @@
 .ph-action:focus-visible,
 .ph-more:focus-visible,
 .ph-list a:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
 
@@ -209,7 +209,7 @@
 
 .ph-list a,
 .ph-more {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 

@@ -155,7 +155,7 @@
 }
 
 .ss-cursor {
-  color: var(--accent);
+  color: var(--accent-ink);
   border: 1px dashed var(--accent);
   cursor: default;
 }
@@ -379,7 +379,7 @@
 .pe-fen summary {
   cursor: pointer;
   font-size: 0.84rem;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .pe-fen-row {
