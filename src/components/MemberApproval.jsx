@@ -183,6 +183,7 @@ export default function MemberApproval() {
           type="button"
           className="primary"
           disabled={busy === 'invite'}
+          aria-busy={busy === 'invite'}
           onClick={() =>
             run('invite', async () => {
               setNewCode(await createInvite({ note: 'Club member' }));
@@ -195,6 +196,7 @@ export default function MemberApproval() {
         <button
           type="button"
           disabled={busy === 'invite5'}
+          aria-busy={busy === 'invite5'}
           onClick={() =>
             run('invite5', async () => {
               setNewCode(await createInvite({ note: 'Club intake', maxUses: 20 }));
@@ -260,7 +262,7 @@ function ResetForMember({ onRun, busy }) {
           }}
         />
       </label>
-      <button type="submit" className="form-submit" disabled={busy === 'reset'}>
+      <button type="submit" className="form-submit" disabled={busy === 'reset'} aria-busy={busy === 'reset'}>
         {busy === 'reset' ? 'Sending…' : 'Send reset link'}
       </button>
       {sent && <p className="hint-text sync-result">Sent.</p>}

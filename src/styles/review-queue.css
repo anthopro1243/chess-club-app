@@ -49,3 +49,10 @@
 .rq-list .link-button {
   flex-shrink: 0;
 }
+
+.rq-done {
+  margin: 0 0 8px;
+  color: var(--good);
+  font-size: 0.85rem;
+  font-weight: 600;
+}

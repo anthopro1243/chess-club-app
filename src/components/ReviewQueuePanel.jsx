@@ -4,6 +4,7 @@ import { useAnalyses } from '../data/analysisStore.js';
 import { usePlayers } from '../data/rosterStore.js';
 import { reviewQueueFor, clubReviewQueue } from '../analysis/reviewQueue.js';
 import InfoTooltip from './InfoTooltip.jsx';
+import { useFlash } from './useFlash.js';
 import '../styles/review-queue.css';
 
 const SHOW_PER_PLAYER = 3;
@@ -19,6 +20,7 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
   const analyses = useAnalyses();
   const players = usePlayers();
   const [now] = useState(() => Date.now());
+  const [justReviewed, showReviewed] = useFlash(2500);
 
   const rows = useMemo(() => {
     if (playerId) {
@@ -30,7 +32,13 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
 
   const total = rows.reduce((n, r) => n + r.items.length, 0);
 
-  const body =
+  const done = justReviewed && (
+    <p className="rq-done" role="status">
+      ✓ Marked reviewed: {justReviewed}
+    </p>
+  );
+
+  const list =
     rows.length === 0 ? (
       <p className="muted small">
         {playerId
@@ -58,7 +66,14 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
                       {!item.analysed && ' · not analysed yet'}
                     </span>
                   </div>
-                  <button type="button" className="link-button" onClick={() => setGameReviewed(item.gameId, true)}>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => {
+                      setGameReviewed(item.gameId, true);
+                      showReviewed(`vs ${item.opponent}`);
+                    }}
+                  >
                     Mark reviewed
                   </button>
                 </li>
@@ -71,6 +86,13 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
         ))}
       </div>
     );
+
+  const body = (
+    <>
+      {done}
+      {list}
+    </>
+  );
 
   if (compact) {
     return (

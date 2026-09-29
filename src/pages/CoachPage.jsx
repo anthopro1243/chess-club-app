@@ -70,6 +70,7 @@ export default function CoachPage() {
   const [engineSeeded, setEngineSeeded] = useState({});
   const [assessNotes, setAssessNotes] = useState('');
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   // Engine-derived assessments and scores, so the form can start from the data
   // rather than from a row of 5s.
@@ -178,17 +179,23 @@ export default function CoachPage() {
           <button
             type="button"
             className="primary"
+            disabled={exporting}
+            aria-busy={exporting}
             onClick={async () => {
-              flash('Building spreadsheet…');
+              setExporting(true);
+              // Let "Building…" paint before the workbook ties up the page.
+              await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
               try {
                 const name = await exportWorkbook(players, games, { coachNotes });
                 flash(`Exported ${name}`);
               } catch (error) {
                 flash(`Export failed: ${error.message}`);
+              } finally {
+                setExporting(false);
               }
             }}
           >
-            Export spreadsheet
+            {exporting ? 'Building…' : 'Export spreadsheet'}
           </button>
         </div>
       </section>

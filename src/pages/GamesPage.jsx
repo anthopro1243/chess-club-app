@@ -9,6 +9,7 @@ import LogGameForm from '../components/LogGameForm.jsx';
 import PgnImportModal from '../components/PgnImportModal.jsx';
 import ScoresheetModal from '../components/ScoresheetModal.jsx';
 import { scoresheetGapOf } from '../data/scoresheet.js';
+import { useFlash } from '../components/useFlash.js';
 import '../styles/scoresheet.css';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
@@ -84,6 +85,7 @@ export default function GamesPage() {
     setToast(message);
     setTimeout(() => setToast(''), 2000);
   };
+  const [copied, showCopied] = useFlash();
 
   const filtered = games.filter((g) => {
     if (typeFilter && g.mode !== typeFilter) return false;
@@ -246,9 +248,9 @@ export default function GamesPage() {
               <button
                 type="button"
                 className="primary"
-                onClick={async () => flash((await copyText(game.pgn)) ? 'PGN copied' : 'Copy failed')}
+                onClick={async () => ((await copyText(game.pgn)) ? showCopied(game.id) : flash('Copy failed'))}
               >
-                Copy PGN
+                {copied === game.id ? 'Copied ✓' : 'Copy PGN'}
               </button>
               <button type="button" onClick={() => downloadPgn(game)}>
                 Download PGN

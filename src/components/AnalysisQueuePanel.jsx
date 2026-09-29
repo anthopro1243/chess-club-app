@@ -66,6 +66,7 @@ export default function AnalysisQueuePanel({ queue }) {
           type="button"
           className="primary"
           disabled={working}
+          aria-busy={working}
           onClick={async () => {
             setWorking(true);
             let result;

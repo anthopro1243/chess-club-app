@@ -75,7 +75,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
       <div className="panel-header">
         <h3>Game analysis</h3>
         {mayAnalyse && (
-          <button type="button" onClick={run} disabled={running}>
+          <button type="button" onClick={run} disabled={running} aria-busy={running}>
             {running ? 'Analysing…' : visible.length ? 'Re-analyse' : 'Analyse this game'}
           </button>
         )}

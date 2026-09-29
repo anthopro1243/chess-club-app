@@ -939,7 +939,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                 <button type="button" className="link-button" onClick={startOver} disabled={busy}>
                   Start over
                 </button>
-                <button type="button" className="primary" onClick={save} disabled={busy || alreadyArchived}>
+                <button type="button" className="primary" onClick={save} disabled={busy || alreadyArchived} aria-busy={busy}>
                   {busy ? 'Saving…' : 'Save game'}
                 </button>
               </div>

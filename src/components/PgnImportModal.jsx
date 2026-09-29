@@ -214,7 +214,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
               <button type="button" className="link-button" onClick={() => setPlan(null)} disabled={busy}>
                 Back to the PGN
               </button>
-              <button type="button" className="primary" disabled={!toWrite.length || busy} onClick={runImport}>
+              <button type="button" className="primary" disabled={!toWrite.length || busy} aria-busy={busy} onClick={runImport}>
                 {busy ? 'Importing…' : `Import ${toWrite.length} ${toWrite.length === 1 ? 'game' : 'games'}`}
               </button>
             </div>

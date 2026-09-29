@@ -69,7 +69,7 @@ export default function ArchiveGraduateModal({ player, onClose, onArchived }) {
         </label>
         {error && <p className="error-text" role="alert">{error}</p>}
         <div className="panel-header-actions">
-          <button type="button" className="primary danger" disabled={!ready} onClick={run}>
+          <button type="button" className="primary danger" disabled={!ready} aria-busy={busy} onClick={run}>
             {busy ? 'Archiving…' : 'Archive graduate'}
           </button>
         </div>

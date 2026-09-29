@@ -1,10 +1,15 @@
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { execSync } from 'node:child_process';
+
+// PLAYWRIGHT=<path to playwright or playwright-core index.mjs>, else the global install.
+// CHROME_CHANNEL=chrome uses the system Chrome when Playwright's own browsers aren't installed.
+const pwPath = process.env.PLAYWRIGHT || `${execSync('npm root -g').toString().trim()}/playwright/index.mjs`;
+const { chromium } = await import(pwPath);
 
 // Measures, per action: time from click until the next paint, and any long
 // main-thread tasks (>50 ms) the click caused. Uses a production build via
 // `vite preview` if PREVIEW=1, else the dev server.
 const BASE = process.env.BASE || 'http://localhost:5174/';
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.CHROME_CHANNEL ? { channel: process.env.CHROME_CHANNEL } : {});
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 // Throttle the CPU like a school Chromebook / mid phone.
 const cdp = await p.context().newCDPSession(p);
@@ -50,7 +55,7 @@ for (const t of ['Play', 'Training', 'Games', 'My games', 'Roster', 'Coach', 'Cl
 await p.click('.nav >> text=Games'); await p.waitForTimeout(500);
 await measure('Games: open a game', () => p.click('tbody tr >> nth=0'));
 await measure('Games: Enter a scoresheet', () => p.click('text=Enter a scoresheet'));
-await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+await p.click('.ss-modal >> button:has-text("Close") >> nth=0'); await p.waitForTimeout(300);
 
 await p.click('.nav >> text=Training'); await p.waitForTimeout(500);
 await measure('Training: change theme', () => p.selectOption('select:has(option[value="fork"])', 'fork'));

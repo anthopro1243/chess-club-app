@@ -131,8 +131,8 @@ function SignInForm({ onDone, onSwitch }) {
       />
       <PasswordField value={password} onChange={setPassword} placeholder="Password" />
       {error && <span className="hint-text auth-error">{error}</span>}
-      <button type="submit" className="primary" disabled={busy}>
-        Sign in
+      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+        {busy ? 'Signing in…' : 'Sign in'}
       </button>
       <div className="auth-links">
         <button type="button" className="link-button" onClick={() => onSwitch('signup')}>
@@ -311,7 +311,7 @@ function AwaitingApproval() {
         }}
       />
       {error && <span className="hint-text auth-error">{error}</span>}
-      <button type="submit" className="primary" disabled={busy}>
+      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
         {busy ? 'Checking…' : 'Use code'}
       </button>
       <button type="button" className="link-button" onClick={() => signOut()}>
@@ -342,8 +342,8 @@ function ClaimProfileForm({ onDone }) {
       <p className="hint-text">You're signed in. Set up your player profile to join the roster.</p>
       <input type="text" required autoFocus placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
       <input type="text" placeholder="Grade (optional)" value={grade} onChange={(e) => setGrade(e.target.value)} />
-      <button type="submit" className="primary" disabled={busy}>
-        Join the roster
+      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+        {busy ? 'Joining…' : 'Join the roster'}
       </button>
     </form>
   );
@@ -421,8 +421,8 @@ function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
           <PasswordField value={password} onChange={setPassword} placeholder="New password" autoFocus />
           <PasswordField value={confirm} onChange={setConfirm} placeholder="Confirm new password" />
           {error && <span className="hint-text auth-error">{error}</span>}
-          <button type="submit" className="primary" disabled={busy}>
-            Update password
+          <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+            {busy ? 'Saving…' : 'Update password'}
           </button>
           <button type="button" className="link-button" onClick={() => setChangingPassword(false)}>
             Cancel

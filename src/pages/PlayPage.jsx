@@ -7,6 +7,7 @@ import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
 import Piece from '../components/Piece.jsx';
+import { useFlash } from '../components/useFlash.js';
 import {
   TIME_CONTROLS,
   findControl,
@@ -348,6 +349,7 @@ export default function PlayPage() {
     setToast(message);
     setTimeout(() => setToast(''), 2200);
   };
+  const [copied, showCopied] = useFlash();
 
   /*
    * Tick while the clock runs, and stop the game the moment someone flags.
@@ -749,18 +751,18 @@ export default function PlayPage() {
             </button>
             <button
               type="button"
-              onClick={async () => flash((await copyText(pgn())) ? 'PGN copied' : 'Copy failed')}
+              onClick={async () => ((await copyText(pgn())) ? showCopied('pgn') : flash('Copy failed'))}
               disabled={!moves.length}
             >
-              Copy PGN
+              {copied === 'pgn' ? 'Copied ✓' : 'Copy PGN'}
             </button>
             <button
               type="button"
               onClick={async () =>
-                flash((await copyText(displayGame.fen())) ? 'FEN copied' : 'Copy failed')
+                (await copyText(displayGame.fen())) ? showCopied('fen') : flash('Copy failed')
               }
             >
-              Copy FEN
+              {copied === 'fen' ? 'Copied ✓' : 'Copy FEN'}
             </button>
             {saver.kind !== 'none' && (
               <button type="button" onClick={downloadPgn} disabled={!moves.length}>
