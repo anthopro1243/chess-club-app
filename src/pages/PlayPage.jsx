@@ -462,7 +462,7 @@ export default function PlayPage() {
       try {
         await saver.api.save({ filename: `chess-club-${stamp}.txt`, data: text });
       } catch (error) {
-        if (error?.code !== 'declined') flash('Could not save the file');
+        if (error?.code !== 'declined') flash('Couldn’t save the file');
       }
       return;
     }
@@ -583,7 +583,7 @@ export default function PlayPage() {
                 </label>
                 {whitePlayerId && blackPlayerId && whitePlayerId === blackPlayerId && (
                   <p className="hint-text field-wide">
-                    Pick two different players for the result to count toward ratings.
+                    Pick two different players to make this a rated game.
                   </p>
                 )}
               </>
@@ -636,7 +636,7 @@ export default function PlayPage() {
                     checked={maxStrength}
                     onChange={(event) => setMaxStrength(event.target.checked)}
                   />
-                  <span>Maximum strength (no Elo limit)</span>
+                  <span>Full strength</span>
                 </label>
                 <label className="field">
                   <span>Thinking time</span>
@@ -675,7 +675,7 @@ export default function PlayPage() {
           {timeControl.baseMs > 0 && (
             <p className="hint-text">
               {clockRef.current.running
-                ? 'Running. It starts on the first move and stops when someone flags.'
+                ? 'Clock is running.'
                 : moves.length
                   ? 'Paused.'
                   : 'Starts on the first move.'}
@@ -770,9 +770,6 @@ export default function PlayPage() {
               </button>
             )}
           </div>
-          <p className="hint-text">
-            Save the game as a PGN file, or copy it to your clipboard.
-          </p>
         </div>
       </aside>
 

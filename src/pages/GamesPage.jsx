@@ -148,7 +148,7 @@ export default function GamesPage() {
 
         {filtered.length === 0 ? (
           <p className="hint-text">
-            No games yet. Finished games from the Play page are archived here automatically.
+            No games yet. Games you finish on the Play page show up here.
           </p>
         ) : (
           <div className="table-scroll">
@@ -211,7 +211,7 @@ export default function GamesPage() {
           // newest 500) should say so rather than show nothing.
           return games.some((g) => g.id === openId) ? null : (
             <section className="panel" id="game-detail">
-              <p className="hint-text">That game is not in the archive loaded on this device.</p>
+              <p className="hint-text">Can&rsquo;t find that game on this device.</p>
             </section>
           );
         }
@@ -235,8 +235,8 @@ export default function GamesPage() {
               <p className="game-gap-note">
                 Entered from a scoresheet: {scoresheetGapOf(game.pgn)}.
                 {/\[SetUp "1"\]/.test(game.pgn)
-                  ? ' The board and the analysis start from the position set up after the gap; the readable moves before it are in the PGN\u2019s opening comment.'
-                  : ' The analysis covers the moves that could be read.'}
+                  ? ' The board starts after the gap. The moves before it are in the PGN comment.'
+                  : ' Only the moves that could be read are analysed.'}
               </p>
             )}
             <GameReviewFor game={game} />

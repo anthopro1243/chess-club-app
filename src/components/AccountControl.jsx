@@ -109,7 +109,7 @@ function SignInForm({ onDone, onSwitch }) {
       await signInWithPassword(email.trim(), password);
       onDone();
     } catch (err) {
-      setError(err.message || 'Could not sign in.');
+      setError(err.message || 'Couldn’t sign in.');
     } finally {
       setBusy(false);
     }
@@ -173,7 +173,7 @@ function SignUpForm({ onDone, onSwitch }) {
         setStatus('confirm-email');
       }
     } catch (err) {
-      setError(err.message || 'Could not create the account.');
+      setError(err.message || 'Couldn’t create the account.');
       setStatus('');
     }
   };
@@ -182,7 +182,7 @@ function SignUpForm({ onDone, onSwitch }) {
     return (
       <div className="signin-form">
         <p className="hint-text">
-          Almost there. Check your email for a confirmation link, then come back and sign in.
+          Almost done. Check your email for a link, then come back and sign in.
         </p>
         <button type="button" className="link-button" onClick={() => onSwitch('signin')}>
           Back to sign in
@@ -230,7 +230,7 @@ function ForgotPasswordForm({ onSwitch }) {
       await sendPasswordReset(email.trim());
       setStatus('sent');
     } catch (err) {
-      setStatus(err.message || 'Could not send the reset link.');
+      setStatus(err.message || 'Couldn’t send the reset link.');
     }
   };
 
@@ -289,7 +289,7 @@ function AwaitingApproval() {
     try {
       await redeemInvite(code);
     } catch (err) {
-      setError(err.message || 'That code did not work.');
+      setError(err.message || 'That code didn’t work.');
     } finally {
       setBusy(false);
     }
@@ -298,8 +298,8 @@ function AwaitingApproval() {
   return (
     <form className="signin-form" onSubmit={submit}>
       <p className="hint-text">
-        Your account is waiting for a coach to approve it. If you were given an invite code, enter
-        it here and you are in straight away.
+        Your account is waiting for the coach to approve it. Got an invite code? Enter it here to
+        get in now.
       </p>
       <input
         type="text"
@@ -339,7 +339,7 @@ function ClaimProfileForm({ onDone }) {
 
   return (
     <form className="signin-form" onSubmit={submit}>
-      <p className="hint-text">You're signed in. Set up your player profile to join the roster.</p>
+      <p className="hint-text">You&rsquo;re signed in. Add your name to join the roster.</p>
       <input type="text" required autoFocus placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
       <input type="text" placeholder="Grade (optional)" value={grade} onChange={(e) => setGrade(e.target.value)} />
       <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
@@ -375,7 +375,7 @@ function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
       setPassword('');
       setConfirm('');
     } catch (err) {
-      setError(err.message || 'Could not update the password.');
+      setError(err.message || 'Couldn’t update the password.');
     } finally {
       setBusy(false);
     }

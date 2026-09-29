@@ -15,10 +15,10 @@ notation trainer, homework, announcements, team tools, attendance.
 - **What it is:** a private page that only you (and the coach) can see.
 - **How to use:** sign in and open **Club**. The card says "Hi, [your name]".
 - **What's on it:**
-  - **Your one thing to work on:** the single biggest weakness from your analysed games, with a
+  - **Work on this next:** the single biggest weakness from your analysed games, with a
     button straight to the matching puzzles.
-  - **How you are trending:** which skills are going up or down over recent games.
-  - **Review positions due:** positions you got wrong in your own games, coming back to practise.
+  - **How you're trending:** which skills are going up or down over recent games.
+  - **Positions to review:** positions you got wrong in your own games, coming back to practise.
   - **Games to go over:** your review queue (see 4).
   - **Recent games:** your last few games with accuracy.
 - **Talking point:** one clear priority instead of a wall of numbers.
@@ -34,8 +34,8 @@ notation trainer, homework, announcements, team tools, attendance.
 - **Talking point:** you learn why the move was bad, not just that it was.
 
 ### 3. Time per move (in the same game analysis)
-- A bar chart of how long each move took, with a one-line summary such as "rushed in a winning
-  position" or "long think before the blunder".
+- A bar chart of how long each move took, with a one-line summary such as "One mistake was played
+  in under 5 seconds with lots of time left" or "You were low on time from move 28".
 - **Talking point:** shows time trouble and impulsive moves.
 
 ### 4. Review queue ("Games to go over")
@@ -97,6 +97,6 @@ notation trainer, homework, announcements, team tools, attendance.
 ---
 
 ## One-slide summary
-Sign in → **Club** shows your one thing to work on → **Games** explains every big mistake in plain
+Sign in → **Club** shows what to **work on next** → **Games** explains every big mistake in plain
 English → **Training** serves puzzles at your level → **Games to go over** makes sure every game,
 especially the ones played in person, gets reviewed with the coach.

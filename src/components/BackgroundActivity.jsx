@@ -31,7 +31,7 @@ export default function BackgroundActivity() {
     const queued = Math.max(0, (analysis.counts?.pending ?? 0));
     lines.push({
       key: 'analysis',
-      text: `Analysing a game${pct != null ? ` — ${pct}%` : '…'}${queued ? ` · ${queued} queued` : ''}`,
+      text: `Analysing a game${pct != null ? ` (${pct}%)` : '…'}${queued ? ` · ${queued} waiting` : ''}`,
       busy: true,
     });
   }
@@ -43,7 +43,7 @@ export default function BackgroundActivity() {
     if (sync.state === 'error') {
       lines.push({
         key: 'sync',
-        text: `${sync.label} sync didn't finish — it will try again later.`,
+        text: `${sync.label} sync didn't finish. It'll try again later.`,
         title: sync.error,
         dismiss: () => setHiddenSync(sync),
       });

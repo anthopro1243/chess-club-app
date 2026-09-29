@@ -152,8 +152,8 @@ export default function TrainingPage() {
         fen: p.fen,
         rating: 0,
         themes: p.themes?.length ? p.themes : ['ownGame'],
-        name: p.san ? `Your game — you played ${p.san}` : 'Your game',
-        hint: 'You met this position in one of your own games and got it wrong.',
+        name: p.san ? `From your game (you played ${p.san})` : 'From your game',
+        hint: 'You got this one wrong in a real game. Find the better move.',
         solution: [
           {
             from: p.solution.slice(0, 2),
@@ -212,10 +212,10 @@ export default function TrainingPage() {
   const mistakesNote =
     source === 'mistakes'
       ? duePuzzles.length
-        ? `${duePuzzles.length} position${duePuzzles.length === 1 ? '' : 's'} from your own games are due for review. Solving one pushes it further out; getting it wrong brings it back tomorrow.`
+        ? `${duePuzzles.length} position${duePuzzles.length === 1 ? '' : 's'} from your games to review. Get one right and it comes back later. Miss it and you'll see it again tomorrow.`
         : reviewState.active
-          ? `Nothing due right now. ${reviewState.active} position${reviewState.active === 1 ? '' : 's'} are on your review list and will come back on schedule.`
-          : 'No mistakes recorded yet — they appear here once your games have been analysed.'
+          ? `Nothing due today. ${reviewState.active} more will come back later.`
+          : 'No mistakes saved yet. They show up once your games are analysed.'
       : null;
 
   const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
@@ -364,7 +364,7 @@ export default function TrainingPage() {
           <div className="panel-block">
             <h2>No puzzles match</h2>
             <p className="hint-text">
-              No puzzles fit both that theme and that difficulty. Try a different combination.
+              No puzzles with that theme at that level. Try another theme or difficulty.
             </p>
           </div>
         ) : (
@@ -425,7 +425,7 @@ export default function TrainingPage() {
         <div className="panel-block">
           <h2>
             Trainee
-            <InfoTooltip>Pick a trainee and solved puzzles count toward their rating and record.</InfoTooltip>
+            <InfoTooltip>Pick a player and their solved puzzles count toward their rating.</InfoTooltip>
           </h2>
           <select
             className="trainee-select"
@@ -450,7 +450,7 @@ export default function TrainingPage() {
               <option value="mistakes" disabled={!traineeId}>
                 {traineeId
                   ? `Your mistakes (${duePuzzles.length} due)`
-                  : 'Your mistakes — pick a trainee first'}
+                  : 'Your mistakes (pick a trainee first)'}
               </option>
               <option value="endgames">Endgames: play them out vs the engine</option>
             </select>
@@ -483,7 +483,7 @@ export default function TrainingPage() {
               }}
             >
               <option value={NEAR}>
-                {trainee ? `Near ${trainee.name.split(' ')[0]}'s rating (~${target.rating})` : `Near ${target.rating} (pick a trainee to match a rating)`}
+                {trainee ? `Near ${trainee.name.split(' ')[0]}'s rating (~${target.rating})` : `Near ${target.rating} (pick a trainee first)`}
               </option>
               {DIFFICULTIES.map((d) => (
                 <option key={d.key} value={d.key}>
@@ -528,8 +528,7 @@ export default function TrainingPage() {
             <h2>
               Weakest themes
               <InfoTooltip>
-                Measured from actual attempts, worst first. Themes with fewer than three
-                attempts are left out, since one guess proves nothing.
+                From puzzles tried, worst first. Needs at least three tries per theme.
               </InfoTooltip>
             </h2>
             <ol className="priority-list">

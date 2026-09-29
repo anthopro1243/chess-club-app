@@ -281,7 +281,7 @@ export function matchMove(chess, raw, legal = null) {
     if (piece.color !== chess.turn) {
       return fail('illegal', `${parsed.from} holds a ${piece.color === 'w' ? 'white' : 'black'} ${PIECE_WORDS[piece.type]}; it is ${sideName(chess.turn)}'s move.`);
     }
-    return fail('illegal', `The ${PIECE_WORDS[piece.type]} on ${parsed.from} cannot move to ${parsed.to}.${checkNote}`);
+    return fail('illegal', `The ${PIECE_WORDS[piece.type]} on ${parsed.from} can’t move to ${parsed.to}.${checkNote}`);
   }
   return resolve(candidates, parsed, shown);
 }
@@ -403,7 +403,7 @@ export function replayMoves(startFen, tokens = []) {
   } catch (cause) {
     return {
       moves: [],
-      error: { index: 0, moveNumber: 1, color: 'w', token: '', code: 'bad-fen', message: `That position cannot be read: ${cause.message}`, options: [] },
+      error: { index: 0, moveNumber: 1, color: 'w', token: '', code: 'bad-fen', message: `Can’t read that position: ${cause.message}`, options: [] },
       fen: startFen,
       over: null,
     };

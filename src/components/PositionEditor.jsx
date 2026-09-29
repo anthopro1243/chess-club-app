@@ -63,7 +63,7 @@ export default function PositionEditor({ squares, onChange, orientation = 'w', f
     if (!text) return;
     const { squares: parsed } = placementFromFen(text);
     if (!Object.keys(parsed).length) {
-      setFenError('That is not a FEN.');
+      setFenError('That isn’t a valid FEN.');
       return;
     }
     setFenError('');
@@ -162,7 +162,7 @@ export default function PositionEditor({ squares, onChange, orientation = 'w', f
           </button>
         </div>
         {fenError && <p className="form-error small">{fenError}</p>}
-        <p className="hint-text">Only the piece placement is used; side to move and move number come from the sheet.</p>
+        <p className="hint-text">Only the piece positions are used. Whose move it is comes from the sheet.</p>
       </details>
     </div>
   );

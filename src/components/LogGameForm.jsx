@@ -189,8 +189,8 @@ export default function LogGameForm({ onDone }) {
         <span>
           Count toward ratings
           <InfoTooltip>
-            Only possible when both sides are different players on the roster. A game against
-            someone outside the club still gets archived, it just cannot move a club rating.
+            Both players need to be on the roster. Games against outside players are still saved,
+            just not rated.
           </InfoTooltip>
         </span>
       </label>
@@ -201,7 +201,7 @@ export default function LogGameForm({ onDone }) {
           className="text-area"
           rows={4}
           value={form.pgn}
-          placeholder="Paste the moves here and the rest of the form fills itself in"
+          placeholder="Paste a PGN and the form fills itself in"
           onChange={(e) => onPastePgn(e.target.value)}
         />
       </label>

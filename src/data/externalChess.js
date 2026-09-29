@@ -58,7 +58,7 @@ async function getJson(url, init) {
   try {
     response = await fetch(url, init);
   } catch {
-    throw new ExternalChessError('Could not reach the site. Check your connection and try again.');
+    throw new ExternalChessError('Couldn’t reach the site. Check your connection and try again.');
   }
   if (response.status === 404) throw new ExternalChessError('No account with that username.', { status: 404 });
   if (response.status === 429) {

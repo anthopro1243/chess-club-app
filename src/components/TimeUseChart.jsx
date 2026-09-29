@@ -75,7 +75,7 @@ export default function TimeUseChart({ row, game }) {
         {current
           ? `Move ${current.fullmove} ${current.san}: ${fmt(current.seconds)}${LABELS[current.label] ? ` · ${LABELS[current.label]}` : ''}${current.clockBefore != null ? ` · ${fmt(current.clockBefore)} left` : ''}`
           : report.troubleFromMove != null
-            ? `Short of time from move ${report.troubleFromMove} (lighter bars).`
+            ? `Low on time from move ${report.troubleFromMove} (lighter bars).`
             : `Longest think: move ${report.longest.fullmove} ${report.longest.san}, ${fmt(report.longest.seconds)}.`}
       </p>
 

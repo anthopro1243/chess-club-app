@@ -1,3 +1,46 @@
+# Seamless pass — 2026-09-29 (owner's instruction: feel, speed and wording only)
+
+No features added or removed. No database changes. `src/engine/chess.js` and `src/analysis/scoring.js`
+untouched. Branch `feature/roster-import-9cg3im`; **master and the live site are untouched.**
+
+**1. Buttons react when pressed** (one block at the end of `src/styles/app.css`): press (scale 0.96),
+hover, keyboard focus ring, `touch-action: manipulation`, no grey tap flash. Bare buttons and primary
+buttons outside a button group get a real button look (they were falling back to the browser default,
+e.g. "Export spreadsheet", "Analyse this game", the review Start/Back/Next/End buttons). Clickable
+table rows light up on press. Reduced-motion users get no scale.
+
+**2. Busy and done states:** busy buttons show a small spinner (`aria-busy`) and stay readable.
+Export spreadsheet disables and reads "Building…" (it could be double-clicked before). Sign in, Join
+the roster and Update password now say "Signing in…" etc. Copy PGN / Copy FEN read "Copied ✓" for
+1.5 s; a failed copy still shows the "Copy failed" toast. Mark reviewed shows "✓ Marked reviewed: vs X"
+for 2.5 s. The timer logic is `src/components/flashTimer.js` (tests include a should-fail case) with a
+`useFlash` hook.
+
+**3. Freezes:** none found. `docs/next/measure-responsiveness.mjs` (CPU slowed 4×, 30 players,
+200 games), median of 3 runs each: every tab and click shows within ~250 ms and no freeze is over
+~120 ms, before and after. Nothing to fix. Limitation: the seeded games have no stored analyses, so
+analysis-heavy views (Coach weaknesses, player home) were measured nearly empty.
+
+**4. Wording:** shorter, plainer text across every page, modal, tooltip, empty state and error, and in
+the mistake explanations (`src/analysis/explain.js`, tests updated, including one that fails on the
+old colon/dash wording). Renamed on screen, and updated in `docs/PRESENTATION-NEW-FEATURES.md`:
+"Your one thing to work on" → **"Work on this next"**, "How you are trending" → **"How you're
+trending"**, "Review positions due" → **"Positions to review"**. Also renamed (not in the
+presentation): "Log assessment" → "Save assessment", "Where group time should go" → "Teach to the
+whole group", "Maximum strength (no Elo limit)" → "Full strength". Footer line "Rules engine tested
+against standard reference positions." → "Made for the SEM Chess Club."
+
+**Safe choices made without asking:**
+- Left as is because the rules forbid editing those files: the improvement advice text in
+  `scoring.js` (shown under "Work on this next") and "Checkmate — Black wins" from `chess.js`.
+- Left the notes written into saved games (e.g. "…could not be read" inside PGNs and the engine
+  assessment note) so existing and new records stay consistent.
+- Left the spreadsheet export's column text alone (not on-screen text).
+- The measuring script now finds Playwright via `PLAYWRIGHT=` or `npm root -g`, and can use the
+  system Chrome with `CHROME_CHANNEL=chrome` (Playwright's own browsers weren't installed here).
+
+---
+
 # Scope cut — 2026-09-27 (owner's instruction)
 
 The owner: the app is for members to log in, analyse their games and see what to improve. Tournaments

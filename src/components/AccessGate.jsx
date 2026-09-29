@@ -17,8 +17,8 @@ export default function AccessGate({ signedIn, status }) {
         <>
           <h2>Club members only</h2>
           <p>
-            Sign in with the button at the top right. If you are new, create an account and a
-            coach will let you in, or use an invite code if you were given one.
+            Sign in at the top right. New here? Create an account and the coach will let you in,
+            or use your invite code.
           </p>
         </>
       ) : status === 'suspended' ? (
@@ -30,8 +30,8 @@ export default function AccessGate({ signedIn, status }) {
         <>
           <h2>Waiting for a coach</h2>
           <p>
-            Your account exists but has not been approved yet. A coach can approve it, or you can
-            enter an invite code from the account menu at the top right.
+            The coach hasn&rsquo;t approved your account yet. If you have an invite code, enter it
+            from the account menu at the top right.
           </p>
         </>
       )}

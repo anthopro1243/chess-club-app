@@ -49,10 +49,10 @@ export function rowProblem(row) {
   if (!row || !row.game) return 'Nothing to import.';
   if (row.alreadyArchived) return 'Already in the archive.';
   if (row.whitePlayerId && row.whitePlayerId === row.blackPlayerId) {
-    return 'The same member cannot play both sides.';
+    return 'The same player can’t be on both sides.';
   }
   if (row.needsDate && !DATE_ONLY.test(row.playedOn || '')) {
-    return 'The PGN has no date — pick the day it was played.';
+    return 'This PGN has no date. Pick the day it was played.';
   }
   return null;
 }

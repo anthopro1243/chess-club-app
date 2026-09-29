@@ -30,9 +30,8 @@ export default function ClubWeaknessesPanel() {
         <h2>
           Club weaknesses, last {report.windowDays} days
           <InfoTooltip>
-            From members&rsquo; analysed games only (retired players left out): which tactic themes
-            were behind their mistakes, where decisive errors happened, and which openings they
-            faced most. Use it to pick the next lesson.
+            What keeps going wrong in members&rsquo; analysed games. Use it to plan the next
+            lesson.
           </InfoTooltip>
         </h2>
         <span className="badge mono">{report.analysedGames} games</span>
@@ -41,15 +40,15 @@ export default function ClubWeaknessesPanel() {
       {!report.enough ? (
         <p className="hint-text">
           {report.analysedGames === 0
-            ? 'No analysed games from the last 30 days yet. Games sync and analyse themselves while the app is open.'
-            : `Only ${report.analysedGames} analysed game${report.analysedGames === 1 ? '' : 's'} so far; at least ${MIN_GAMES} are needed before this says anything useful.`}
+            ? 'No analysed games from the last 30 days yet.'
+            : `Only ${report.analysedGames} analysed game${report.analysedGames === 1 ? '' : 's'} so far. Needs at least ${MIN_GAMES}.`}
         </p>
       ) : (
         <div className="two-column">
           <div>
             <h3>Tactic themes behind mistakes</h3>
             {report.topMotifs.length === 0 ? (
-              <p className="hint-text">No tactic themes detected in members&rsquo; mistakes.</p>
+              <p className="hint-text">No tactics showed up in members&rsquo; mistakes.</p>
             ) : (
               <ol>
                 {report.topMotifs.map((m) => (
@@ -65,7 +64,7 @@ export default function ClubWeaknessesPanel() {
             )}
             {report.worstPhase && (
               <p>
-                Most decisive errors happen in the <strong>{report.worstPhase.label.toLowerCase()}</strong>{' '}
+                Most games are lost in the <strong>{report.worstPhase.label.toLowerCase()}</strong>{' '}
                 <span className="muted">({report.worstPhase.count} of {report.worstPhase.of})</span>.
               </p>
             )}
@@ -73,7 +72,7 @@ export default function ClubWeaknessesPanel() {
           <div>
             <h3>Openings members face most</h3>
             {report.topOpenings.length === 0 ? (
-              <p className="hint-text">The games don&rsquo;t carry opening names.</p>
+              <p className="hint-text">These games don&rsquo;t have opening names.</p>
             ) : (
               <ol>
                 {report.topOpenings.map((o) => (

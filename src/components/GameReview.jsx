@@ -128,7 +128,7 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
     : null;
 
   if (replay.error) {
-    return <p className="error">This game&rsquo;s PGN could not be replayed: {replay.error}</p>;
+    return <p className="error">Can&rsquo;t replay this game&rsquo;s PGN: {replay.error}</p>;
   }
 
   return (
@@ -147,7 +147,7 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
           <button type="button" onClick={() => setViewPly(total)} disabled={viewPly >= total}>End &raquo;</button>
         </div>
         <p className="muted small">
-          Move {Math.ceil(viewPly / 2) || 0} of {Math.ceil(total / 2)} &middot; use the arrow keys
+          Move {Math.ceil(viewPly / 2) || 0} of {Math.ceil(total / 2)} &middot; arrow keys work too
         </p>
         {current && (
           <p className={`review-eval ${LABEL_CLASS[current.label] || ''}`}>
@@ -197,14 +197,13 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
                 </li>
               ))}
             </ol>
-            <p className="muted small">Click a move to see the position.</p>
+            <p className="muted small">Tap a move to see the position.</p>
           </div>
         )}
 
         {!analyses.length && (
           <p className="muted">
-            This game has not been analysed yet, so there is no evaluation to step through — the
-            board and moves above still work.
+            Not analysed yet. You can still step through the moves.
           </p>
         )}
       </div>

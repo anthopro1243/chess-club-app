@@ -46,8 +46,7 @@ export default function MyGamesPage() {
             <h2>My games</h2>
           </div>
           <p className="muted">
-            Your account is not linked to a player on the roster yet, so there are no games to
-            show. A coach can link it for you from the Roster page.
+            Your account isn&rsquo;t linked to a roster player yet. Ask the coach to link it.
           </p>
         </section>
       </div>
@@ -65,15 +64,15 @@ export default function MyGamesPage() {
         {reviewState.total > 0 && (
           <p className="muted">
             {due.length > 0
-              ? `${due.length} position${due.length === 1 ? '' : 's'} from your own games ready to review.`
-              : `Nothing due right now — ${reviewState.active} position${reviewState.active === 1 ? '' : 's'} on your review list.`}
+              ? `${due.length} position${due.length === 1 ? '' : 's'} from your games to review.`
+              : `Nothing due today. ${reviewState.active} position${reviewState.active === 1 ? '' : 's'} will come back later.`}
           </p>
         )}
 
         {!mine.length && (
           <p className="muted">
-            No games yet. Games you play here, and games synced from a linked Chess.com or Lichess
-            account, will appear in this list.
+            No games yet. Games you play here or on a linked Chess.com or Lichess account show up
+            here.
           </p>
         )}
 

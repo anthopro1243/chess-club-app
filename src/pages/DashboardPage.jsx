@@ -103,14 +103,14 @@ export default function DashboardPage({ onNavigate }) {
       {canPreview && players.length > 0 && (
         <section className="panel ph-preview-picker" aria-label="Preview a player's home page">
           <label htmlFor="ph-preview-select" className="muted small">
-            Local mode: preview a player&rsquo;s home page as
+            Preview a player&rsquo;s home page:
           </label>
           <select
             id="ph-preview-select"
             value={previewing ? previewId : ''}
             onChange={(event) => setPreviewId(event.target.value)}
           >
-            <option value="">No one (club view only)</option>
+            <option value="">Nobody (club page only)</option>
             {players.map((p) => (
               <option key={p.playerId} value={p.playerId}>
                 {p.name} ({p.playerId})
@@ -125,8 +125,7 @@ export default function DashboardPage({ onNavigate }) {
         <div>
           <h1>Chess Club</h1>
           <p>
-            Play a game, keep the roster current, and let the training plan follow the data
-            instead of a hunch.
+            Play, go over your games, and see what to work on next.
           </p>
           <div className="hero-actions">
             <button type="button" className="primary" onClick={() => onNavigate('play')}>
@@ -155,10 +154,8 @@ export default function DashboardPage({ onNavigate }) {
           <h2>
             Club leaderboard
             <InfoTooltip>
-              Sorted by the club rating: a coach override if one is set, otherwise an official
-              USCF rating, otherwise the player&rsquo;s platform rating — always shown with which
-              platform and time control it came from. Ratings from different platforms are never
-              blended, because no official conversion between them exists.
+              Ranked by the coach&rsquo;s rating if there is one, then USCF, then Chess.com or
+              Lichess. The small label says where each number comes from.
             </InfoTooltip>
           </h2>
         </div>
@@ -206,14 +203,12 @@ export default function DashboardPage({ onNavigate }) {
             {unranked.length > 0 && (
               <div className="unranked-note">
                 <p className="muted small">
-                  Not ranked, because these numbers are not on the same scale as the ones above.
-                  There is no official conversion between Lichess, Chess.com and USCF, so they are
-                  listed rather than sorted against each other.
+                  Not ranked. Online ratings aren&rsquo;t on the same scale as the ones above.
                 </p>
                 <ul className="muted small">
                   {unranked.map((entry) => (
                     <li key={entry.playerId}>
-                      {entry.player.name} —{' '}
+                      {entry.player.name}:{' '}
                       {entry.resolved.rating != null
                         ? `${entry.resolved.rating} (${entry.resolved.label})`
                         : 'unrated'}
@@ -255,19 +250,15 @@ export default function DashboardPage({ onNavigate }) {
             })}
           </div>
           <p className="muted small">
-            Measured from analysed games where there is enough evidence; a dash means not enough
-            data yet rather than a score of zero.
+            Scored from analysed games. A dash means not enough games yet.
           </p>
         </section>
 
         <section className="panel">
           <div className="panel-header">
             <h2>
-              Where group time should go
-              <InfoTooltip>
-                The three lowest club-wide averages. Worth teaching to everyone at once, rather
-                than one-on-one.
-              </InfoTooltip>
+              Teach to the whole group
+              <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
             </h2>
           </div>
           <ol className="priority-list">

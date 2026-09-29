@@ -41,7 +41,7 @@ export default function MemberApproval() {
     try {
       await action();
     } catch (err) {
-      setError(err.message || 'That did not work.');
+      setError(err.message || 'That didn’t work. Try again.');
     } finally {
       setBusy('');
     }
@@ -59,9 +59,8 @@ export default function MemberApproval() {
         <h2>
           Members
           <InfoTooltip>
-            A new account can sign in but sees nothing until it is approved or redeems an invite
-            code. Roles are enforced by the database, so hiding a page is not what keeps notes
-            private.
+            New accounts can&rsquo;t see anything until you approve them or they use an invite
+            code.
           </InfoTooltip>
         </h2>
         {pending.length > 0 && <span className="badge warn">{pending.length} waiting</span>}
@@ -173,8 +172,7 @@ export default function MemberApproval() {
       <h3>
         Invite codes
         <InfoTooltip>
-          A code approves an account the moment it is entered, so you do not have to be around
-          when someone signs up. Codes expire after 30 days.
+          Anyone who enters a code gets in right away. Codes expire after 30 days.
         </InfoTooltip>
       </h3>
 
@@ -224,8 +222,8 @@ export default function MemberApproval() {
       <h3>
         Password help
         <InfoTooltip>
-          For a member who cannot reach their own inbox, send the reset to the guardian email you
-          recorded at intake.
+          If a member can&rsquo;t get into their email, send the link to their guardian&rsquo;s
+          email instead.
         </InfoTooltip>
       </h3>
       <ResetForMember onRun={run} busy={busy} />

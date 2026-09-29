@@ -44,7 +44,7 @@ export default function PlayerHome({ playerId, viewer, preview = false }) {
           <h2>{preview ? `${home.name}'s home page` : `Hi, ${firstName}`}</h2>
           {preview && (
             <p className="muted small ph-preview-note">
-              Local preview: what {firstName} sees when signed in. Nothing here is saved.
+              This is what {firstName} sees after signing in.
             </p>
           )}
         </div>
@@ -84,15 +84,14 @@ function NewMember({ firstName }) {
   return (
     <div className="ph-empty">
       <p>
-        Welcome, {firstName}. There are no games on your page yet, so there is nothing to measure.
+        Welcome, {firstName}! You don&rsquo;t have any games here yet.
       </p>
       <p className="muted">
-        Link Chess.com or Lichess in your account menu, or play a game here. Once a few games are
-        analysed, this page shows the one thing to work on, how you are trending, and your own
-        mistakes to review.
+        Link your Chess.com or Lichess account from the account menu, or play a game here. After a
+        few games are analysed, this page will show what to work on and your mistakes to review.
       </p>
       <div className="ph-actions">
-        <a className="ph-action" href="#/training">Or try some puzzles</a>
+        <a className="ph-action" href="#/training">Try some puzzles</a>
       </div>
     </div>
   );
@@ -101,7 +100,7 @@ function NewMember({ firstName }) {
 function Priority({ priority, analysedCount, isNextStep }) {
   return (
     <div className="ph-card ph-priority">
-      <h3>Your one thing to work on</h3>
+      <h3>Work on this next</h3>
       {priority ? (
         <>
           <p className="ph-priority-label">{priority.label}</p>
@@ -115,8 +114,8 @@ function Priority({ priority, analysedCount, isNextStep }) {
       ) : (
         <p className="muted">
           {analysedCount
-            ? 'Not enough games yet to pick one. It appears after a few more of your games are analysed.'
-            : 'It appears once your games have been analysed. That happens on its own while the app is open.'}
+            ? 'Not enough games yet. Check back after a few more are analysed.'
+            : 'Shows up once your games are analysed.'}
         </p>
       )}
     </div>
@@ -131,11 +130,11 @@ function Priority({ priority, analysedCount, isNextStep }) {
 function Trend({ trend, categories, analysedCount }) {
   return (
     <div className="ph-card ph-trend">
-      <h3>How you are trending</h3>
+      <h3>How you&rsquo;re trending</h3>
       <p className="ph-trend-headline">
         {trend.headline ?? (analysedCount
           ? 'Not enough games yet to show a trend.'
-          : 'Your trend appears once your games have been analysed.')}
+          : 'Shows up once your games are analysed.')}
       </p>
       {trend.biggestGain && <p className="muted small">Biggest gain: {trend.biggestGain.text}.</p>}
       <ul className="ph-categories">
@@ -164,7 +163,7 @@ const trendClass = (n) => (n == null ? 'none' : n > 0 ? 'up' : n < 0 ? 'down' : 
 function Reviews({ reviews }) {
   return (
     <div className="ph-card ph-reviews">
-      <h3>Review positions due</h3>
+      <h3>Positions to review</h3>
       <p className="ph-count">
         <span className="mono">{reviews.due}</span>{' '}
         {reviews.due === 1 ? 'position' : 'positions'} from your own games
@@ -172,15 +171,15 @@ function Reviews({ reviews }) {
       {reviews.due > 0 ? (
         <>
           <p className="muted small">
-            On Training, pick yourself as the trainee and choose &ldquo;Your mistakes&rdquo;.
+            In Training, pick yourself and choose &ldquo;Your mistakes&rdquo;.
           </p>
           <a className="ph-action" href={reviews.href}>Review them</a>
         </>
       ) : (
         <p className="muted small">
           {reviews.active
-            ? `Nothing due right now. ${reviews.active} on your list will come back on schedule.`
-            : 'Positions you get wrong in analysed games land here to practise again.'}
+            ? `Nothing due today. ${reviews.active} more will come back later.`
+            : 'Positions you get wrong in your games show up here.'}
         </p>
       )}
     </div>

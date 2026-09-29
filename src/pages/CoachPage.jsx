@@ -153,7 +153,7 @@ export default function CoachPage() {
   const saveAssessment = () => {
     recordAssessment(assessingId, draftRubric, assessNotes);
     setAssessingId(null);
-    flash('Assessment logged');
+    flash('Assessment saved');
   };
 
 
@@ -172,8 +172,8 @@ export default function CoachPage() {
           <h2>
             Coach tools
             <InfoTooltip>
-              The spreadsheet includes a club summary, player details, skill assessments, the
-              ratings log and every archived game, each on its own tab.
+              One file with a tab each for the club summary, players, assessments, ratings and
+              games.
             </InfoTooltip>
           </h2>
           <button
@@ -281,10 +281,8 @@ export default function CoachPage() {
             <h2>
               {players.find((p) => p.playerId === assessingId)?.name}'s assessment
               <InfoTooltip>
-                The sliders start from what the engine measured across this player's analysed
-                games, marked &ldquo;from games&rdquo;. Adjust anything you disagree with — what you
-                save is the coach&rsquo;s assessment and outranks the engine&rsquo;s. The engine
-                also files its own dated estimate on its own, so this column never sits empty.
+                Sliders marked &ldquo;from games&rdquo; start where the engine put them. Move
+                anything you disagree with. Your scores count over the engine&rsquo;s.
               </InfoTooltip>
             </h2>
             <span className="badge mono">{today()}</span>
@@ -316,11 +314,11 @@ export default function CoachPage() {
             className="text-area"
             value={assessNotes}
             onChange={(e) => setAssessNotes(e.target.value)}
-            placeholder="What this assessment was based on, what to work on next…"
+            placeholder="What you saw and what to work on next"
           />
           <div className="button-grid">
             <button type="button" className="primary" onClick={saveAssessment}>
-              Log assessment
+              Save assessment
             </button>
             <button type="button" onClick={() => setAssessingId(null)}>
               Cancel
@@ -334,7 +332,7 @@ export default function CoachPage() {
           <h2>Recent activity</h2>
         </div>
         {recentActivity.length === 0 ? (
-          <p className="hint-text">Nothing recorded yet.</p>
+          <p className="hint-text">No activity yet.</p>
         ) : (
           <ul className="activity-list">
             {recentActivity.map((e, i) => (

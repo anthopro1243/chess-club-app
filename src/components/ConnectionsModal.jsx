@@ -50,13 +50,12 @@ export default function ConnectionsModal({ onClose }) {
         <h3>
           Connected accounts
           <InfoTooltip>
-            Games you play on these sites count toward your club rating, alongside club games and
-            puzzles. Only rated standard games are counted.
+            Your rated games on these sites count toward your club rating.
           </InfoTooltip>
         </h3>
 
         {!profile ? (
-          <p className="hint-text">Set up your player profile first, then come back here.</p>
+          <p className="hint-text">Set up your player profile first.</p>
         ) : (
           <div className="connection-cards">
             {Object.values(PLATFORMS).map((platform) => (
@@ -97,7 +96,7 @@ function PlatformCard({ platform, profile }) {
       setUsername('');
       await runSync();
     } catch (err) {
-      setError(err.message || 'Could not link that account.');
+      setError(err.message || 'Couldn’t link that account.');
     } finally {
       setBusy('');
     }
@@ -118,7 +117,7 @@ function PlatformCard({ platform, profile }) {
     } catch (err) {
       setError(
         err instanceof TimeoutError
-          ? `${err.message} Press Sync now to try again; games already imported will not be duplicated.`
+          ? `${err.message} Press Sync now to try again.`
           : err.message || 'Sync failed.',
       );
     } finally {
@@ -184,7 +183,7 @@ function PlatformCard({ platform, profile }) {
       {result && !error && (
         <p className="hint-text sync-result">
           {result.imported > 0
-            ? `Imported ${result.imported} game${result.imported === 1 ? '' : 's'}. Club rating ${Math.round(result.ratingBefore)} to ${Math.round(result.ratingAfter)}.`
+            ? `Got ${result.imported} new game${result.imported === 1 ? '' : 's'}. Club rating ${Math.round(result.ratingBefore)} → ${Math.round(result.ratingAfter)}.`
             : 'Already up to date.'}
         </p>
       )}

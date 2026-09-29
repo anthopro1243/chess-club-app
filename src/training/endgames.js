@@ -36,7 +36,7 @@ export const POSITIONS = Object.freeze([
   { id: 'krrk', band: 'basic', title: 'The two-rook ladder', fen: '8/8/3k4/8/8/8/8/R3K2R w - - 0 1', goal: 'win', successWhen: 'mate', maxMoves: 12,
     idea: 'The rooks take turns checking and guarding, pushing the king to the edge one rank at a time.' },
   { id: 'kqk-stalemate', band: 'basic', title: 'Mate without stalemating', fen: 'k7/8/2K5/8/8/8/8/6Q1 w - - 0 1', goal: 'win', successWhen: 'mate', maxMoves: 6,
-    idea: 'The king is almost trapped already. Before every quiet queen move, check the king still has a square — or it\'s stalemate.' },
+    idea: 'The king is almost trapped already. Before every quiet queen move, make sure the king still has a square. If not, it\'s stalemate.' },
   { id: 'opposition', band: 'opposition', title: 'Take the opposition', fen: '8/8/4k3/8/8/4K3/4P3/8 w - - 0 1', goal: 'win', successWhen: 'promote', maxMoves: 25,
     idea: 'Lead with the king, not the pawn. Get your king in front of the pawn and take the opposition.' },
   { id: 'king-in-front', band: 'opposition', title: 'King in front of the pawn', fen: '4k3/8/4K3/4P3/8/8/8/8 w - - 0 1', goal: 'win', successWhen: 'promote', maxMoves: 15,
@@ -102,7 +102,7 @@ export function judge({ chess, position, playerColor, playerMoves = 0, lastMove 
   if (drawReason) {
     return position.goal === 'draw'
       ? { status: 'success', reason: `${drawReason} You held the draw.` }
-      : { status: 'fail', reason: `${drawReason} That lets them off. Try again.` };
+      : { status: 'fail', reason: `${drawReason} That lets them off the hook. Try again.` };
   }
 
   if (position.successWhen === 'promote' && lastMove?.color === playerColor && lastMove?.promotion) {
@@ -114,7 +114,7 @@ export function judge({ chess, position, playerColor, playerMoves = 0, lastMove 
   }
 
   if (position.goal === 'win' && position.maxMoves && playerMoves >= position.maxMoves) {
-    return { status: 'fail', reason: `Not done within ${position.maxMoves} moves. Try again, a little more directly.` };
+    return { status: 'fail', reason: `Not done in ${position.maxMoves} moves. Try again and be more direct.` };
   }
 
   if (position.goal === 'draw' && position.holdMoves && playerMoves >= position.holdMoves && toMove === playerColor) {

@@ -131,9 +131,9 @@ export default function ReportCard({ playerId, onClose }) {
           )}
           {card.trend.hasTrend && <p>{card.trend.headline}</p>}
           {card.weakest.length ? (
-            <p><strong>Weakest measured areas:</strong> {card.weakest.map((c) => `${c.label} (${c.level})`).join(', ')}</p>
+            <p><strong>Weakest areas:</strong> {card.weakest.map((c) => `${c.label} (${c.level})`).join(', ')}</p>
           ) : (
-            <p className="muted">Not enough analysed games yet to measure skills ({card.analysedCount} analysed).</p>
+            <p className="muted">Not enough analysed games yet ({card.analysedCount} so far).</p>
           )}
           {card.missedTactics.length > 0 && (
             <p><strong>Missed most often:</strong> {card.missedTactics.map((m) => `${m.label} (${m.count})`).join(', ')}</p>

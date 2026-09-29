@@ -152,7 +152,7 @@ export function validateSetup(fen) {
   if (count('K') !== 1) errors.push('White needs exactly one king.');
   if (count('k') !== 1) errors.push('Black needs exactly one king.');
   if (pieces.some(([sq, p]) => /p/i.test(p) && (sq[1] === '1' || sq[1] === '8'))) {
-    errors.push('A pawn cannot stand on the first or last rank.');
+    errors.push('A pawn can’t be on the first or last rank.');
   }
   for (const [side, isSide] of [['White', (p) => p === p.toUpperCase()], ['Black', (p) => p === p.toLowerCase()]]) {
     const mine = pieces.filter(([, p]) => isSide(p));
@@ -165,11 +165,11 @@ export function validateSetup(fen) {
   try {
     chess = new Chess(fen);
   } catch (cause) {
-    return [`That position cannot be read: ${cause.message}`];
+    return [`Can’t read that position: ${cause.message}`];
   }
   const waiting = chess.turn === 'w' ? 'b' : 'w';
   if (chess.isKingAttacked(waiting)) {
-    errors.push(`${waiting === 'w' ? 'White' : 'Black'} is in check but it is not their move — check the side to move.`);
+    errors.push(`${waiting === 'w' ? 'White' : 'Black'} is in check but it is not their move. Check whose move it is.`);
   }
   return errors;
 }
@@ -216,7 +216,7 @@ export function checkSheet(sheet) {
     else if (i < segments.length - 1 && replay.over) {
       firstError = {
         segment: i, index: replay.moves.length, code: 'after-end', options: [],
-        message: `The game ended (${replay.over.reason}) before the gap — remove the gap or the moves after it.`,
+        message: `The game ended (${replay.over.reason}) before the gap. Remove the gap or the moves after it.`,
       };
     }
   }
@@ -304,9 +304,9 @@ export function buildScoresheetGame(sheet, { roster = [], now = Date.now(), chec
   };
   const white = side('whiteId', 'whiteName', 'White');
   const black = side('blackId', 'blackName', 'Black');
-  if (white.id && white.id === black.id) fail('blackName', 'The same member cannot play both sides.');
+  if (white.id && white.id === black.id) fail('blackName', 'The same player can’t be on both sides.');
   if (!white.id && !black.id && white.name && black.name) {
-    fail('whiteName', 'Pick the club member who played this game — a scoresheet is kept for a member.');
+    fail('whiteName', 'Pick the club member who played this game.');
   }
 
   // -- tags ----------------------------------------------------------------
@@ -317,14 +317,14 @@ export function buildScoresheetGame(sheet, { roster = [], now = Date.now(), chec
   const event = String(sheet?.event || '').trim();
   if (event.length > EVENT_MAX) fail('event', `Keep the event name under ${EVENT_MAX} characters.`);
   const round = String(sheet?.round || '').trim();
-  if (round && !ROUND_RE.test(round)) fail('round', 'A round is a short label like 3 or 2.1.');
+  if (round && !ROUND_RE.test(round)) fail('round', 'Round should be short, like 3 or 2.1.');
   const boardText = String(sheet?.board ?? '').trim();
   const board = boardText ? Number(boardText) : null;
-  if (boardText && (!Number.isInteger(board) || board < 1 || board > 500)) fail('board', 'A board is a whole number, like 4.');
+  if (boardText && (!Number.isInteger(board) || board < 1 || board > 500)) fail('board', 'Board should be a whole number, like 4.');
 
   const tcText = String(sheet?.timeControl || '').trim();
   const tc = tcText ? parseUsChessTimeControl(tcText) : null;
-  if (tcText && !tc) fail('timeControl', 'Write the time control the way the flyer does, like G/30;d5 or G/60+5.');
+  if (tcText && !tc) fail('timeControl', 'Write it like the flyer does, e.g. G/30;d5 or G/60+5.');
 
   const result = String(sheet?.result || '');
   if (!RESULTS.some((r) => r.value === result)) fail('result', 'Choose the result.');
@@ -406,10 +406,10 @@ export function buildScoresheetGame(sheet, { roster = [], now = Date.now(), chec
   try {
     [parsed] = parseAndValidate(pgn);
   } catch (cause) {
-    return { ok: false, errors: [{ field: 'moves', message: `Could not build a valid PGN: ${cause.message}` }] };
+    return { ok: false, errors: [{ field: 'moves', message: `Couldn’t make a PGN from these moves: ${cause.message}` }] };
   }
   if (!parsed || parsed.moves.length !== last.replay.moves.length) {
-    return { ok: false, errors: [{ field: 'moves', message: 'Could not build a valid PGN from these moves.' }] };
+    return { ok: false, errors: [{ field: 'moves', message: 'Couldn’t make a PGN from these moves.' }] };
   }
 
   const finalSan = last.replay.moves[last.replay.moves.length - 1]?.san || '';

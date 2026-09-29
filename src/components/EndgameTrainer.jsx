@@ -165,7 +165,7 @@ export default function EndgameTrainer({ trainee, rating = null }) {
         <p className="muted small">
           {trainee
             ? `${trainee.name}: ${bandDone} of ${drills.length} passed at this level.`
-            : 'Practice only. Pick a trainee to have passes count.'}
+            : 'Practice only. Pick a trainee to save passes.'}
         </p>
         <ul className="endgame-list">
           {drills.map((d) => (

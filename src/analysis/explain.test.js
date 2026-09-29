@@ -109,11 +109,14 @@ test('a flagged sacrifice is never called a mistake', () => {
   assert.equal(e.kind, 'sacrifice');
   assert.doesNotMatch(words(e), /hanging|you should/);
   assert.match(e.headline, /not a mistake/);
+  assert.match(e.detail, /gives up material here, but .*That makes it a sacrifice, not a mistake\./);
 });
 
 test('the engine\'s own choice is never called a mistake', () => {
   const e = explainMoment({ ...HANG, uci: 'f1b5', san: 'Bb5', hangs: false, motifs: [] });
   assert.equal(e.kind, 'engineChoice');
+  assert.equal(e.headline, "The engine's top move");
+  assert.match(e.detail, /so it's not a mistake/);
 });
 
 test('"hangs" with a reply that does not capture → no piece named', () => {
@@ -155,6 +158,13 @@ test('pin: named as a pin, with the reply that makes it', () => {
   assert.equal(e.kind, 'pin');
   assert.equal(e.headline, 'Walked into a pin');
   assert.match(e.detail, /White can answer with Bb5, pinning one of Black's pieces/);
+  assert.match(e.detail, /Now it can't move safely\./);
+});
+
+test('explanations are plain sentences: no dashes or colons joining clauses (should fail on old wording)', () => {
+  for (const e of [explainMoment(PIN), explainMoment({ ...HANG, replyPv: ['d7d6'] }), explainMoment({ ...HANG, sacrifice: true, uci: 'f1b5', san: 'Bb5' })]) {
+    assert.doesNotMatch(e.detail, / — |: the |: moving /);
+  }
 });
 
 test('a moment without any of the new tags is not called a pin or skewer (negative case)', () => {

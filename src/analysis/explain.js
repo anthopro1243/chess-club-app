@@ -336,7 +336,7 @@ function swingSentence(f) {
     }
     if (numbers) {
       return {
-        text: `${who ? `${who}'s w` : 'W'}inning chances fell from about ${round(f.wpBefore)}% to ${round(f.wpAfter)}%, though it is still ${after.noun}.`,
+        text: `${who ? `${who}'s w` : 'W'}inning chances fell from about ${round(f.wpBefore)}% to ${round(f.wpAfter)}%, but it's still ${after.noun}.`,
         basis: ['cpBefore', 'cpAfter'],
       };
     }
@@ -354,7 +354,7 @@ function betterSentence(f) {
   if (!f.bestSan) return null;
   const onlyMove = f.secondBestDelta != null && f.secondBestDelta >= ONLY_MOVE_GAP;
   return onlyMove
-    ? { text: `Better was ${f.bestSan}, and nothing else came close.`, basis: ['bestUci', 'secondBestDelta'] }
+    ? { text: `Better was ${f.bestSan}, the only good move here.`, basis: ['bestUci', 'secondBestDelta'] }
     : { text: `Better was ${f.bestSan}.`, basis: ['bestUci'] };
 }
 
@@ -391,14 +391,14 @@ function finish({ kind, headline, sentences, line = null, confidence, better = n
 function explainSacrifice(f) {
   const who = sideName(f.side) ?? 'This player';
   const why = f.playedBest
-    ? "it was the engine's own first choice"
-    : 'the engine rates it about as highly as its first choice';
+    ? "it was the engine's top move"
+    : 'the engine likes it almost as much as its top move';
   return finish({
     kind: 'sacrifice',
     headline: 'A sacrifice, not a mistake',
     sentences: [
       {
-        text: `${who} leaves material to be taken here, but ${why}, so it counts as a sacrifice, not a mistake.`,
+        text: `${who} gives up material here, but ${why}. That makes it a sacrifice, not a mistake.`,
         basis: f.playedBest ? ['sacrifice', 'bestUci'] : ['sacrifice', 'cpBefore', 'cpAfter'],
       },
     ],
@@ -412,10 +412,10 @@ function explainEngineChoice(f) {
   const who = sideName(f.side);
   return finish({
     kind: 'engineChoice',
-    headline: "The engine's own choice",
+    headline: "The engine's top move",
     sentences: [
       {
-        text: `This was the engine's first choice${who ? ` for ${who}` : ''}, so it isn't counted as a mistake. The drop shown here is the engine changing its mind a move later.`,
+        text: `This was the engine's top move${who ? ` for ${who}` : ''}, so it's not a mistake. The drop is just the engine changing its mind a move later.`,
         basis: ['bestUci', 'winPercentLost'],
       },
     ],
@@ -437,23 +437,23 @@ const withReply = (reply) => (reply ? ` with ${reply}` : '');
 const NEW_MOTIF_TEXT = {
   pin: {
     headline: 'Walked into a pin',
-    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, pinning one of ${Who}'s pieces to a bigger one behind it, so it can no longer move safely.`,
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, pinning one of ${Who}'s pieces to a bigger one behind it. Now it can't move safely.`,
   },
   skewer: {
     headline: 'Allowed a skewer',
-    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking a big piece that has to move and leaving the piece behind it to be taken.`,
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking a big piece. When it moves, the piece behind it gets taken.`,
   },
   discoveredAttack: {
     headline: 'Allowed a discovered attack',
-    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}: moving that piece uncovers an attack from the piece behind it, so two threats land at once.`,
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}. Moving that piece opens up an attack from the piece behind it, so there are two threats at once.`,
   },
   trappedPiece: {
     headline: 'Left a piece trapped',
-    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking one of ${Who}'s pieces that has no safe square left, so it will be lost.`,
+    cause: (Opp, Who, reply) => `${Opp} can answer${withReply(reply)}, attacking one of ${Who}'s pieces that has nowhere safe to go. It's going to be lost.`,
   },
   deflection: {
     headline: 'Allowed a deflection',
-    cause: (Opp, Who, reply) => `${Opp} can play${reply ? ` ${reply}` : ' a forcing move'} to drag one of ${Who}'s defenders away, and then win what it was guarding.`,
+    cause: (Opp, Who, reply) => `${Opp} can play${reply ? ` ${reply}` : ' a forcing move'} to pull one of ${Who}'s defenders away, then win what it was guarding.`,
   },
 };
 
@@ -528,7 +528,7 @@ export function explainMoment(moment, context = {}) {
       const rank = describeBackRank(f.after, f.side, f.replyUci);
       if (rank) {
         secondary = {
-          text: `${rank.san} comes in on ${Who}'s back rank, where the king is walled in by its own pawns.`,
+          text: `${rank.san} comes in on ${Who}'s back rank, where the king is stuck behind its own pawns.`,
           basis: ['motifs', 'replyPv'],
         };
       }
@@ -560,7 +560,7 @@ export function explainMoment(moment, context = {}) {
     } else {
       headline = 'Allowed a fork';
       cause = {
-        text: `This allowed a fork: ${Opp}'s best reply attacks two of ${Who}'s pieces at once.`,
+        text: `${Opp}'s best reply is a fork, hitting two of ${Who}'s pieces at once.`,
         basis: ['motifs'],
       };
     }
@@ -571,12 +571,12 @@ export function explainMoment(moment, context = {}) {
     if (rank) {
       located = true;
       cause = {
-        text: `${Opp} can answer with ${rank.san} on ${Who}'s back rank, where the king is walled in by its own pawns${rank.mate ? ', and it is checkmate' : ''}.`,
+        text: `${Opp} can answer with ${rank.san} on ${Who}'s back rank, where the king is stuck behind its own pawns${rank.mate ? '. That\'s checkmate' : ''}.`,
         basis: ['motifs', 'replyPv'],
       };
     } else {
       cause = {
-        text: `This left ${Who}'s back rank weak: the king is walled in by its own pawns, and ${Opp}'s best reply lands on that rank.`,
+        text: `${Who}'s king is stuck behind its own pawns, and ${Opp}'s best reply lands on the back rank.`,
         basis: ['motifs'],
       };
     }
@@ -600,7 +600,7 @@ export function explainMoment(moment, context = {}) {
     } else {
       headline = 'Left material hanging';
       cause = {
-        text: `${after}${Opp} can win material: the engine's best reply is a capture that comes out ahead.`,
+        text: `${after}${Opp} can take something and come out ahead.`,
         basis: ['hangs'],
       };
     }

@@ -39,7 +39,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
   const readFile = async (file) => {
     if (!file) return;
     if (file.size > MAX_BYTES) {
-      setReadError('That file is over 5 MB. Split it and import the parts.');
+      setReadError('That file is over 5 MB. Split it into smaller files.');
       return;
     }
     try {
@@ -47,7 +47,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
       setText(content);
       preview(content);
     } catch (error) {
-      setReadError(error.message || 'That file could not be read.');
+      setReadError(error.message || 'Couldn’t read that file.');
     }
   };
 
@@ -77,7 +77,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
       for (const game of outcome.added) await enqueueGameRow(game.id);
       setResult({ added: outcome.added.length });
     } catch (error) {
-      setReadError(error.message || 'The import could not be saved.');
+      setReadError(error.message || 'Couldn’t save the import.');
     } finally {
       setBusy(false);
     }
@@ -113,8 +113,8 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
         {!plan && (
           <div className="import-intro">
             <p className="muted">
-              Paste one or more games, or upload a .pgn file. You will see every game and who played
-              it before anything is saved.
+              Paste games or upload a .pgn file. You&rsquo;ll get to check them before anything is
+              saved.
             </p>
             <textarea
               className="pgn-paste"
@@ -140,7 +140,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
               <span className="badge import-badge-new">{summary.ready} ready</span>
               {summary.archived > 0 && <span className="badge import-badge-update">{summary.archived} already archived</span>}
               {summary.blocked > 0 && <span className="badge import-badge-duplicate">{summary.blocked} need a fix</span>}
-              {summary.errors > 0 && <span className="badge import-badge-error">{summary.errors} could not be read</span>}
+              {summary.errors > 0 && <span className="badge import-badge-error">{summary.errors} can&rsquo;t be read</span>}
             </div>
 
             {plan.errors.length > 0 && (
@@ -224,8 +224,8 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
         {result && (
           <div className="import-result">
             <p>
-              Archived <strong>{result.added}</strong> {result.added === 1 ? 'game' : 'games'}. They are
-              queued for analysis and will be analysed while the app is open.
+              Added <strong>{result.added}</strong> {result.added === 1 ? 'game' : 'games'}. They&rsquo;ll
+              be analysed shortly.
             </p>
             <button type="button" className="primary" onClick={onClose}>
               Done

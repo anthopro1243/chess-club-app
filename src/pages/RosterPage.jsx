@@ -312,7 +312,7 @@ export default function RosterPage() {
                           <button
                             type="button"
                             className="rubric-suggestion link-button"
-                            title={`From ${hint.observations} analysed observations (${hint.confidence} confidence). Click to adopt.`}
+                            title={`Engine's score, from ${hint.observations} data points. Tap to use it.`}
                             onClick={() =>
                               setDraft((d) => ({
                                 ...d,
@@ -348,8 +348,8 @@ export default function RosterPage() {
                 })}
               </div>
               <p className="muted small">
-                &ldquo;Suggested&rdquo; is what the engine derived from analysed games. It never
-                overwrites your score; click one to adopt it.
+                &ldquo;Suggested&rdquo; is the engine&rsquo;s score from analysed games. Tap it to use
+                it.
               </p>
 
               <h3>Current goal</h3>
@@ -371,8 +371,7 @@ export default function RosterPage() {
                   <h3>
                     Coach notes
                     <InfoTooltip>
-                      Only coaches can read these. They live in a separate table the players'
-                      accounts have no access to, not just a hidden panel.
+                      Only coaches can see these.
                     </InfoTooltip>
                   </h3>
                   <textarea
@@ -459,7 +458,7 @@ export default function RosterPage() {
                         {suggestions[category.key] ? (
                           <em
                             className="rubric-suggestion"
-                            title={`Engine suggestion from ${suggestions[category.key].observations} observations (${suggestions[category.key].confidence} confidence)`}
+                            title={`Engine's score, from ${suggestions[category.key].observations} data points`}
                           >
                             suggested {suggestions[category.key].suggestion}
                           </em>
@@ -488,8 +487,7 @@ export default function RosterPage() {
                   <h3>
                     Coach notes
                     <InfoTooltip>
-                      Only coaches can read these. They live in a separate table the players'
-                      accounts have no access to, not just a hidden panel.
+                      Only coaches can see these.
                     </InfoTooltip>
                   </h3>
                   <p className="notes">{coachNotes[selected.playerId] || '—'}</p>
@@ -510,8 +508,7 @@ export default function RosterPage() {
                   <h3>
                     Online play
                     <InfoTooltip>
-                      Rated games from these accounts count toward the club rating, same as club
-                      games and puzzles.
+                      Rated games on these accounts count toward the club rating.
                     </InfoTooltip>
                   </h3>
                   {Object.entries(selected.connections).map(([platform, connection]) => (

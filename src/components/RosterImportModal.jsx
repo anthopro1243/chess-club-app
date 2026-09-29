@@ -57,7 +57,7 @@ export default function RosterImportModal({ players, onClose, onImported }) {
       );
     } catch (error) {
       setPlan(null);
-      setReadError(error.message || 'That file could not be read.');
+      setReadError(error.message || 'Couldn’t read that file.');
     }
   };
 
@@ -110,8 +110,8 @@ export default function RosterImportModal({ players, onClose, onImported }) {
       // come back as Update, never as a second copy.
       setReadError(
         error instanceof TimeoutError
-          ? `${error.message} Close this, check the roster, and import the same file again — anything already saved will be updated, not duplicated.`
-          : error.message || 'The import could not be saved.',
+          ? `${error.message} Close this, check the roster, and import the same file again. Nothing will be doubled up.`
+          : error.message || 'Couldn’t save the import.',
       );
     } finally {
       setBusy(false);
@@ -139,13 +139,13 @@ export default function RosterImportModal({ players, onClose, onImported }) {
         {!plan && (
           <div className="import-intro">
             <p className="muted">
-              Upload the CSV export of the club signup form. Nothing is written until you have seen
-              the preview and pressed Import.
+              Upload the CSV from the club signup form. You&rsquo;ll see a preview before anything is
+              saved.
             </p>
             <p className="muted small">
-              Expected columns: Timestamp, Email Address, Full name, Student ID, Grade, tournaments,
+              Columns: Timestamp, Email Address, Full name, Student ID, Grade, tournaments,
               Experience, Chess.com username, Lichess username, US Chess ID, goal, parent/guardian
-              email. Header spelling and capitalisation do not have to match exactly.
+              email. Close spellings are fine.
             </p>
             <input
               ref={fileInput}
@@ -162,8 +162,8 @@ export default function RosterImportModal({ players, onClose, onImported }) {
           <p className="form-error">
             {fileName} has no {plan.missingHeaders.includes('name') ? '"Full name"' : ''}
             {plan.missingHeaders.length === 2 ? ' or ' : ''}
-            {plan.missingHeaders.includes('studentId') ? '"Student ID"' : ''} column, so nothing can
-            be matched. Check you exported the responses sheet.
+            {plan.missingHeaders.includes('studentId') ? '"Student ID"' : ''} column. Make sure you
+            exported the responses sheet.
           </p>
         )}
 
@@ -241,8 +241,7 @@ export default function RosterImportModal({ players, onClose, onImported }) {
             {summary.error > 0 && (
               <p className="muted small">
                 {summary.error} {summary.error === 1 ? 'row was' : 'rows were'} skipped. Fix them in the
-                sheet and import the file again — anything already added will be matched on its student
-                ID and updated, not duplicated.
+                sheet and import it again. Members already added won&rsquo;t be duplicated.
               </p>
             )}
             <button type="button" className="primary" onClick={onClose}>

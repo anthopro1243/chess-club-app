@@ -92,10 +92,10 @@ export function timeUseHeadline(report) {
   if (report.rushed.length) {
     const first = report.rushed[0];
     const n = report.rushed.length;
-    return `${n === 1 ? 'One mistake was' : `${n} mistakes were`} played in under ${FAST_MOVE_SECONDS} seconds with plenty of time left (first: move ${first.fullmove}, ${first.san}). Slowing down there is free points.`;
+    return `${n === 1 ? 'One mistake was' : `${n} mistakes were`} played in under ${FAST_MOVE_SECONDS} seconds with lots of time left, starting with move ${first.fullmove} ${first.san}. Slow down on moves like that.`;
   }
   if (report.troubleFromMove != null) {
-    return `You were short of time from move ${report.troubleFromMove}. Spending less early leaves time for the hard part.`;
+    return `You were low on time from move ${report.troubleFromMove}. Play a bit faster early to save time for the hard part.`;
   }
   return null;
 }

@@ -197,8 +197,8 @@ export default function App() {
       {syncError && (
         <div className="auth-banner error">
           <span>
-            Could not save {syncError.what} to the server, so this change only exists in this
-            browser. {syncError.message}
+            Couldn&rsquo;t save {syncError.what} to the server. It&rsquo;s only saved in this
+            browser for now. {syncError.message}
           </span>
           <button type="button" onClick={clearSyncError} aria-label="Dismiss">
             ×
@@ -226,7 +226,7 @@ export default function App() {
 
       <footer className="footer">
         <span>Chess Club app, v0.1</span>
-        <span>Rules engine tested against standard reference positions.</span>
+        <span>Made for the SEM Chess Club.</span>
       </footer>
 
       {passwordResetActive && (

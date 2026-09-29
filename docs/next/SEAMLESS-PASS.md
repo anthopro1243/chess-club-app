@@ -1,4 +1,4 @@
-# Next up: the "seamless" pass (paused 2026-09-29, nothing changed yet)
+# The "seamless" pass (done 2026-09-29 on the branch; see PROGRESS.md for what changed)
 
 ## What the owner asked for (his words)
 "What I want right now is a seamless app. Don't add or delete features right now. Go through the app

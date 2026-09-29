@@ -34,7 +34,7 @@ export const RECENT_GAMES_LIMIT = 5;
 export const MIN_GAMES_FOR_TREND = 2;
 
 /** The note notation carries, so it reads "not measurable" rather than "not enough games". */
-const NOTATION_NOTE = 'Not measurable from PGN — comes from SAN entry and scoresheet checks.';
+const NOTATION_NOTE = 'Not measurable from PGN. It comes from scoresheet checks.';
 
 /*
  * Only these confidences may ever become a number on a player's screen.
@@ -252,7 +252,7 @@ function nextStepFor({ priority, reviews, gamesCount }) {
       reason: 'reviews',
     };
   }
-  if (gamesCount > 0) return { href: '#/my-games', label: 'Look through your games', reason: 'games' };
+  if (gamesCount > 0) return { href: '#/my-games', label: 'Go over your games', reason: 'games' };
   return { href: '#/play', label: 'Play a game', reason: 'new' };
 }
 

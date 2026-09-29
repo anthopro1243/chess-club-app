@@ -45,7 +45,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
     // One engine serves the page. If the background queue is mid-game,
     // starting a second analysis would interleave two conversations on it.
     if (isBusy()) {
-      setError('the engine is busy with a game from the background queue. Try again in a minute.');
+      setError('the engine is busy with another game. Try again in a minute.');
       return;
     }
     setRunning(true);
@@ -61,7 +61,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
       );
     } catch (err) {
       if (err instanceof TimeoutError) resetAfterTimeout();
-      result = { ok: false, error: `${err.message} Press the button to try again.` };
+      result = { ok: false, error: `${err.message} Try again.` };
     }
     setRunning(false);
     setProgress(null);
@@ -94,7 +94,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
         <p className="muted">
           {mayAnalyse
             ? 'Not analysed yet.'
-            : 'Your coach has not published an analysis of this game yet.'}
+            : 'Your coach hasn’t shared an analysis of this game yet.'}
         </p>
       )}
 
@@ -185,7 +185,7 @@ function SideReport({ row, game, staff }) {
                 </span>{' '}
                 <span className={`badge ${c.label}`}>{c.label}</span>{' '}
                 <span className="muted">
-                  lost {c.winPercentLost}% — better was {c.better}
+                  lost {c.winPercentLost}%. Better was {c.better}
                 </span>
               </li>
             ))}

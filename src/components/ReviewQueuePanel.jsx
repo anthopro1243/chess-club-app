@@ -42,7 +42,7 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
     rows.length === 0 ? (
       <p className="muted small">
         {playerId
-          ? 'Nothing waiting. Games you play in person (entered from a scoresheet) and games with big mistakes land here.'
+          ? 'Nothing to go over right now. Games you play in person and games with big mistakes show up here.'
           : 'No games waiting for review in the last 60 days.'}
       </p>
     ) : (
@@ -109,9 +109,8 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
         <h2>
           Review queue
           <InfoTooltip>
-            Games worth going over, most important first: games played in person (entered from a
-            scoresheet) before online ones, then the games with the most big mistakes. Mark a game
-            reviewed once you have gone through it with the player.
+            In-person games first, then games with the most big mistakes. Press Mark reviewed after
+            you go over one with the player.
           </InfoTooltip>
         </h2>
         <span className="badge">{total} waiting</span>

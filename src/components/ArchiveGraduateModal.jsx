@@ -31,7 +31,7 @@ export default function ArchiveGraduateModal({ player, onClose, onArchived }) {
     const ok = failedGames === 0 && privateOk && (await archiveGraduate(player.playerId, plan.playerPatch));
     setBusy(false);
     if (!ok) {
-      setError('Part of the archive did not save. Nothing was hidden; check the connection and try again.');
+      setError('Part of it didn’t save, so nothing was hidden. Check your connection and try again.');
       return;
     }
     onArchived?.(player.playerId);
@@ -59,10 +59,10 @@ export default function ArchiveGraduateModal({ player, onClose, onArchived }) {
           {plan.gameUpdates.length} game{plan.gameUpdates.length === 1 ? '' : 's'}.
         </p>
         <p>
-          <strong>Kept, anonymised:</strong> ratings, rating history, analyses, skill scores and puzzle stats, so
-          club statistics stay correct. They leave the roster.
+          <strong>Kept without their name:</strong> ratings, rating history, analyses, skill scores and
+          puzzle stats, so club stats stay right. They come off the roster.
         </p>
-        <p className="hint-text">This cannot be undone in the app.</p>
+        <p className="hint-text">You can&rsquo;t undo this.</p>
         <label className="field">
           <span>Type their name to confirm</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={player.name} autoFocus />

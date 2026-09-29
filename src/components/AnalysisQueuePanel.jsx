@@ -40,15 +40,14 @@ export default function AnalysisQueuePanel({ queue }) {
       </div>
 
       <p className="muted">
-        Games are queued automatically when they are played or synced in, and analysed in the
-        background while this app is open. In the normal course of things nothing here needs
-        pressing.
+        New games get analysed on their own while the app is open. You shouldn&rsquo;t need to
+        touch this.
       </p>
 
       {running && (
         <p className="muted">
           Analysing now
-          {progress?.total ? ` — position ${progress.done} of ${progress.total}` : '…'}
+          {progress?.total ? `: position ${progress.done} of ${progress.total}` : '…'}
         </p>
       )}
 
@@ -82,8 +81,8 @@ export default function AnalysisQueuePanel({ queue }) {
               result.ok
                 ? result.queued
                   ? `${result.queued} game${result.queued === 1 ? '' : 's'} put back in the queue.`
-                  : 'Nothing was waiting — everything with a PGN is analysed or already queued.'
-                : `Could not queue: ${result.error}`,
+                  : 'Nothing to retry. Every game is analysed or already in line.'
+                : `Couldn’t retry: ${result.error}`,
             );
           }}
         >
@@ -93,9 +92,8 @@ export default function AnalysisQueuePanel({ queue }) {
 
       {shown?.failed > 0 && (
         <p className="muted">
-          {shown.failed} game{shown.failed === 1 ? '' : 's'} failed analysis after repeated
-          attempts. They stay failed rather than retrying forever — use the button above once the
-          cause is fixed.
+          {shown.failed} game{shown.failed === 1 ? '' : 's'} couldn&rsquo;t be analysed after a few
+          tries. Press the button above to try again.
         </p>
       )}
       {message && <p className="muted">{message}</p>}

@@ -387,7 +387,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
       clearDraft();
       setSaved({ ...built, local: !!outcome.local, added: outcome.added.length });
     } catch (error) {
-      setSaveError(error.message || 'The game could not be saved.');
+      setSaveError(error.message || 'Couldn’t save the game.');
     } finally {
       setBusy(false);
     }
@@ -484,7 +484,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
           <div className="ss-gap-row">
             <span>
               Unreadable: {describePly(checked.segments[k - 1].endPly)}
-              {seg.startPly - 1 > checked.segments[k - 1].endPly ? ` to ${describePly(seg.startPly - 1)}` : ''}. Continues
+              {seg.startPly - 1 > checked.segments[k - 1].endPly ? ` to ${describePly(seg.startPly - 1)}` : ''}. Picks up
               from a set-up position.
             </span>
             <button type="button" className="link-button" onClick={() => removeSegment(k)}>
@@ -527,7 +527,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
         </ol>
         {k === checked.segments.length - 1 && sheet.endsUnknown && (
           <div className="ss-gap-row">
-            <span>The rest of the game could not be read.</span>
+            <span>The rest of the game can’t be read.</span>
             <button type="button" className="link-button" onClick={() => update({ endsUnknown: false })}>
               Undo
             </button>
@@ -568,14 +568,14 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
             </p>
             {saved.note && (
               <p className="muted">
-                Noted on the game: {saved.note}. Analysis covers the {saved.analysedPlies} known plies from{' '}
-                {saved.analysedFrom}.
+                Note on the game: {saved.note}. The analysis covers the {saved.analysedPlies} known half-moves
+                from {saved.analysedFrom}.
               </p>
             )}
             <p className="muted">
               {saved.local
-                ? 'Saved in this browser only: there is no server connected, so it is not queued for analysis.'
-                : 'It is queued for analysis and will be analysed while the app is open.'}
+                ? 'Saved in this browser only. No server is connected, so it won’t be analysed.'
+                : 'It’ll be analysed shortly.'}
             </p>
             <div className="import-actions">
               <button type="button" className="primary" onClick={enterAnother}>
@@ -724,7 +724,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                         checked={gap.mode === 'continue'}
                         onChange={() => setGap((g) => ({ ...g, mode: 'continue' }))}
                       />
-                      The game carries on — set up the position after the gap
+                      The game goes on. Set up the position after the gap
                     </label>
                     <label className="ss-radio">
                       <input
@@ -734,12 +734,12 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                         disabled={!gapIsLast}
                         onChange={() => setGap((g) => ({ ...g, mode: 'end' }))}
                       />
-                      Nothing after this can be read
+                      Nothing after this is readable
                     </label>
                     {gap.mode === 'continue' ? (
                       <>
                         <label className="field ss-unknown">
-                          <span>How many moves are missing (one side’s move each)?</span>
+                          <span>How many half-moves are missing?</span>
                           <input
                             type="number"
                             inputMode="numeric"
@@ -752,12 +752,12 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                         <p className="muted small">
                           Missing: {describePly(gap.startPly)}
                           {Math.max(1, gap.unknown || 1) > 1 ? ` to ${describePly(gapResumePly - 1)}` : ''}. The board shows the
-                          last known position — move the pieces that moved in the gap, so it shows the position before{' '}
-                          {describePly(gapResumePly)}.
+                          last known position. Move the pieces that moved in the gap so it shows the position
+                          before {describePly(gapResumePly)}.
                         </p>
                         {gap.held.length > Math.max(1, gap.unknown || 1) && (
                           <p className="muted small">
-                            Carried on from the sheet after the gap: {gap.held.slice(Math.max(1, gap.unknown || 1)).join(' ')}
+                            Moves after the gap: {gap.held.slice(Math.max(1, gap.unknown || 1)).join(' ')}
                           </p>
                         )}
                         {gapProblems.length > 0 && (
@@ -772,9 +772,8 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                       </>
                     ) : (
                       <p className="muted small">
-                        The game is saved with the moves before {describePly(gap.startPly)} and a note that the rest could not be
-                        read.
-                        {gap.held.length > 0 && ` The ${gap.held.length} move(s) typed after it are dropped.`}
+                        The game is saved up to {describePly(gap.startPly)} with a note that the rest can’t be read.
+                        {gap.held.length > 0 && ` The ${gap.held.length} move(s) typed after it will be dropped.`}
                       </p>
                     )}
                     <div className="import-actions">
@@ -811,7 +810,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                     <label className="field ss-move-field">
                       <span>
                         {blocked
-                          ? 'Fix the flagged move first'
+                          ? 'Fix the move in red first'
                           : appendClosed
                             ? 'The rest is marked unreadable'
                             : target.mode === 'replace'
@@ -830,7 +829,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                         autoCorrect="off"
                         spellCheck={false}
                         disabled={blocked || appendClosed}
-                        placeholder="Type a move and press space — e4, Nf3, O-O"
+                        placeholder="Type a move, then space (e4, Nf3, O-O)"
                         aria-describedby="ss-move-help"
                         onChange={(e) => onType(e.target.value)}
                         onKeyDown={onKeyDown}
@@ -846,8 +845,8 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                       </div>
                     )}
                     <p id="ss-move-help" className="hint-text ss-help">
-                      Space or Enter ends a move; paste a whole line of moves at once. Or play them on the board. Tap a move in
-                      the list to change it.
+                      Press space or Enter after each move, or play them on the board. Tap a move in the list to
+                      change it.
                     </p>
 
                     <div className="ss-actions">
@@ -915,8 +914,8 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
             <section className="ss-save" aria-label="Save">
               {built.ok && built.note && (
                 <p className="muted small">
-                  Will be saved with a note: {built.note}. Analysis will cover the {built.analysedPlies} known plies from{' '}
-                  {built.analysedFrom}.
+                  This will be saved with a note: {built.note}. The analysis will cover the{' '}
+                  {built.analysedPlies} known half-moves from {built.analysedFrom}.
                 </p>
               )}
               {alreadyArchived && <p className="ss-error">This game is already in the archive.</p>}
@@ -930,7 +929,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                       </li>
                     ))}
                   {built.errors.some((e) => e.field !== 'moves') && (
-                    <li className="ss-error">Some game details need fixing — see the red notes above.</li>
+                    <li className="ss-error">Some game details need fixing. See the red notes above.</li>
                   )}
                 </ul>
               )}

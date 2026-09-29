@@ -31,7 +31,7 @@ export default function ResetPasswordModal({ onDone, onCancel }) {
       await updatePassword(password);
       onDone();
     } catch (err) {
-      setError(err.message || 'Could not update the password.');
+      setError(err.message || 'Couldn’t update the password.');
     } finally {
       setBusy(false);
     }
