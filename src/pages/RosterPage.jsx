@@ -210,12 +210,12 @@ export default function RosterPage() {
         )}
 
         <div className="table-scroll">
-          <table className="roster-table">
+          <table className="roster-table roster-list">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="hide-narrow">ID</th>
                 <th>Name</th>
-                <th>Board</th>
+                <th className="hide-narrow">Board</th>
                 <th>USCF</th>
                 <th>Rapid</th>
                 <th>Track</th>
@@ -231,9 +231,9 @@ export default function RosterPage() {
                     setEditing(false);
                   }}
                 >
-                  <td className="mono">{player.playerId}</td>
-                  <td>{player.name}</td>
-                  <td>{player.boardRole}</td>
+                  <td className="mono hide-narrow">{player.playerId}</td>
+                  <td className="roster-name">{player.name}</td>
+                  <td className="hide-narrow">{player.boardRole}</td>
                   <td>{player.ratings.uscf ?? '—'}</td>
                   <td>{player.ratings.chesscomRapid ?? '—'}</td>
                   <td>

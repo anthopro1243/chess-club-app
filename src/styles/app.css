@@ -1923,6 +1923,32 @@ textarea:focus {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  .show-narrow {
+    display: inline;
+  }
+
+  .games-table th,
+  .games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .games-name {
+    max-width: 24vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .roster-list th,
+  .roster-list td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .roster-list .roster-name {
+    white-space: normal;
+  }
 }
 
 @media (max-width: 359px) {
@@ -1978,6 +2004,7 @@ button.rubric-suggestion:hover { opacity: 1; }
 .button-grid.review-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .button-grid.review-controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
 .nowrap { white-space: nowrap; }
+.show-narrow { display: none; }
 .review-eval { margin-top: 8px; font-size: 0.9rem; }
 .review-eval.blunder { color: var(--danger, #e06c6c); }
 .review-eval.mistake { color: #e0a76c; }

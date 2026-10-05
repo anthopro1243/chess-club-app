@@ -32,6 +32,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 |---|---|---|---|
 | 11 | ✅ **Game analysis panel repeats the turning points in engine notation** ("lost 35.3%. Better was f6d7", raw labels like `onlyMove`) right under the board's plain-English "Big mistakes" list; "Patterns: hangingPiece ×1"; "ACPL" and "depth" shown to members; eight rows of "not enough games yet" after one game. | every member | fixed (11) |
 | 13 | ✅ **My games doesn't fit a phone**: the 7-column table (unstyled; its CSS classes didn't exist) pushed the page to 426 px wide; the four replay buttons stacked full-width; results read "0-1" rather than won/lost. | every member, on phones | fixed (13) |
+| 14 | ✅ **Games archive and Roster tables run off a phone screen** (738 px and 470 px wide inside a 326 px box; the result column was off-screen). | every member, on phones | fixed (14) |
 | 12 | ✅ **Coach export still writes an "Attendance" sheet** (removed feature). | coach | fixed (12) |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -117,7 +118,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 13._
+_Kept current after every push. Last updated after change 14._
 
 ### 1. Branch
 
