@@ -320,7 +320,7 @@ test('review count: only this player\'s positions, due now, not retired', () => 
   const { reviews } = aliceHome();
   assert.equal(reviews.due, 2);
   assert.equal(reviews.active, 3);
-  assert.equal(reviews.href, '#/training');
+  assert.equal(reviews.href, '#/training?mode=mistakes');
 });
 
 test('no own-game puzzles: nothing due, not an error', () => {
@@ -382,6 +382,7 @@ test('next step: the priority drill when there is one', () => {
 test('next step: review positions when there is no priority', () => {
   const step = aliceHome({ analyses: [] }).nextStep;
   assert.equal(step.reason, 'reviews');
+  assert.equal(step.href, '#/training?mode=mistakes');
   assert.equal(step.label, 'Review 2 positions from your games');
 });
 

@@ -6,14 +6,15 @@ import EndgameTrainer from '../components/EndgameTrainer.jsx';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES } from '../data/puzzles.js';
 import { useDuePuzzles, useReviewSummary, reviewOwnPuzzle } from '../data/ownPuzzleStore.js';
-import { usePlayers, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
+import { usePlayers, useMyProfile, recordPuzzleSolved, recordRatingResult } from '../data/rosterStore.js';
+import { useAccount } from '../data/accountStore.js';
 import {
   recordAttempt,
   useAttempts,
   useThemeAccuracy,
   attemptSummary,
 } from '../data/puzzleAttemptsStore.js';
-import { parseTrainingLink } from '../data/trainingLink.js';
+import { parseTrainingLink, traineeIdFor } from '../data/trainingLink.js';
 import { targetRating, matchPuzzles } from '../training/puzzleMatch.js';
 
 const TRAINEE_KEY = 'cc-trainee';
@@ -29,7 +30,7 @@ const linkFromHash = () => {
   try {
     return parseTrainingLink(window.location.hash, { themes: PUZZLE_THEMES, puzzleIds: PUZZLE_IDS });
   } catch {
-    return { theme: '', difficulty: '', puzzleIds: [] };
+    return { theme: '', difficulty: '', puzzleIds: [], mode: '' };
   }
 };
 const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
@@ -68,20 +69,25 @@ export default function TrainingPage() {
   // pre-filtered to the theme (or the exact set) it named, rather than on all
   // 402 puzzles with advice to remember.
   const players = usePlayers();
-  const [traineeId, setTraineeId] = useState(() => {
+  const account = useAccount();
+  const me = useMyProfile();
+  const canPickTrainee = account.isCoach;
+  const [pickedId, setPickedId] = useState(() => {
     try {
-      return localStorage.getItem(TRAINEE_KEY) || '';
+      // null = never picked; traineeIdFor then starts the coach as themselves.
+      return localStorage.getItem(TRAINEE_KEY);
     } catch {
-      return '';
+      return null;
     }
   });
   useEffect(() => {
     try {
-      localStorage.setItem(TRAINEE_KEY, traineeId);
+      if (canPickTrainee && pickedId != null) localStorage.setItem(TRAINEE_KEY, pickedId);
     } catch {
       /* storage can be unavailable; the selection still holds for this visit */
     }
-  }, [traineeId]);
+  }, [pickedId, canPickTrainee]);
+  const traineeId = traineeIdFor({ isCoach: canPickTrainee, myPlayerId: me?.playerId ?? null, pickedId });
 
   const trainee = players.find((p) => p.playerId === traineeId) || null;
 
@@ -119,7 +125,7 @@ export default function TrainingPage() {
    * a far better one than a random tactic, because it is THEIR blunder. The
    * spaced-repetition schedule decides which come back today.
    */
-  const [source, setSource] = useState('library');
+  const [source, setSource] = useState(() => linkFromHash().mode || 'library');
   const [index, setIndex] = useState(0);
   useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source, setKey]);
 
@@ -132,7 +138,7 @@ export default function TrainingPage() {
       setThemeFilter(link.theme);
       setDifficultyFilter(link.difficulty || NEAR);
       setSetIds(link.puzzleIds);
-      setSource('library');
+      setSource(link.mode || 'library');
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -425,20 +431,30 @@ export default function TrainingPage() {
         <div className="panel-block">
           <h2>
             Trainee
-            <InfoTooltip>Pick a player and their solved puzzles count toward their rating.</InfoTooltip>
+            <InfoTooltip>
+              {canPickTrainee
+                ? 'Pick a player and their solved puzzles count toward their rating.'
+                : 'Puzzles you solve here count toward your progress.'}
+            </InfoTooltip>
           </h2>
-          <select
-            className="trainee-select"
-            value={traineeId}
-            onChange={(event) => setTraineeId(event.target.value)}
-          >
-            <option value="">Practice only</option>
-            {players.map((p) => (
-              <option key={p.playerId} value={p.playerId}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {canPickTrainee ? (
+            <select
+              className="trainee-select"
+              value={traineeId}
+              onChange={(event) => setPickedId(event.target.value)}
+            >
+              <option value="">Practice only</option>
+              {players.map((p) => (
+                <option key={p.playerId} value={p.playerId}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="hint-text">
+              {trainee ? `Training as ${trainee.name}.` : 'Practice only. You aren’t on the club roster yet.'}
+            </p>
+          )}
         </div>
 
         <div className="panel-block">

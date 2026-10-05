@@ -170,9 +170,6 @@ function Reviews({ reviews }) {
       </p>
       {reviews.due > 0 ? (
         <>
-          <p className="muted small">
-            In Training, pick yourself and choose &ldquo;Your mistakes&rdquo;.
-          </p>
           <a className="ph-action" href={reviews.href}>Review them</a>
         </>
       ) : (

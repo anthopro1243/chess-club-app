@@ -241,13 +241,16 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
  * mistakes due for review, then their games, and a new member is sent to
  * play one.
  */
+// Straight to "Your mistakes" on Training, already set to the signed-in player.
+const REVIEW_HREF = '#/training?mode=mistakes';
+
 function nextStepFor({ priority, reviews, gamesCount }) {
   if (priority?.action) {
     return { href: priority.action.href, label: priority.action.label, reason: 'priority' };
   }
   if (reviews.due > 0) {
     return {
-      href: '#/training',
+      href: REVIEW_HREF,
       label: `Review ${plural(reviews.due, 'position')} from your games`,
       reason: 'reviews',
     };
@@ -333,7 +336,7 @@ export function buildPlayerHome({
     due: review.due,
     active: review.active,
     nextDueAt: review.nextDueAt,
-    href: '#/training',
+    href: REVIEW_HREF,
   };
 
   const recentGames = recentGamesFor(mineGames, mineAnalysed, playerId, recentLimit);

@@ -18,7 +18,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 1 | ✅ **Coach page is open to every member.** The nav shows "Coach" to everyone and the page has no role check: members get the approval panel, Export spreadsheet, the review queue for all players and "Assess" buttons that fail. | every member | fixed (1) |
 | 2 | ✅ **Roster shows Add / Edit / Remove to every member.** "Remove" makes a player vanish from that member's screen (the database silently refuses it), "Edit" on someone else ends in a red "Couldn't save" banner, and a member can rewrite their own coach rubric. Every member can also read every other member's skill assessment, which the analyzer spec (Decision 4) rules out. | every member | fixed (2) |
 | 3 | ✅ **Accounts aren't tied to the real student.** An approved member with no player row sees an empty home page; the only way in is a "Join the roster" form hidden in the account menu, which makes a *second* roster row even when the coach already imported that student. My games says "Ask the coach to link it", but there is no way for the coach to link anything. `player_private` (student ID) is coach-only, so a member can't be matched to an imported row. | new members, coach | built (3); needs migration 0025 |
-| 4 | **Training starts on "Practice only".** A member has to pick themselves out of the full roster before puzzles count, and can pick someone else (their solves then change another member's rating). "Positions to review" on the home page says "In Training, pick yourself and choose 'Your mistakes'": three extra taps. | every member | open |
+| 4 | ✅ **Training starts on "Practice only".** A member has to pick themselves out of the full roster before puzzles count, and can pick someone else (their solves then change another member's rating). "Positions to review" on the home page says "In Training, pick yourself and choose 'Your mistakes'": three extra taps. | every member | fixed (4) |
 | 5 | **SEM fonts missing.** Oswald + Public Sans aren't loaded; the app uses system fonts. | everyone | open |
 | 6 | **Brand-new member home page** tells them to link Chess.com/Lichess "from the account menu" instead of giving them the button. | new members | open |
 | 8 | **Top bar wraps on phones when signed in**: the account button pushes the Light/Dark toggle onto its own line above the nav. | every member, on phones | open |
@@ -107,7 +107,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 3._
+_Kept current after every push. Last updated after change 4._
 
 ### 1. Branch
 
@@ -139,6 +139,8 @@ real data; you're signed in as the coach):
   0025…". After the migration, it shows linked / not linked / rows without an account.
 - **Roster** as a member (private window): no "+ Add player", "Edit" or "Remove"; other members' rows
   show "Skill scores and goals are private…"; their own row shows their scores.
+- **Training**: you start as your own row (the picker is still there for you). As a member: no picker,
+  "Training as <name>." On the Club page, "Review them" opens Training on "Your mistakes".
 
 Stop the dev server with Ctrl+C when done.
 
@@ -209,7 +211,8 @@ https://chess-club-app-seven.vercel.app (hard refresh: Ctrl+Shift+R / Cmd+Shift+
 
 - Signed in as the coach: the Coach tab is there; Roster has the **Accounts** panel at the top.
 - Signed in as a member: no Coach tab; Roster has no Add/Edit/Remove; other members' rows don't show
-  skill scores.
+  skill scores; Training says "Training as <name>." with no picker, and "Review them" on the Club page
+  lands on "Your mistakes".
 - After migration 0025: a member who hasn't answered sees **Who are you?** once (try it with a member
   whose student ID you imported: they land on their imported row, and the Accounts panel moves them to
   **Linked**). A wrong ID shows up under **Check these** or as "They typed …"; fix it with the "Move
