@@ -34,7 +34,9 @@
   --radius-lg: 14px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
 
-  --font: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+  /* SEM branding: Public Sans for text, Oswald for headings (loaded in index.html). */
+  --font: 'Public Sans', 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+  --font-display: 'Oswald', 'Arial Narrow', 'Segoe UI', Roboto, sans-serif;
   --mono: 'Cascadia Mono', 'SF Mono', Consolas, 'Liberation Mono', monospace;
 
   color-scheme: dark;
@@ -90,11 +92,19 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+h1,
+h2,
+.brand-name,
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 h1 {
   font-size: 2rem;
 }
 h2 {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
 }
 h3 {
   font-size: 0.82rem;
@@ -229,6 +239,13 @@ code {
 
 .account-button:hover {
   border-color: var(--border-strong);
+}
+
+.account-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-rating {
@@ -1649,6 +1666,26 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* Every text box gets the same look as the form fields above, at zero
+   specificity so any component's own rule still wins. Some (the Chess.com /
+   Lichess username boxes, the invite code, sign-in) had no style at all. */
+:where(input:not([type]), input[type='text'], input[type='email'], input[type='password'],
+  input[type='number'], input[type='search'], input[type='date']) {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+:where(input:not([type]), input[type='text'], input[type='email'], input[type='password'],
+  input[type='number'], input[type='search'], input[type='date']):focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .text-area {
   display: block;
   width: 100%;
@@ -1824,6 +1861,17 @@ textarea:focus {
     display: none;
   }
 
+  /* A full name or email in the account button pushed the theme toggle onto
+     a line of its own. Keep brand, account and toggle on one row. */
+  .account-button {
+    /* What is left after the brand, the toggle, the gaps and the padding. */
+    max-width: calc(100vw - 240px);
+  }
+
+  .theme-toggle {
+    padding: 6px 9px;
+  }
+
   .nav-link {
     flex: none;
     white-space: nowrap;
@@ -1835,16 +1883,80 @@ textarea:focus {
     padding: 16px 12px;
   }
 
-  .button-grid {
-    grid-template-columns: 1fr;
-  }
-
+  /* Use the bar's free width (the clock, if any, keeps its place on the right). */
   .player-name {
-    width: 100px;
+    width: auto;
+    flex: 1 1 0;
   }
 
   h1 {
     font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* iPhones zoom the whole page in when a text box under 16px gets focus,
+     and don't zoom back out. The id beats every component rule. */
+  #root input:not([type='range']):not([type='checkbox']):not([type='radio']),
+  #root select,
+  #root textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Columns that can go on a phone so a table fits without sideways scrolling. */
+  .hide-narrow {
+    display: none;
+  }
+
+  .my-games-table th,
+  .my-games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .my-games-opponent {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .show-narrow {
+    display: inline;
+  }
+
+  .games-table th,
+  .games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .games-name {
+    max-width: 24vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .roster-list th,
+  .roster-list td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .roster-list .roster-name {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 359px) {
+  /* The smallest phones: the seal alone stands for the club name. */
+  .brand-name {
+    display: none;
+  }
+
+  .account-button {
+    max-width: calc(100vw - 150px);
   }
 }
 
@@ -1885,6 +1997,12 @@ button.rubric-suggestion:hover { opacity: 1; }
 .game-review-board { min-width: 0; }
 .game-review-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .review-controls { margin-top: 10px; }
+/* Start / Back / Next / End stay on one row, phones included (the phone rule
+   below turns other button grids into one column). */
+.button-grid.review-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.button-grid.review-controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.show-narrow { display: none; }
 .review-eval { margin-top: 8px; font-size: 0.9rem; }
 .review-eval.blunder { color: var(--danger, #e06c6c); }
 .review-eval.mistake { color: #e0a76c; }
@@ -2176,4 +2294,121 @@ button[aria-busy='true']::before {
   button[aria-busy='true']::before {
     animation-duration: 2s;
   }
+}
+
+/* ---------- "Who are you?" (one-time account link) ---------------------- */
+
+.who-are-you {
+  max-width: 26rem;
+  margin: 32px auto;
+}
+
+.who-are-you .who-seal {
+  display: block;
+  margin: 0 auto 8px;
+}
+
+.who-are-you h2 {
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.who-are-you > p {
+  text-align: center;
+}
+
+.who-are-you form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.who-are-you button[type='submit'] {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+}
+
+.field-error {
+  color: var(--bad);
+  font-size: 0.85rem;
+}
+
+/* ---------- Roster: accounts panel (coach) ------------------------------- */
+
+.account-links h3 {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+}
+
+.link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.link-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.link-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.link-main > .small,
+.link-main > .muted {
+  flex-basis: 100%;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A select is as wide as its longest option (a long name + CC id + student
+   ID); let it shrink to the row instead of pushing the page sideways. */
+.link-actions select {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.link-details {
+  margin-top: 12px;
+}
+
+.link-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 0;
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+.roster-layout > .account-links {
+  grid-column: 1 / -1;
+}
+
+.page-loading {
+  text-align: center;
+  padding: 48px 0;
 }

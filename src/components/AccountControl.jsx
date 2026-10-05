@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.js';
 import ConnectionsModal from './ConnectionsModal.jsx';
 import { useAccount, redeemInvite } from '../data/accountStore.js';
+import { useMyAccountLink } from '../data/accountLinkStore.js';
+import { usePlatformRatingsFor, useRatingOverrideFor } from '../data/ratingStore.js';
+import { resolveRating } from '../analysis/ratings.js';
 import {
   signInWithPassword,
   signUpWithPassword,
@@ -25,6 +28,7 @@ export default function AccountControl() {
   const cloud = useCloudStatus();
   const profile = useMyProfile();
   const account = useAccount();
+  const link = useMyAccountLink();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [showConnections, setShowConnections] = useState(false);
@@ -39,8 +43,7 @@ export default function AccountControl() {
   return (
     <div className="account-control">
       <button type="button" className="account-button" onClick={() => setOpen((v) => !v)}>
-        {cloud.signedIn ? profile?.name || cloud.email : 'Sign in'}
-        {profile && <span className="account-rating mono">{Math.round(profile.clubRating?.rating ?? 1500)}</span>}
+        <span className="account-name">{cloud.signedIn ? profile?.name || cloud.email : 'Sign in'}</span>
       </button>
 
       {open && (
@@ -55,11 +58,20 @@ export default function AccountControl() {
             <ForgotPasswordForm onSwitch={setMode} />
           )}
           {cloud.signedIn && !account.loading && !account.isApproved && <AwaitingApproval />}
-          {cloud.signedIn && account.isApproved && !profile && <ClaimProfileForm onDone={close} />}
+          {/* With migration 0025 the "Who are you?" step on the page makes the
+              roster row (and matches the coach's import); offering "Join the
+              roster" here too would make a second row for the same student. */}
+          {cloud.signedIn && account.isApproved && !profile && link.available && (
+            <p className="hint-text">Answer &ldquo;Who are you?&rdquo; on the page to join the roster.</p>
+          )}
+          {cloud.signedIn && account.isApproved && !profile && !link.available && (
+            <ClaimProfileForm onDone={close} />
+          )}
           {cloud.signedIn && account.isApproved && profile && (
             <AccountSummary
               cloud={cloud}
               profile={profile}
+              studentId={link.studentId}
               onClose={close}
               onOpenConnections={() => {
                 close();
@@ -349,7 +361,17 @@ function ClaimProfileForm({ onDone }) {
   );
 }
 
-function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
+function AccountSummary({ cloud, profile, studentId, onClose, onOpenConnections }) {
+  // The same rating the leaderboard shows, with where it comes from. The old
+  // line read players.club_rating, a blend of every time control that nothing
+  // else in the app trusts any more (HANDOFF §9 item 5).
+  const platformRatings = usePlatformRatingsFor(profile.playerId);
+  const override = useRatingOverrideFor(profile.playerId);
+  const rating = resolveRating({
+    override,
+    official: profile.ratings?.uscf != null ? { platform: 'uscf', rating: profile.ratings.uscf } : null,
+    platformRatings: platformRatings.map((r) => ({ platform: r.platform, timeControl: r.timeControl, rating: r.rating })),
+  });
   const [changingPassword, setChangingPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -386,10 +408,16 @@ function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
       <p>
         Signed in as <strong>{cloud.email}</strong>
       </p>
-      <p className="hint-text">
-        Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
-        {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
-      </p>
+      {rating.rating != null && (
+        <p className="hint-text">
+          Rating <strong className="mono">{rating.rating}</strong> ({rating.label})
+        </p>
+      )}
+      {studentId && (
+        <p className="hint-text">
+          Student ID <span className="mono">{studentId}</span> (only you and the coach see this)
+        </p>
+      )}
 
       {!changingPassword && (
         <button type="button" className="connections-button" onClick={onOpenConnections}>

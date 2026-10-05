@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Component, Suspense, useEffect, useState } from 'react';
 import DashboardPage from './pages/DashboardPage.jsx';
-import PlayPage from './pages/PlayPage.jsx';
-import RosterPage from './pages/RosterPage.jsx';
-import TrainingPage from './pages/TrainingPage.jsx';
-import GamesPage from './pages/GamesPage.jsx';
-import MyGamesPage from './pages/MyGamesPage.jsx';
-import CoachPage from './pages/CoachPage.jsx';
+import { lazyPage } from './lazyPage.js';
 import AccountControl from './components/AccountControl.jsx';
 import ResetPasswordModal from './components/ResetPasswordModal.jsx';
 import AccessGate from './components/AccessGate.jsx';
@@ -16,16 +11,18 @@ import { useAnalysisQueue } from './analysis/useAnalysisQueue.js';
 import { useAutoSync } from './data/useAutoSync.js';
 import { useMyProfile } from './data/rosterStore.js';
 import BackgroundActivity from './components/BackgroundActivity.jsx';
+import { ROUTES, visibleRoutes, canOpenRoute } from './data/navRoutes.js';
+import WhoAreYou from './components/WhoAreYou.jsx';
+import { useMyAccountLink } from './data/accountLinkStore.js';
+import { shouldAskWhoAreYou } from './data/accountLinking.js';
 
-const ROUTES = [
-  { id: 'home', label: 'Club' },
-  { id: 'play', label: 'Play' },
-  { id: 'training', label: 'Training' },
-  { id: 'games', label: 'Games' },
-  { id: 'my-games', label: 'My games' },
-  { id: 'roster', label: 'Roster' },
-  { id: 'coach', label: 'Coach' },
-];
+// Everything but the Club page loads when first opened (lazyPage.js).
+const PlayPage = lazyPage(() => import('./pages/PlayPage.jsx'));
+const RosterPage = lazyPage(() => import('./pages/RosterPage.jsx'));
+const TrainingPage = lazyPage(() => import('./pages/TrainingPage.jsx'));
+const GamesPage = lazyPage(() => import('./pages/GamesPage.jsx'));
+const MyGamesPage = lazyPage(() => import('./pages/MyGamesPage.jsx'));
+const CoachPage = lazyPage(() => import('./pages/CoachPage.jsx'));
 
 const routeFromHash = () => {
   // A route may carry parameters, e.g. #/training?theme=fork, which is how the
@@ -73,6 +70,10 @@ export default function App() {
   useAutoSync({ enabled: !!account?.isApproved, isCoach: !!account?.isCoach });
 
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
+
+  // Once approved, a member says who they are, once (accountLinking.js).
+  const link = useMyAccountLink();
+  const askWhoAreYou = shouldAskWhoAreYou({ configured: isSupabaseConfigured, account, link });
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
   // place our own routing looks. A successful sign-in's tokens are handled
@@ -161,7 +162,7 @@ export default function App() {
         </button>
 
         <nav className="nav">
-          {(locked ? [] : ROUTES).map((item) => (
+          {(locked ? [] : visibleRoutes(account)).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -209,16 +210,20 @@ export default function App() {
       <main className="content">
         {isSupabaseConfigured && account.loading ? null : locked ? (
           <AccessGate signedIn={account.signedIn} status={account.status} />
+        ) : askWhoAreYou ? (
+          <WhoAreYou onDone={(message) => setAuthNotice({ kind: 'success', message })} />
         ) : (
-          <>
-            {route === 'home' && <DashboardPage onNavigate={navigate} />}
-            {route === 'my-games' && <MyGamesPage />}
-            {route === 'play' && <PlayPage />}
-            {route === 'training' && <TrainingPage />}
-            {route === 'games' && <GamesPage />}
-            {route === 'roster' && <RosterPage />}
-            {route === 'coach' && <CoachPage />}
-          </>
+          <PageErrorBoundary key={route}>
+            <Suspense fallback={<p className="muted page-loading">Loading…</p>}>
+              {route === 'home' && <DashboardPage onNavigate={navigate} />}
+              {route === 'my-games' && <MyGamesPage />}
+              {route === 'play' && <PlayPage />}
+              {route === 'training' && <TrainingPage />}
+              {route === 'games' && <GamesPage />}
+              {route === 'roster' && <RosterPage />}
+              {route === 'coach' && (canOpenRoute('coach', account) ? <CoachPage /> : <CoachOnly onNavigate={navigate} />)}
+            </Suspense>
+          </PageErrorBoundary>
         )}
       </main>
 
@@ -244,4 +249,45 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** What a member sees if they follow an old link to the Coach page. */
+function CoachOnly({ onNavigate }) {
+  return (
+    <section className="panel access-gate">
+      <h2>Coaches only</h2>
+      <p>This page is for the coach. Your own games and what to work on are on the Club page.</p>
+      <button type="button" className="primary" onClick={() => onNavigate('home')}>
+        Go to the Club page
+      </button>
+    </section>
+  );
+}
+
+/**
+ * If a page's code can't be fetched (offline, or a failed reload after a
+ * deploy), say so with a way out, instead of a blank screen.
+ */
+class PageErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <section className="panel access-gate">
+        <h2>This page didn&rsquo;t load</h2>
+        <p>Check your connection and try again.</p>
+        <button type="button" className="primary" onClick={() => window.location.reload()}>
+          Reload
+        </button>
+      </section>
+    );
+  }
 }

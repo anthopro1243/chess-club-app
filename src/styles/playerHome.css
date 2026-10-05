@@ -28,6 +28,8 @@
    so middle-click and "copy link" work, and there is no click handler to break. */
 .ph-action {
   display: inline-block;
+  font-family: inherit;
+  cursor: pointer;
   padding: 8px 14px;
   border-radius: 8px;
   border: 1px solid var(--border);

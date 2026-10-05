@@ -23,6 +23,19 @@ export const MOTIF_LABELS = Object.freeze({
   deflection: 'Deflections',
 });
 
+/**
+ * One game's motif counts in words, most frequent first: "Leaving pieces
+ * hanging (2), Allowing forks (1)". Tags without a plain label are left out
+ * rather than shown as code names like "hangingPiece".
+ */
+export function describeMotifs(motifCounts) {
+  return Object.entries(motifCounts || {})
+    .filter(([motif, n]) => MOTIF_LABELS[motif] && n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([motif, n]) => `${MOTIF_LABELS[motif]} (${n})`)
+    .join(', ');
+}
+
 /* Where a motif's puzzle theme has a different name in the Lichess puzzle set. */
 const PUZZLE_THEME_FOR_MOTIF = Object.freeze({ backRank: 'backRankMate' });
 
