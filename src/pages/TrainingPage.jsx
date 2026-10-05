@@ -172,7 +172,21 @@ export default function TrainingPage() {
     [duePuzzles],
   );
 
-  const pool = source === 'mistakes' ? ownPuzzles : filtered;
+  /*
+   * The round's positions are fixed when "Your mistakes" opens. Solving one
+   * reschedules it, which takes it out of the due list straight away; without
+   * this the last position vanished the moment it was solved and the player
+   * got "No puzzles match" instead of "Solved".
+   */
+  const roundKey = `${source}:${traineeId}`;
+  const [round, setRound] = useState({ key: '', puzzles: [] });
+  useEffect(() => {
+    if (source !== 'mistakes') return;
+    setRound((r) => (r.key === roundKey && r.puzzles.length ? r : { key: roundKey, puzzles: ownPuzzles }));
+  }, [source, roundKey, ownPuzzles]);
+  const roundPuzzles = round.key === roundKey && round.puzzles.length ? round.puzzles : ownPuzzles;
+
+  const pool = source === 'mistakes' ? roundPuzzles : filtered;
   const puzzle = pool.length ? pool[Math.min(index, pool.length - 1)] : PUZZLES[0];
 
   const gameRef = useRef(new Chess(puzzle.fen));
@@ -366,6 +380,14 @@ export default function TrainingPage() {
       <section className="board-column">
         {source === 'endgames' ? (
           <EndgameTrainer trainee={trainee} rating={trainee?.ratings?.uscf ?? null} />
+        ) : pool.length === 0 && source === 'mistakes' ? (
+          <div className="panel-block">
+            <h2>Nothing to review right now</h2>
+            <p className="hint-text">
+              Positions you get wrong in your games show up here once the games are analysed. Try
+              the tactics library meanwhile.
+            </p>
+          </div>
         ) : pool.length === 0 ? (
           <div className="panel-block">
             <h2>No puzzles match</h2>
@@ -381,7 +403,7 @@ export default function TrainingPage() {
                   {index + 1} / {pool.length}
                 </span>
                 <strong>{puzzle.name}</strong>
-                <span className="puzzle-rating mono">{puzzle.rating}</span>
+                {!puzzle.own && <span className="puzzle-rating mono">{puzzle.rating}</span>}
               </div>
               <span className="puzzle-prompt">
                 {result === 'solved'
