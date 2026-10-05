@@ -31,3 +31,9 @@
   margin-top: 2px;
   overflow-wrap: anywhere;
 }
+
+/* The headline ("Left a piece hanging") on its own line, so it doesn't run
+   into the sentence after it ("…hanging This cost White…"). */
+.critical-explain strong {
+  display: block;
+}
