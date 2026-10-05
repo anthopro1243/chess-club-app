@@ -23,7 +23,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 6 | ✅ **Brand-new member home page** tells them to link Chess.com/Lichess "from the account menu" instead of giving them the button. | new members | fixed (7) |
 | 8 | ✅ **Top bar wraps on phones when signed in**: the account button pushes the Light/Dark toggle onto its own line above the nav. | every member, on phones | fixed (5) |
 | 9 | ✅ **Leaderboard says "No one has joined yet. Sign in up top…"** to signed-in members whenever nobody has a rating yet (the usual state for a new club), even with a full roster. | every member | fixed (8) |
-| 10 | **Text boxes under 16 px on phones** (e.g. the Chess.com/Lichess username boxes, unstyled): iPhones zoom the whole page in when one is tapped. | every member, on iPhones | open |
+| 10 | ✅ **Text boxes under 16 px on phones** (e.g. the Chess.com/Lichess username boxes, unstyled): iPhones zoom the whole page in when one is tapped. | every member, on iPhones | fixed (9) |
 | 7 | **First load is one 830 kB script** (238 kB gzipped) on phones: every page, the 402 puzzles and the scoresheet editor load before the home page shows. | everyone, on phones | open |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -109,7 +109,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 8._
+_Kept current after every push. Last updated after change 9._
 
 ### 1. Branch
 

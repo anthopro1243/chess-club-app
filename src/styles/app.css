@@ -1666,6 +1666,26 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* Every text box gets the same look as the form fields above, at zero
+   specificity so any component's own rule still wins. Some (the Chess.com /
+   Lichess username boxes, the invite code, sign-in) had no style at all. */
+:where(input:not([type]), input[type='text'], input[type='email'], input[type='password'],
+  input[type='number'], input[type='search'], input[type='date']) {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+:where(input:not([type]), input[type='text'], input[type='email'], input[type='password'],
+  input[type='number'], input[type='search'], input[type='date']):focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .text-area {
   display: block;
   width: 100%;
@@ -1873,6 +1893,16 @@ textarea:focus {
 
   h1 {
     font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* iPhones zoom the whole page in when a text box under 16px gets focus,
+     and don't zoom back out. The id beats every component rule. */
+  #root input:not([type='range']):not([type='checkbox']):not([type='radio']),
+  #root select,
+  #root textarea {
+    font-size: 16px;
   }
 }
 
