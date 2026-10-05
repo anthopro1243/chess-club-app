@@ -1,3 +1,34 @@
+# Improvement pass — 2026-10-05 (cloud session, branch `claude/laughing-mccarthy-v2msz3`)
+
+Audit, then one fix per commit, each pushed. Full detail, how each was checked and the coach's steps:
+**`IMPROVEMENT-LOG.md`** (its "For the coach" section). Draft PR:
+https://github.com/anthopro1243/chess-club-app/pull/1. **Nothing merged, nothing written to the
+database.** Scope rules followed: analysis and improvement only, no auth/security work, nothing that
+needs the coach every week, no paid services.
+
+**Account ↔ real student (owner's item).** Migration **0025_link_account_to_student.sql** (NOT applied):
+one-time "Who are you?" step after approval (first name, last name, DISD student ID). The database
+function matches the ID against the coach's imported roster and links the account to that row, else
+fills or creates the member's row; clashes are kept for the coach. Roster page gets a coach-only
+Accounts panel (linked / not linked / rows without an account / check these) with one-click move and
+unlink. Student IDs stay in coach-only `player_private`; a member sees only their own, in the account
+menu. Tested on a scratch local Postgres (`supabase/tests/`), every branch, applied twice. Before 0025 is
+applied the app behaves as before.
+
+**Fixed:** Coach tab and page hidden from members · Roster Add/Edit/Remove coach-only, other members'
+scores private · Training opens as the signed-in member, `#/training?mode=mistakes` from "Review them" ·
+phone top bar on one row; account menu shows the leaderboard's rating instead of `club_rating` · SEM
+fonts (Oswald + Public Sans) · new members get a "Link Chess.com or Lichess" button · honest empty
+leaderboard · no iPhone zoom on text boxes · first-load script 830 → 536 kB (pages load when opened,
+self-healing after a deploy) · game analysis panel: no duplicate turning points in engine notation, plain
+pattern names, less jargon · export no longer writes the removed Attendance sheet · My games, Games
+archive and Roster tables fit a phone · mistake headlines no longer run into their sentence · Play seats
+the signed-in member so their games get analysed · member Club page shows only measured skills.
+
+Tests: `npm test` 474 pass / 0 fail (was 451) · `npm run test:engine` 15/15 · build OK.
+
+---
+
 # SEM red instead of gold — 2026-09-29 (owner's instruction)
 
 The gold accent (buttons, active tab, links, selected rows, focus rings, board selected/last-move
