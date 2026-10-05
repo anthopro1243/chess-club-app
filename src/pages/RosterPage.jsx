@@ -11,6 +11,8 @@ import { usePlayerPrivate } from '../data/playerPrivateStore.js';
 import RosterImportModal from '../components/RosterImportModal.jsx';
 import ReportCard from '../components/ReportCard.jsx';
 import ArchiveGraduateModal from '../components/ArchiveGraduateModal.jsx';
+import AccountLinksPanel from '../components/AccountLinksPanel.jsx';
+import { isSupabaseConfigured } from '../data/supabaseClient.js';
 import { gradeSection } from '../data/privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
@@ -127,6 +129,14 @@ export default function RosterPage() {
 
   return (
     <div className="roster-layout">
+      {account.isCoach && isSupabaseConfigured && (
+        <AccountLinksPanel
+          onSelectPlayer={(id) => {
+            setSelectedId(id);
+            setEditing(false);
+          }}
+        />
+      )}
       <section className="panel">
         <div className="panel-header">
           <h2>Roster</h2>

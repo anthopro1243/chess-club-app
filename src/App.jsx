@@ -17,6 +17,9 @@ import { useAutoSync } from './data/useAutoSync.js';
 import { useMyProfile } from './data/rosterStore.js';
 import BackgroundActivity from './components/BackgroundActivity.jsx';
 import { ROUTES, visibleRoutes, canOpenRoute } from './data/navRoutes.js';
+import WhoAreYou from './components/WhoAreYou.jsx';
+import { useMyAccountLink } from './data/accountLinkStore.js';
+import { shouldAskWhoAreYou } from './data/accountLinking.js';
 
 const routeFromHash = () => {
   // A route may carry parameters, e.g. #/training?theme=fork, which is how the
@@ -64,6 +67,10 @@ export default function App() {
   useAutoSync({ enabled: !!account?.isApproved, isCoach: !!account?.isCoach });
 
   const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
+
+  // Once approved, a member says who they are, once (accountLinking.js).
+  const link = useMyAccountLink();
+  const askWhoAreYou = shouldAskWhoAreYou({ configured: isSupabaseConfigured, account, link });
 
   // Supabase redirects auth outcomes back here via the URL hash — the same
   // place our own routing looks. A successful sign-in's tokens are handled
@@ -200,6 +207,8 @@ export default function App() {
       <main className="content">
         {isSupabaseConfigured && account.loading ? null : locked ? (
           <AccessGate signedIn={account.signedIn} status={account.status} />
+        ) : askWhoAreYou ? (
+          <WhoAreYou onDone={(message) => setAuthNotice({ kind: 'success', message })} />
         ) : (
           <>
             {route === 'home' && <DashboardPage onNavigate={navigate} />}

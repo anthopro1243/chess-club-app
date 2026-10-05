@@ -2177,3 +2177,106 @@ button[aria-busy='true']::before {
     animation-duration: 2s;
   }
 }
+
+/* ---------- "Who are you?" (one-time account link) ---------------------- */
+
+.who-are-you {
+  max-width: 26rem;
+  margin: 32px auto;
+}
+
+.who-are-you .who-seal {
+  display: block;
+  margin: 0 auto 8px;
+}
+
+.who-are-you h2 {
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.who-are-you > p {
+  text-align: center;
+}
+
+.who-are-you form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.who-are-you button[type='submit'] {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+}
+
+.field-error {
+  color: var(--bad);
+  font-size: 0.85rem;
+}
+
+/* ---------- Roster: accounts panel (coach) ------------------------------- */
+
+.account-links h3 {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+}
+
+.link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.link-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.link-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.link-main > .small,
+.link-main > .muted {
+  flex-basis: 100%;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-actions select {
+  max-width: 100%;
+}
+
+.link-details {
+  margin-top: 12px;
+}
+
+.link-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 0;
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+.roster-layout > .account-links {
+  grid-column: 1 / -1;
+}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.js';
 import ConnectionsModal from './ConnectionsModal.jsx';
 import { useAccount, redeemInvite } from '../data/accountStore.js';
+import { useMyAccountLink } from '../data/accountLinkStore.js';
 import {
   signInWithPassword,
   signUpWithPassword,
@@ -25,6 +26,7 @@ export default function AccountControl() {
   const cloud = useCloudStatus();
   const profile = useMyProfile();
   const account = useAccount();
+  const link = useMyAccountLink();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [showConnections, setShowConnections] = useState(false);
@@ -55,11 +57,20 @@ export default function AccountControl() {
             <ForgotPasswordForm onSwitch={setMode} />
           )}
           {cloud.signedIn && !account.loading && !account.isApproved && <AwaitingApproval />}
-          {cloud.signedIn && account.isApproved && !profile && <ClaimProfileForm onDone={close} />}
+          {/* With migration 0025 the "Who are you?" step on the page makes the
+              roster row (and matches the coach's import); offering "Join the
+              roster" here too would make a second row for the same student. */}
+          {cloud.signedIn && account.isApproved && !profile && link.available && (
+            <p className="hint-text">Answer &ldquo;Who are you?&rdquo; on the page to join the roster.</p>
+          )}
+          {cloud.signedIn && account.isApproved && !profile && !link.available && (
+            <ClaimProfileForm onDone={close} />
+          )}
           {cloud.signedIn && account.isApproved && profile && (
             <AccountSummary
               cloud={cloud}
               profile={profile}
+              studentId={link.studentId}
               onClose={close}
               onOpenConnections={() => {
                 close();
@@ -349,7 +360,7 @@ function ClaimProfileForm({ onDone }) {
   );
 }
 
-function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
+function AccountSummary({ cloud, profile, studentId, onClose, onOpenConnections }) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -390,6 +401,11 @@ function AccountSummary({ cloud, profile, onClose, onOpenConnections }) {
         Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
         {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
       </p>
+      {studentId && (
+        <p className="hint-text">
+          Student ID <span className="mono">{studentId}</span> (only you and the coach see this)
+        </p>
+      )}
 
       {!changingPassword && (
         <button type="button" className="connections-button" onClick={onOpenConnections}>

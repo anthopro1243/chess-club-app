@@ -46,7 +46,8 @@ export default function MyGamesPage() {
             <h2>My games</h2>
           </div>
           <p className="muted">
-            Your account isn&rsquo;t linked to a roster player yet. Ask the coach to link it.
+            Your account isn&rsquo;t on the club roster yet. Ask the coach to link it from the Roster
+            page.
           </p>
         </section>
       </div>
