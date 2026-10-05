@@ -3,6 +3,8 @@ import { useCloudStatus, useMyProfile, claimProfile } from '../data/rosterStore.
 import ConnectionsModal from './ConnectionsModal.jsx';
 import { useAccount, redeemInvite } from '../data/accountStore.js';
 import { useMyAccountLink } from '../data/accountLinkStore.js';
+import { usePlatformRatingsFor, useRatingOverrideFor } from '../data/ratingStore.js';
+import { resolveRating } from '../analysis/ratings.js';
 import {
   signInWithPassword,
   signUpWithPassword,
@@ -41,8 +43,7 @@ export default function AccountControl() {
   return (
     <div className="account-control">
       <button type="button" className="account-button" onClick={() => setOpen((v) => !v)}>
-        {cloud.signedIn ? profile?.name || cloud.email : 'Sign in'}
-        {profile && <span className="account-rating mono">{Math.round(profile.clubRating?.rating ?? 1500)}</span>}
+        <span className="account-name">{cloud.signedIn ? profile?.name || cloud.email : 'Sign in'}</span>
       </button>
 
       {open && (
@@ -361,6 +362,16 @@ function ClaimProfileForm({ onDone }) {
 }
 
 function AccountSummary({ cloud, profile, studentId, onClose, onOpenConnections }) {
+  // The same rating the leaderboard shows, with where it comes from. The old
+  // line read players.club_rating, a blend of every time control that nothing
+  // else in the app trusts any more (HANDOFF §9 item 5).
+  const platformRatings = usePlatformRatingsFor(profile.playerId);
+  const override = useRatingOverrideFor(profile.playerId);
+  const rating = resolveRating({
+    override,
+    official: profile.ratings?.uscf != null ? { platform: 'uscf', rating: profile.ratings.uscf } : null,
+    platformRatings: platformRatings.map((r) => ({ platform: r.platform, timeControl: r.timeControl, rating: r.rating })),
+  });
   const [changingPassword, setChangingPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -397,10 +408,11 @@ function AccountSummary({ cloud, profile, studentId, onClose, onOpenConnections 
       <p>
         Signed in as <strong>{cloud.email}</strong>
       </p>
-      <p className="hint-text">
-        Club rating <strong>{Math.round(profile.clubRating?.rating ?? 1500)}</strong>
-        {(profile.clubRating?.count ?? 0) < 10 && ' (provisional)'}
-      </p>
+      {rating.rating != null && (
+        <p className="hint-text">
+          Rating <strong className="mono">{rating.rating}</strong> ({rating.label})
+        </p>
+      )}
       {studentId && (
         <p className="hint-text">
           Student ID <span className="mono">{studentId}</span> (only you and the coach see this)

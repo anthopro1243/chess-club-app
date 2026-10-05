@@ -231,6 +231,13 @@ code {
   border-color: var(--border-strong);
 }
 
+.account-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .account-rating {
   color: var(--accent-ink);
   font-size: 0.78rem;
@@ -1824,6 +1831,17 @@ textarea:focus {
     display: none;
   }
 
+  /* A full name or email in the account button pushed the theme toggle onto
+     a line of its own. Keep brand, account and toggle on one row. */
+  .account-button {
+    /* What is left after the brand, the toggle, the gaps and the padding. */
+    max-width: calc(100vw - 240px);
+  }
+
+  .theme-toggle {
+    padding: 6px 9px;
+  }
+
   .nav-link {
     flex: none;
     white-space: nowrap;
@@ -1845,6 +1863,17 @@ textarea:focus {
 
   h1 {
     font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 359px) {
+  /* The smallest phones: the seal alone stands for the club name. */
+  .brand-name {
+    display: none;
+  }
+
+  .account-button {
+    max-width: calc(100vw - 150px);
   }
 }
 

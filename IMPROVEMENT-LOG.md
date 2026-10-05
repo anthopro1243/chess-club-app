@@ -21,7 +21,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 4 | ✅ **Training starts on "Practice only".** A member has to pick themselves out of the full roster before puzzles count, and can pick someone else (their solves then change another member's rating). "Positions to review" on the home page says "In Training, pick yourself and choose 'Your mistakes'": three extra taps. | every member | fixed (4) |
 | 5 | **SEM fonts missing.** Oswald + Public Sans aren't loaded; the app uses system fonts. | everyone | open |
 | 6 | **Brand-new member home page** tells them to link Chess.com/Lichess "from the account menu" instead of giving them the button. | new members | open |
-| 8 | **Top bar wraps on phones when signed in**: the account button pushes the Light/Dark toggle onto its own line above the nav. | every member, on phones | open |
+| 8 | ✅ **Top bar wraps on phones when signed in**: the account button pushes the Light/Dark toggle onto its own line above the nav. | every member, on phones | fixed (5) |
 | 7 | **First load is one 830 kB script** (238 kB gzipped) on phones: every page, the 402 puzzles and the scoresheet editor load before the home page shows. | everyone, on phones | open |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -107,7 +107,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 4._
+_Kept current after every push. Last updated after change 5._
 
 ### 1. Branch
 
