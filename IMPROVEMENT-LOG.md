@@ -37,6 +37,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 16 | ✅ **Play starts every seat on "Guest (not rated)"**: a member's game is a guest game unless they pick themselves first, so it never reaches My games and is never analysed. On phones the eight game buttons stacked full-width and the seat name was cut to 100 px. | every member | fixed (16) |
 | 17 | ✅ **Member Club page clutter**: "How you're trending" lists eight "not enough games yet" rows; "Teach to the whole group" (the coach's lesson planner) shows to members, empty for a new club. | every member | fixed (17) |
 | 18 | ✅ **Solving your last due mistake shows "No puzzles match. Try another theme or difficulty."** instead of "Solved" (the position leaves the due list the moment it's solved); own-game positions show a puzzle rating of "0". | every member | fixed (18) |
+| 19 | ✅ **Coach's Accounts panel pushes the Roster page sideways on a phone** (pickers sized to their longest option). | coach, on phones | fixed (19) |
 | 12 | ✅ **Coach export still writes an "Attendance" sheet** (removed feature). | coach | fixed (12) |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -117,56 +118,230 @@ _(newest last; one entry per pushed improvement)_
   - `npm run build` OK, `npm test` 468 pass.
 - **Coach to do:** apply migration 0025 (steps in "For the coach" below).
 
----
+### 4. Training opens as the signed-in member; "Review them" goes straight to their mistakes
+- **What:** a member always trains as themselves; the trainee picker is gone for them ("Training as
+  <name>."). The coach keeps the picker and now starts as themselves instead of "Practice only"
+  (choosing "Practice only" sticks). New deep link `#/training?mode=mistakes` (also `mode=endgames`)
+  opens the player's own positions to review; the home page's "Review them" and the review next-step
+  button use it, and the "In Training, pick yourself and choose 'Your mistakes'" instruction is gone.
+- **Why:** three extra taps to reach your own mistakes, and members could log puzzles against another
+  member's rating.
+- **Where:** `src/data/trainingLink.js` (`mode`, `traineeIdFor`), `src/pages/TrainingPage.jsx`,
+  `src/analysis/playerHome.js`, `src/components/PlayerHome.jsx`.
+- **Checked:** new tests in `trainingLink.test.js` (mode parsing incl. an unknown mode, a member can't
+  train as someone else, coach "Practice only" sticks) and `playerHome.test.js` (review links);
+  `npm test` 471 pass; Chromium at 390 px with the fake backend: member lands on "Your mistakes" as
+  themselves with no picker; coach starts on their own row.
+- **Coach to do:** nothing.
 
+### 5. Phone top bar on one row; account menu shows the real rating
+- **What:** on phones the account button's name truncates with "…" and is sized from the space left,
+  so seal + "Chess Club", account button and Light/Dark sit on one row (below 360 px the seal alone
+  stands for the name). The number beside the name in the top bar is gone; the account menu now shows
+  "Rating 1234 (USCF)" (or Chess.com/Lichess, or "set by coach"), the same number and label as the
+  leaderboard, and nothing when there is no rating.
+- **Why:** the toggle wrapped onto its own line on every page. The old number was
+  `players.club_rating`, the blended figure HANDOFF §9 item 5 says is wrong and nothing else shows.
+- **Where:** `src/components/AccountControl.jsx`, `src/styles/app.css`.
+- **Checked:** Chromium at 320, 360 and 390 px: brand, account button and toggle share one row, page
+  width = viewport; `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 6. SEM fonts: Oswald headings, Public Sans text
+- **What:** `index.html` loads Oswald (500/600) and Public Sans (400/600/700) from Google Fonts with
+  `display=swap`; headings, the "Chess Club" name and the big numbers use Oswald, the rest Public Sans.
+  Falls back to the old system fonts if Google Fonts can't be reached.
+- **Why:** rule 7, SEM branding (maroon and the seal were already in place; the fonts weren't).
+- **Where:** `index.html`, `src/styles/app.css` (`--font`, new `--font-display`).
+- **Checked:** Chromium at 390 px with the font files served locally (this sandbox's browser doesn't
+  trust its own proxy for fonts.googleapis.com; curl fetched them fine): both fonts load and render;
+  top bar still one row; `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 7. New member home: a real "Link Chess.com or Lichess" button; no repeated hero
+- **What:** a member with no games gets a "Link Chess.com or Lichess" button (opens the connected-
+  accounts dialog in place) next to "Try some puzzles". The generic "Chess Club / Play a game / View
+  roster" hero no longer shows under a member's own home page.
+- **Why:** fewer taps from first sign-in to having games to analyse; less scrolling on phones.
+- **Where:** `src/components/PlayerHome.jsx`, `src/pages/DashboardPage.jsx`, `src/styles/playerHome.css`.
+- **Checked:** Chromium at 390 px with the fake backend: button opens the dialog; hero hidden;
+  `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 8. Leaderboard: an honest message when nobody is ranked yet
+- **What:** with members on the roster but nobody ranked: "Nobody is ranked yet. A USCF rating, a
+  Chess.com rapid rating from a linked account, or a rating the coach sets puts someone here."
+  (Chess.com rapid is the club's ranking basis in `ratings.js`.) Members with another online rating are
+  still listed below as "not ranked"; that list used to need at least one ranked member to appear.
+- **Why:** signed-in members were told "No one has joined yet. Sign in up top to create a profile."
+- **Where:** `src/pages/DashboardPage.jsx`.
+- **Checked:** Chromium with the fake backend (5 roster rows, no ratings); `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 9. Text boxes: one look everywhere, and no iPhone zoom
+- **What:** every text/email/password/number/search/date box shares the form-field look (several,
+  like the Chess.com/Lichess username boxes and the invite code, were bare browser defaults). At 640 px
+  and narrower, text boxes, drop-downs and text areas use 16 px text.
+- **Why:** iPhones zoom the whole page in when you tap a box under 16 px, and leave it zoomed.
+- **Where:** `src/styles/app.css`.
+- **Checked:** Chromium at 390 px: no visible text box under 16 px on any page or in the connected-
+  accounts dialog; unchanged at 1200 px; `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 10. Faster first load: pages load when opened
+- **What:** only the Club page ships in the first download; Play, Training, Games, My games, Roster and
+  Coach load when first opened ("Loading…" meanwhile). The 400-puzzle library now comes only with
+  Training and Coach. First-load script **830 kB → 536 kB (238 → 160 kB gzipped)**.
+- **Safety:** after a new deploy, a tab left open would ask for old file names that no longer exist;
+  the page reloads itself once and opens normally. If it still can't load (offline) it shows "This page
+  didn't load" with a Reload button, never a blank screen or a reload loop.
+- **Where:** `src/lazyPage.js` (new), `src/App.jsx`, `vite.config.js` (comment), `src/styles/app.css`.
+- **Checked:** build sizes above; `vite preview` of the real build: all seven pages open; a chunk that
+  404s once → one reload → page opens; a chunk that always 404s → one reload then the error panel (no
+  loop); `npm test` 471 pass.
+- **Coach to do:** nothing.
+
+### 11. Game analysis panel: plain words for members, no duplicate list
+- **What:** the panel under a game no longer repeats the turning points (the board's "Big mistakes"
+  list already explains each in words, with the better move in normal notation). "Patterns in this game:
+  Allowing forks (2), Leaving pieces hanging (1)." For members, ACPL and engine depth are hidden (the
+  coach still sees them) and eight "not enough games yet" rows collapse to one line.
+- **Why:** members were reading "Better was f6d7" and "hangingPiece ×1".
+- **Where:** `src/components/GameAnalysisPanel.jsx`, `src/analysis/clubWeaknesses.js`
+  (`describeMotifs`), `src/analysis/presentation.js` (`memberCategoryLines`).
+- **Checked:** new tests in `clubWeaknesses.test.js` and `presentation.test.js`; `npm test` 473 pass;
+  Chromium with one analysed game: "f3d4" appears nowhere on the page.
+- **Coach to do:** nothing.
+
+### 12. Coach export: no more Attendance sheet
+- **What:** "Export spreadsheet" no longer writes an empty "Attendance" sheet (Club Summary, Player
+  Master, Skill Assessments, Ratings Log, Games remain). The `attendance` table is untouched.
+- **Why:** attendance was removed from the app on purpose (scope cut, 2026-09-27).
+- **Where:** `src/data/exportWorkbook.js`.
+- **Checked:** clicked Export in Chromium and read the downloaded file's sheet names back; `npm test`
+  473 pass.
+- **Coach to do:** nothing.
+
+### 13. My games fits a phone
+- **What:** the games table uses the app's table style (its old CSS classes didn't exist); on phones
+  Moves, Type and Colour are hidden, dates read "Oct 1", long opponent names end in "…", and the result
+  reads Won / Lost / Draw. The whole row opens the game. Start / Back / Next / End stay on one row.
+- **Why:** the page was 426 px wide on a 390 px phone, and the replay buttons pushed the moves and
+  mistakes a screen further down.
+- **Where:** `src/pages/MyGamesPage.jsx`, `src/analysis/playerHome.js` (`shortGameDate`, reuses
+  `gameFromPlayerSide`), `src/styles/app.css`.
+- **Checked:** `shortGameDate` tests; Chromium at 390 px with a 30-character opponent name: table fits
+  exactly, row tap opens, link tap toggles once; `npm test` 474 pass.
+- **Coach to do:** nothing.
+
+### 14. Games archive and Roster tables fit a phone
+- **What:** at 640 px and narrower the Games archive hides Moves, Type, end reason and the PGN link,
+  shows "Oct 1" dates, the scoreline ("1-0", "½-½") and trims long names; the Roster hides ID and Board
+  and lets names wrap. Desktop unchanged.
+- **Why:** both tables scrolled sideways inside their box, hiding the result.
+- **Where:** `src/pages/GamesPage.jsx`, `src/pages/RosterPage.jsx`, `src/styles/app.css`.
+- **Checked:** Chromium at 390 px with long names: both tables fit exactly; `npm test` 474 pass.
+- **Coach to do:** nothing.
+
+### 15. Big mistakes list: headline on its own line
+- **What:** each mistake's headline ("Left a piece hanging", "Allowed mate in 2", …) sits on its own
+  line above its explanation.
+- **Why:** it read as one broken sentence: "A turning point This cost White about 23%…".
+- **Where:** `src/styles/explain.css`.
+- **Checked:** Chromium at 390 px, the list item reads in three separate lines.
+- **Coach to do:** nothing.
+
+### 16. Play: the member is seated automatically; tidier on phones
+- **What:** on a fresh game with no seat picked, the signed-in member is put in their seat (once per
+  visit, before any move, so picking Guest or someone else sticks). On phones the game buttons sit two
+  per row and the seat name uses the whole bar instead of 100 px.
+- **Why:** guest games never reach My games and are never analysed, which silently broke the
+  analyse → practise loop for anyone who didn't pick themselves.
+- **Where:** `src/pages/PlayPage.jsx`, `src/styles/app.css`.
+- **Checked:** Chromium at 390 px: the member's name is in the White seat on arrival, picking Guest
+  sticks; `npm test` 474 pass.
+- **Coach to do:** nothing.
+
+### 17. Member Club page: less clutter
+- **What:** "How you're trending" lists only skills with a real score plus one line for the rest
+  (Notation, which games can't measure, isn't counted). "Teach to the whole group" is coach-only, with
+  an empty-state line.
+- **Why:** a new member's page was mostly rows saying there was nothing to show yet.
+- **Where:** `src/components/PlayerHome.jsx`, `src/pages/DashboardPage.jsx`.
+- **Checked:** Chromium with the fake backend, member and coach views; `npm test` 474 pass.
+- **Coach to do:** nothing.
+
+### 18. "Your mistakes": a solved position stays on screen
+- **What:** the positions in a "Your mistakes" round are fixed when it opens, so the one you solve
+  stays on the board with "Solved" (it is still rescheduled). With nothing due, the page says "Nothing to
+  review right now…" instead of the library's "No puzzles match… try another theme". Own-game
+  positions no longer show a puzzle rating of "0".
+- **Why:** getting your own mistake right ended in an error-looking message.
+- **Where:** `src/pages/TrainingPage.jsx`.
+- **Checked:** Chromium with one due position: Club page "Review them" → that position in 2 taps, the
+  right move shows "Solved"; library ↔ mistakes switching works; `npm test` 474 pass.
+- **Coach to do:** nothing.
+
+### 19. Accounts panel fits a phone
+- **What:** the "Link to…" / "Move to…" pickers in the coach's Accounts panel shrink to the row
+  instead of growing to their longest option.
+- **Why:** a long name + CC id + student ID pushed the Roster page to 421 px wide on a 390 px phone.
+- **Where:** `src/styles/app.css`.
+- **Checked:** Chromium at 390 px as the coach: nothing wider than the screen, page width 390;
+  `npm test` 474 pass, `npm run test:engine` 15/15.
+- **Coach to do:** nothing.
+
+---
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 18._
+_Final. Session ended 2026-10-05 after change 19._
 
 ### 1. Branch
 
-`claude/laughing-mccarthy-v2msz3` (draft PR: https://github.com/anthopro1243/chess-club-app/pull/1).
-Branched from `master` at `bf8ae3e`. Nothing has been merged and the production database hasn't been
-touched.
+`claude/laughing-mccarthy-v2msz3`, PR https://github.com/anthopro1243/chess-club-app/pull/1 (ready for
+review). Branched from `master` at `bf8ae3e`; 19 improvements, one commit each, plus docs. Nothing is
+merged and the production database hasn't been touched. Every push built green on Vercel's preview.
 
 ### 2. Try the branch on your machine
 
-Run these in `~/Projects/chess-club-app`, one at a time.
+In `~/Projects/chess-club-app`, one step at a time:
 
 ```
 git fetch origin
-git status                      # checkpoint: "nothing to commit". If not, commit or stash first.
+git status                      # checkpoint: "nothing to commit, working tree clean". If not, commit or stash first.
 git checkout claude/laughing-mccarthy-v2msz3
 git pull origin claude/laughing-mccarthy-v2msz3
 npm install                     # checkpoint: ends without "ERR!"
-npm test                        # checkpoint: "# fail 0" (the RLS suite prints SKIP, that's normal)
-npm run build                   # checkpoint: "✓ built in …" (the >500 kB warning is the usual one)
+npm test                        # checkpoint: "# pass 474" and "# fail 0" (the RLS suite prints SKIP; normal)
+npm run test:engine             # checkpoint: "# pass 15", "# fail 0"
+npm run build                   # checkpoint: "✓ built in …" (one >500 kB warning is the usual one)
 npm run dev                     # checkpoint: open http://localhost:5173 and check the list below
 ```
 
-What to look at with `npm run dev` (your `.env.local` points it at the real database, so it shows
-real data; you're signed in as the coach):
+`npm run dev` uses your `.env.local`, so it shows real data and you're signed in as the coach. Check:
 
-- **Coach tab** is still there for you. (Members no longer see it; to check, sign in with a member
-  account in a private window: their nav ends at Roster.)
-- **Roster** → before migration 0025, a small **Accounts** panel at the top says "Apply migration
-  0025…". After the migration, it shows linked / not linked / rows without an account.
-- **Roster** as a member (private window): no "+ Add player", "Edit" or "Remove"; other members' rows
-  show "Skill scores and goals are private…"; their own row shows their scores.
-- **Play** (signed in): your name is already in the White seat on a fresh game.
-- **Training**: you start as your own row (the picker is still there for you). As a member: no picker,
-  "Training as <name>." On the Club page, "Review them" opens Training on "Your mistakes".
+- **Coach** tab is there for you. In a private window signed in as a member: the nav ends at Roster.
+- **Roster**: an **Accounts** panel at the top. Before migration 0025 it says "Apply migration 0025…";
+  after, it shows linked / not linked / rows without an account.
+- **Roster** as a member: no "+ Add player", "Edit" or "Remove"; other members' rows say "Skill scores
+  and goals are private…"; their own row shows their scores.
+- **Play**: your name is already in the White seat on a fresh game.
+- **Training**: you start as your own row (picker still there for you). As a member: no picker,
+  "Training as <name>."; on the Club page, "Review them" opens "Your mistakes".
+- **My games** / **Games** on a phone (or a narrow window): no sideways scrolling; results read Won/Lost.
+- Headings in Oswald, text in Public Sans.
 
-Stop the dev server with Ctrl+C when done.
+Stop the dev server with Ctrl+C.
 
 ### 3. Migration to apply: `0025_link_account_to_student.sql`
 
-Needed for the "Who are you?" step and the Roster accounts panel. Additive (one new table, four new
-functions), changes no existing table or policy, safe to run twice. The app works before and after it.
+Needed for the "Who are you?" step and the Roster Accounts panel. Additive (one new table, four new
+functions), changes no existing table or policy, safe to run twice. The app works before and after it,
+so it can go before or after the merge; doing it first means the step shows as soon as the deploy lands.
 
-1. Open the Supabase dashboard → project `rftlozmdyetubhjcutht` → **SQL Editor** → **New query**.
-2. Pre-check: paste and run
+1. Supabase dashboard → project `rftlozmdyetubhjcutht` → **SQL Editor** → **New query**.
+2. Pre-check, paste and run:
 
    ```sql
    select column_name from information_schema.columns
@@ -174,12 +349,11 @@ functions), changes no existing table or policy, safe to run twice. The app work
       and is_nullable = 'NO' and column_default is null;
    ```
 
-   **Checkpoint:** the result is `player_id` and `name` only. If any other column is listed, stop and
-   don't apply 0025 (the function that creates new roster rows would fail); tell Claude which column.
-3. Open `supabase/migrations/0025_link_account_to_student.sql` from the branch in your editor, copy
-   the whole file, paste it into a new SQL Editor query, and press **Run**.
-   **Checkpoint:** "Success. No rows returned".
-4. Paste and run
+   **Checkpoint:** only `player_id` and `name`. If any other column appears, stop (the function that
+   creates new roster rows would fail) and note which column.
+3. Copy the whole of `supabase/migrations/0025_link_account_to_student.sql` from the branch into a new
+   query and press **Run**. **Checkpoint:** "Success. No rows returned".
+4. Paste and run:
 
    ```sql
    select proname from pg_proc
@@ -188,14 +362,12 @@ functions), changes no existing table or policy, safe to run twice. The app work
    select count(*) from public.account_links;
    ```
 
-   **Checkpoint:** four function names, then a count of `0`.
-5. In the app (dev server from step 2, or the live site after merging), open **Roster** as the coach.
-   **Checkpoint:** the **Accounts** panel shows counts and your own account under **Linked** with a
-   "coach" tag; every approved member account appears either under Linked or under "Accounts with no
-   roster row".
+   **Checkpoint:** four function names, then `0`.
+5. Open **Roster** as the coach (dev server or, after merging, the live site). **Checkpoint:** the
+   Accounts panel shows counts, your account under **Linked** with a "coach" tag, and every approved
+   member either under Linked or under "Accounts with no roster row".
 
-Undo, if ever needed (removes the feature's table and functions; player rows and student IDs it
-wrote stay):
+Undo if ever needed (removes the table and functions; player rows and student IDs it wrote stay):
 
 ```sql
 drop function if exists public.coach_list_accounts();
@@ -207,9 +379,8 @@ drop table if exists public.account_links;
 
 ### 4. Merge?
 
-**Don't merge yet**: this session is still adding improvements to the branch. When it stops, this line
-will say "merge to master now". If you want what's here already, it is safe to merge as it stands
-(tests and build pass, and everything works with or without migration 0025). The merge commands:
+**Merge to master now.** Tests (474 + 15 engine) and the build pass, every Vercel preview built, and
+everything works with or without migration 0025.
 
 ```
 git checkout master
@@ -218,18 +389,20 @@ git merge claude/laughing-mccarthy-v2msz3
 git push origin master
 ```
 
-Checkpoint after `git merge`: no "CONFLICT" lines. After `git push`, Vercel deploys `master`
-automatically (a couple of minutes).
+Checkpoint after `git merge`: no "CONFLICT" lines. After `git push`, Vercel deploys `master` in a couple
+of minutes.
 
 ### 5. Check on the live site after Vercel deploys
 
-https://chess-club-app-seven.vercel.app (hard refresh: Ctrl+Shift+R / Cmd+Shift+R)
+https://chess-club-app-seven.vercel.app (hard refresh: Ctrl+Shift+R / Cmd+Shift+R). A tab left open from
+before the deploy reloads itself once when you change page; that's expected.
 
-- Signed in as the coach: the Coach tab is there; Roster has the **Accounts** panel at the top.
-- Signed in as a member: no Coach tab; Roster has no Add/Edit/Remove; other members' rows don't show
-  skill scores; Training says "Training as <name>." with no picker, and "Review them" on the Club page
-  lands on "Your mistakes".
-- After migration 0025: a member who hasn't answered sees **Who are you?** once (try it with a member
-  whose student ID you imported: they land on their imported row, and the Accounts panel moves them to
-  **Linked**). A wrong ID shows up under **Check these** or as "They typed …"; fix it with the "Move
-  to…" picker.
+- As the coach: Coach tab present; Roster has the **Accounts** panel; Export spreadsheet has no
+  Attendance sheet.
+- As a member, on a phone: no Coach tab; top bar on one row; Roster has no Add/Edit/Remove and no other
+  members' scores; Play seats them; Training "Training as <name>."; "Review them" → "Your mistakes", and
+  solving one shows "Solved"; My games fits the screen.
+- After migration 0025: a member who hasn't answered sees **Who are you?** once. Try one whose student ID
+  you imported: they land on their imported row and move to **Linked** in the Accounts panel. A wrong ID
+  shows under **Check these** or as "They typed …"; fix it with "Move to…" (or "Unlink" to have them
+  answer again).

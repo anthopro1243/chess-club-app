@@ -1,7 +1,7 @@
 # Improvement pass — 2026-10-05 (cloud session, branch `claude/laughing-mccarthy-v2msz3`)
 
 Audit, then one fix per commit, each pushed. Full detail, how each was checked and the coach's steps:
-**`IMPROVEMENT-LOG.md`** (its "For the coach" section). Draft PR:
+**`IMPROVEMENT-LOG.md`** (its "For the coach" section). PR:
 https://github.com/anthopro1243/chess-club-app/pull/1. **Nothing merged, nothing written to the
 database.** Scope rules followed: analysis and improvement only, no auth/security work, nothing that
 needs the coach every week, no paid services.
@@ -23,7 +23,11 @@ leaderboard · no iPhone zoom on text boxes · first-load script 830 → 536 kB 
 self-healing after a deploy) · game analysis panel: no duplicate turning points in engine notation, plain
 pattern names, less jargon · export no longer writes the removed Attendance sheet · My games, Games
 archive and Roster tables fit a phone · mistake headlines no longer run into their sentence · Play seats
-the signed-in member so their games get analysed · member Club page shows only measured skills.
+the signed-in member so their games get analysed · member Club page shows only measured skills ·
+"Your mistakes" shows "Solved" instead of "No puzzles match" · coach Accounts panel fits a phone.
+
+**Recommendation: merge to master now** (steps in IMPROVEMENT-LOG.md → For the coach); apply 0025
+before or after, either order is safe.
 
 Tests: `npm test` 474 pass / 0 fail (was 451) · `npm run test:engine` 15/15 · build OK.
 

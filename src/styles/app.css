@@ -2377,7 +2377,16 @@ button[aria-busy='true']::before {
   gap: 8px;
 }
 
+.link-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A select is as wide as its longest option (a long name + CC id + student
+   ID); let it shrink to the row instead of pushing the page sideways. */
 .link-actions select {
+  flex: 1 1 12rem;
+  min-width: 0;
   max-width: 100%;
 }
 
