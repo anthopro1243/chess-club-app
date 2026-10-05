@@ -34,6 +34,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 13 | ✅ **My games doesn't fit a phone**: the 7-column table (unstyled; its CSS classes didn't exist) pushed the page to 426 px wide; the four replay buttons stacked full-width; results read "0-1" rather than won/lost. | every member, on phones | fixed (13) |
 | 14 | ✅ **Games archive and Roster tables run off a phone screen** (738 px and 470 px wide inside a 326 px box; the result column was off-screen). | every member, on phones | fixed (14) |
 | 15 | ✅ **Mistake headline runs into its sentence** in the board's list ("A turning point This cost White…"). | every member | fixed (15) |
+| 16 | ✅ **Play starts every seat on "Guest (not rated)"**: a member's game is a guest game unless they pick themselves first, so it never reaches My games and is never analysed. On phones the eight game buttons stacked full-width and the seat name was cut to 100 px. | every member | fixed (16) |
 | 12 | ✅ **Coach export still writes an "Attendance" sheet** (removed feature). | coach | fixed (12) |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -119,7 +120,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 15._
+_Kept current after every push. Last updated after change 16._
 
 ### 1. Branch
 
@@ -151,6 +152,7 @@ real data; you're signed in as the coach):
   0025…". After the migration, it shows linked / not linked / rows without an account.
 - **Roster** as a member (private window): no "+ Add player", "Edit" or "Remove"; other members' rows
   show "Skill scores and goals are private…"; their own row shows their scores.
+- **Play** (signed in): your name is already in the White seat on a fresh game.
 - **Training**: you start as your own row (the picker is still there for you). As a member: no picker,
   "Training as <name>." On the Club page, "Review them" opens Training on "Your mistakes".
 

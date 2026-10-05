@@ -1883,12 +1883,10 @@ textarea:focus {
     padding: 16px 12px;
   }
 
-  .button-grid {
-    grid-template-columns: 1fr;
-  }
-
+  /* Use the bar's free width (the clock, if any, keeps its place on the right). */
   .player-name {
-    width: 100px;
+    width: auto;
+    flex: 1 1 0;
   }
 
   h1 {
