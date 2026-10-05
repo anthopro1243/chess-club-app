@@ -16,7 +16,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | # | Finding | Who sees it | Status |
 |---|---|---|---|
 | 1 | ✅ **Coach page is open to every member.** The nav shows "Coach" to everyone and the page has no role check: members get the approval panel, Export spreadsheet, the review queue for all players and "Assess" buttons that fail. | every member | fixed (1) |
-| 2 | **Roster shows Add / Edit / Remove to every member.** "Remove" makes a player vanish from that member's screen (the database silently refuses it), "Edit" on someone else ends in a red "Couldn't save" banner, and a member can rewrite their own coach rubric. Every member can also read every other member's skill assessment, which the analyzer spec (Decision 4) rules out. | every member | open |
+| 2 | ✅ **Roster shows Add / Edit / Remove to every member.** "Remove" makes a player vanish from that member's screen (the database silently refuses it), "Edit" on someone else ends in a red "Couldn't save" banner, and a member can rewrite their own coach rubric. Every member can also read every other member's skill assessment, which the analyzer spec (Decision 4) rules out. | every member | fixed (2) |
 | 3 | **Accounts aren't tied to the real student.** An approved member with no player row sees an empty home page; the only way in is a "Join the roster" form hidden in the account menu, which makes a *second* roster row even when the coach already imported that student. My games says "Ask the coach to link it", but there is no way for the coach to link anything. `player_private` (student ID) is coach-only, so a member can't be matched to an imported row. | new members, coach | open |
 | 4 | **Training starts on "Practice only".** A member has to pick themselves out of the full roster before puzzles count, and can pick someone else (their solves then change another member's rating). "Positions to review" on the home page says "In Training, pick yourself and choose 'Your mistakes'": three extra taps. | every member | open |
 | 5 | **SEM fonts missing.** Oswald + Public Sans aren't loaded; the app uses system fonts. | everyone | open |
@@ -36,6 +36,19 @@ _(newest last; one entry per pushed improvement)_
 - **Where:** `src/data/navRoutes.js` (new; the rule), `src/App.jsx` (uses it).
 - **Checked:** `src/data/navRoutes.test.js` (3 tests, including a member typing `#/coach`); build OK;
   `npm test` 454 pass.
+- **Coach to do:** nothing.
+
+### 2. Roster: coach-only controls, private records stay private
+- **What:** "+ Add player", "Edit" and "Remove" only show for the coach. A member opening someone
+  else's row sees the club facts (joined, grade, experience, style, openings, puzzles solved, online
+  accounts) and a line saying skill scores and goals are private; on their own row they see their own
+  skill assessment, goal and training focus (read only).
+- **Why:** members' edits were refused by the database (red banner, or a "removed" player vanishing
+  until reload), members could rewrite their own coach rubric, and every member could read every
+  other member's scores.
+- **Where:** `src/data/rosterAccess.js` (new; the rule), `src/pages/RosterPage.jsx`.
+- **Checked:** `src/data/rosterAccess.test.js` (4 tests); build OK; `npm test` 458 pass; local Chromium
+  at 390 px: coach can still add a player, Edit shows, skill assessment shows.
 - **Coach to do:** nothing.
 
 ---
