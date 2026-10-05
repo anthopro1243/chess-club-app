@@ -5,6 +5,7 @@ import { useGames, GAME_MODE_LABEL } from '../data/gamesStore.js';
 import { useOwnPuzzlesFor } from '../data/ownPuzzleStore.js';
 import { buildPlayerHome } from '../analysis/playerHome.js';
 import ReviewQueuePanel from './ReviewQueuePanel.jsx';
+import ConnectionsModal from './ConnectionsModal.jsx';
 import '../styles/playerHome.css';
 
 /*
@@ -61,7 +62,7 @@ export default function PlayerHome({ playerId, viewer, preview = false }) {
 
       {home.isNewMember ? (
         <>
-          <NewMember firstName={firstName} />
+          <NewMember firstName={firstName} canConnect={!preview} />
         </>
       ) : (
         <div className="ph-grid">
@@ -80,19 +81,32 @@ export default function PlayerHome({ playerId, viewer, preview = false }) {
   );
 }
 
-function NewMember({ firstName }) {
+/*
+ * A brand-new member has nothing to analyse yet. The fastest way to get
+ * something on this page is their own online games, so linking an account is
+ * a button right here rather than an instruction to find the account menu.
+ * (Not in the coach's preview: the dialog links the signed-in account.)
+ */
+function NewMember({ firstName, canConnect }) {
+  const [connecting, setConnecting] = useState(false);
   return (
     <div className="ph-empty">
       <p>
         Welcome, {firstName}! You don&rsquo;t have any games here yet.
       </p>
       <p className="muted">
-        Link your Chess.com or Lichess account from the account menu, or play a game here. After a
-        few games are analysed, this page will show what to work on and your mistakes to review.
+        Link your Chess.com or Lichess account and your games come in by themselves, or play a game
+        here. Once a few are analysed, this page shows what to work on and your mistakes to review.
       </p>
       <div className="ph-actions">
+        {canConnect && (
+          <button type="button" className="ph-action" onClick={() => setConnecting(true)}>
+            Link Chess.com or Lichess
+          </button>
+        )}
         <a className="ph-action" href="#/training">Try some puzzles</a>
       </div>
+      {connecting && <ConnectionsModal onClose={() => setConnecting(false)} />}
     </div>
   );
 }

@@ -121,22 +121,25 @@ export default function DashboardPage({ onNavigate }) {
       )}
       {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
 
-      <section className="hero">
-        <div>
-          <h1>Chess Club</h1>
-          <p>
-            Play, go over your games, and see what to work on next.
-          </p>
-          <div className="hero-actions">
-            <button type="button" className="primary" onClick={() => onNavigate('play')}>
-              Play a game
-            </button>
-            <button type="button" onClick={() => onNavigate('roster')}>
-              View roster
-            </button>
+      {/* A member with their own page above already has "Play a game" there. */}
+      {!(isSupabaseConfigured && me && account.isApproved) && (
+        <section className="hero">
+          <div>
+            <h1>Chess Club</h1>
+            <p>
+              Play, go over your games, and see what to work on next.
+            </p>
+            <div className="hero-actions">
+              <button type="button" className="primary" onClick={() => onNavigate('play')}>
+                Play a game
+              </button>
+              <button type="button" onClick={() => onNavigate('roster')}>
+                View roster
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
 
       <section className="stat-row">
