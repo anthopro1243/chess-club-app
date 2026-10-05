@@ -92,6 +92,8 @@ export default function DashboardPage({ onNavigate }) {
     return rankForLeaderboard(entries);
   }, [players, platformRatings, overrides]);
   const leaderboard = ranked;
+  // With nobody ranked, only the members who have an online rating are worth listing.
+  const unrankedShown = leaderboard.length ? unranked : unranked.filter((e) => e.resolved.rating != null);
 
   return (
     <div className="dashboard">
@@ -165,9 +167,11 @@ export default function DashboardPage({ onNavigate }) {
 
         {leaderboard.length === 0 ? (
           <p className="hint-text">
-            {cloud.configured
-              ? 'No one has joined yet. Sign in up top to create a profile.'
-              : 'Add players on the Roster page to start tracking ratings.'}
+            {players.length > 0
+              ? 'Nobody is ranked yet. A USCF rating, a Chess.com rapid rating from a linked account, or a rating the coach sets puts someone here.'
+              : cloud.configured
+                ? 'No one has joined yet.'
+                : 'Add players on the Roster page to start tracking ratings.'}
           </p>
         ) : (
           <div className="table-scroll">
@@ -203,23 +207,25 @@ export default function DashboardPage({ onNavigate }) {
                 })}
               </tbody>
             </table>
-            {unranked.length > 0 && (
-              <div className="unranked-note">
-                <p className="muted small">
-                  Not ranked. Online ratings aren&rsquo;t on the same scale as the ones above.
-                </p>
-                <ul className="muted small">
-                  {unranked.map((entry) => (
-                    <li key={entry.playerId}>
-                      {entry.player.name}:{' '}
-                      {entry.resolved.rating != null
-                        ? `${entry.resolved.rating} (${entry.resolved.label})`
-                        : 'unrated'}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          </div>
+        )}
+        {unrankedShown.length > 0 && (
+          <div className="unranked-note">
+            <p className="muted small">
+              {leaderboard.length
+                ? 'Not ranked. Online ratings aren’t on the same scale as the ones above.'
+                : 'Online ratings, not ranked: each site uses its own scale.'}
+            </p>
+            <ul className="muted small">
+              {unrankedShown.map((entry) => (
+                <li key={entry.playerId}>
+                  {entry.player.name}:{' '}
+                  {entry.resolved.rating != null
+                    ? `${entry.resolved.rating} (${entry.resolved.label})`
+                    : 'unrated'}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </section>
