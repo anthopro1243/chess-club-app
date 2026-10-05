@@ -26,6 +26,13 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 10 | ✅ **Text boxes under 16 px on phones** (e.g. the Chess.com/Lichess username boxes, unstyled): iPhones zoom the whole page in when one is tapped. | every member, on iPhones | fixed (9) |
 | 7 | ✅ **First load is one 830 kB script** (238 kB gzipped) on phones: every page, the 402 puzzles and the scoresheet editor load before the home page shows. | everyone, on phones | fixed (10) |
 
+**Round 2 (after the first seven):**
+
+| # | Finding | Who sees it | Status |
+|---|---|---|---|
+| 11 | ✅ **Game analysis panel repeats the turning points in engine notation** ("lost 35.3%. Better was f6d7", raw labels like `onlyMove`) right under the board's plain-English "Big mistakes" list; "Patterns: hangingPiece ×1"; "ACPL" and "depth" shown to members; eight rows of "not enough games yet" after one game. | every member | fixed (11) |
+| 12 | **Coach export still writes an "Attendance" sheet** (removed feature). | coach | open |
+
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
 
 ## Changes
@@ -109,7 +116,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 10._
+_Kept current after every push. Last updated after change 11._
 
 ### 1. Branch
 
