@@ -401,3 +401,14 @@ test('a brand-new member: empty everything, and sent to play a game', () => {
   assert.equal(home.measuredCount, 0);
   assert.deepEqual(home.nextStep, { href: '#/play', label: 'Play a game', reason: 'new' });
 });
+
+import { shortGameDate } from './playerHome.js';
+
+test('shortGameDate: month and day this year, with the year otherwise; junk gives nothing', () => {
+  const now = new Date('2026-10-05T12:00:00').getTime();
+  assert.equal(shortGameDate('2026-10-01', now), 'Oct 1');
+  assert.equal(shortGameDate(new Date('2026-03-09T18:30:00').toISOString(), now), 'Mar 9');
+  assert.equal(shortGameDate('2025-12-31', now), 'Dec 31, 2025');
+  assert.equal(shortGameDate('', now), '');
+  assert.equal(shortGameDate('not a date', now), '');
+});

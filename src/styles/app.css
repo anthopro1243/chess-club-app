@@ -1906,6 +1906,25 @@ textarea:focus {
   }
 }
 
+@media (max-width: 640px) {
+  /* Columns that can go on a phone so a table fits without sideways scrolling. */
+  .hide-narrow {
+    display: none;
+  }
+
+  .my-games-table th,
+  .my-games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .my-games-opponent {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 @media (max-width: 359px) {
   /* The smallest phones: the seal alone stands for the club name. */
   .brand-name {
@@ -1954,6 +1973,11 @@ button.rubric-suggestion:hover { opacity: 1; }
 .game-review-board { min-width: 0; }
 .game-review-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .review-controls { margin-top: 10px; }
+/* Start / Back / Next / End stay on one row, phones included (the phone rule
+   below turns other button grids into one column). */
+.button-grid.review-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.button-grid.review-controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
 .review-eval { margin-top: 8px; font-size: 0.9rem; }
 .review-eval.blunder { color: var(--danger, #e06c6c); }
 .review-eval.mistake { color: #e0a76c; }
