@@ -15,7 +15,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 
 | # | Finding | Who sees it | Status |
 |---|---|---|---|
-| 1 | **Coach page is open to every member.** The nav shows "Coach" to everyone and the page has no role check: members get the approval panel, Export spreadsheet, the review queue for all players and "Assess" buttons that fail. | every member | open |
+| 1 | ✅ **Coach page is open to every member.** The nav shows "Coach" to everyone and the page has no role check: members get the approval panel, Export spreadsheet, the review queue for all players and "Assess" buttons that fail. | every member | fixed (1) |
 | 2 | **Roster shows Add / Edit / Remove to every member.** "Remove" makes a player vanish from that member's screen (the database silently refuses it), "Edit" on someone else ends in a red "Couldn't save" banner, and a member can rewrite their own coach rubric. Every member can also read every other member's skill assessment, which the analyzer spec (Decision 4) rules out. | every member | open |
 | 3 | **Accounts aren't tied to the real student.** An approved member with no player row sees an empty home page; the only way in is a "Join the roster" form hidden in the account menu, which makes a *second* roster row even when the coach already imported that student. My games says "Ask the coach to link it", but there is no way for the coach to link anything. `player_private` (student ID) is coach-only, so a member can't be matched to an imported row. | new members, coach | open |
 | 4 | **Training starts on "Practice only".** A member has to pick themselves out of the full roster before puzzles count, and can pick someone else (their solves then change another member's rating). "Positions to review" on the home page says "In Training, pick yourself and choose 'Your mistakes'": three extra taps. | every member | open |
@@ -28,6 +28,15 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 ## Changes
 
 _(newest last; one entry per pushed improvement)_
+
+### 1. Coach page hidden from members
+- **What:** the "Coach" tab only shows for coach/admin accounts. A member who follows an old
+  `#/coach` link gets a short "Coaches only" panel with a button back to the Club page.
+- **Why:** the page had no role check, so members saw tools that failed or didn't apply to them.
+- **Where:** `src/data/navRoutes.js` (new; the rule), `src/App.jsx` (uses it).
+- **Checked:** `src/data/navRoutes.test.js` (3 tests, including a member typing `#/coach`); build OK;
+  `npm test` 454 pass.
+- **Coach to do:** nothing.
 
 ---
 

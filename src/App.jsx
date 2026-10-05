@@ -16,16 +16,7 @@ import { useAnalysisQueue } from './analysis/useAnalysisQueue.js';
 import { useAutoSync } from './data/useAutoSync.js';
 import { useMyProfile } from './data/rosterStore.js';
 import BackgroundActivity from './components/BackgroundActivity.jsx';
-
-const ROUTES = [
-  { id: 'home', label: 'Club' },
-  { id: 'play', label: 'Play' },
-  { id: 'training', label: 'Training' },
-  { id: 'games', label: 'Games' },
-  { id: 'my-games', label: 'My games' },
-  { id: 'roster', label: 'Roster' },
-  { id: 'coach', label: 'Coach' },
-];
+import { ROUTES, visibleRoutes, canOpenRoute } from './data/navRoutes.js';
 
 const routeFromHash = () => {
   // A route may carry parameters, e.g. #/training?theme=fork, which is how the
@@ -161,7 +152,7 @@ export default function App() {
         </button>
 
         <nav className="nav">
-          {(locked ? [] : ROUTES).map((item) => (
+          {(locked ? [] : visibleRoutes(account)).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -217,7 +208,7 @@ export default function App() {
             {route === 'training' && <TrainingPage />}
             {route === 'games' && <GamesPage />}
             {route === 'roster' && <RosterPage />}
-            {route === 'coach' && <CoachPage />}
+            {route === 'coach' && (canOpenRoute('coach', account) ? <CoachPage /> : <CoachOnly onNavigate={navigate} />)}
           </>
         )}
       </main>
@@ -243,5 +234,18 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+/** What a member sees if they follow an old link to the Coach page. */
+function CoachOnly({ onNavigate }) {
+  return (
+    <section className="panel access-gate">
+      <h2>Coaches only</h2>
+      <p>This page is for the coach. Your own games and what to work on are on the Club page.</p>
+      <button type="button" className="primary" onClick={() => onNavigate('home')}>
+        Go to the Club page
+      </button>
+    </section>
   );
 }
