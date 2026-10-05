@@ -2349,3 +2349,8 @@ button[aria-busy='true']::before {
 .roster-layout > .account-links {
   grid-column: 1 / -1;
 }
+
+.page-loading {
+  text-align: center;
+  padding: 48px 0;
+}
