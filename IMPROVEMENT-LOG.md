@@ -35,6 +35,7 @@ is configured in the repo, so there is nothing to lint. Pages checked in code an
 | 14 | ✅ **Games archive and Roster tables run off a phone screen** (738 px and 470 px wide inside a 326 px box; the result column was off-screen). | every member, on phones | fixed (14) |
 | 15 | ✅ **Mistake headline runs into its sentence** in the board's list ("A turning point This cost White…"). | every member | fixed (15) |
 | 16 | ✅ **Play starts every seat on "Guest (not rated)"**: a member's game is a guest game unless they pick themselves first, so it never reaches My games and is never analysed. On phones the eight game buttons stacked full-width and the seat name was cut to 100 px. | every member | fixed (16) |
+| 17 | ✅ **Member Club page clutter**: "How you're trending" lists eight "not enough games yet" rows; "Teach to the whole group" (the coach's lesson planner) shows to members, empty for a new club. | every member | fixed (17) |
 | 12 | ✅ **Coach export still writes an "Attendance" sheet** (removed feature). | coach | fixed (12) |
 
 (The list is re-ranked as items are fixed and new ones turn up; see the entries below.)
@@ -120,7 +121,7 @@ _(newest last; one entry per pushed improvement)_
 
 ## For the coach
 
-_Kept current after every push. Last updated after change 16._
+_Kept current after every push. Last updated after change 17._
 
 ### 1. Branch
 

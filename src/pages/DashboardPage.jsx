@@ -230,7 +230,7 @@ export default function DashboardPage({ onNavigate }) {
         )}
       </section>
 
-      <div className="two-column">
+      <div className={account.isCoach ? 'two-column' : ''}>
         <section className="panel">
           <div className="panel-header">
             <h2>Club skill profile</h2>
@@ -263,23 +263,30 @@ export default function DashboardPage({ onNavigate }) {
           </p>
         </section>
 
-        <section className="panel">
-          <div className="panel-header">
-            <h2>
-              Teach to the whole group
-              <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
-            </h2>
-          </div>
-          <ol className="priority-list">
-            {weakest.map((area, index) => (
-              <li key={area.category}>
-                <span className="priority-rank">{index + 1}</span>
-                <span className="priority-label">{area.label}</span>
-                <span className="mono">{area.rubricAverage.toFixed(1)} / 10</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {/* Lesson planning is the coach's call; members have their own priority above. */}
+        {account.isCoach && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2>
+                Teach to the whole group
+                <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
+              </h2>
+            </div>
+            {weakest.length ? (
+              <ol className="priority-list">
+                {weakest.map((area, index) => (
+                  <li key={area.category}>
+                    <span className="priority-rank">{index + 1}</span>
+                    <span className="priority-label">{area.label}</span>
+                    <span className="mono">{area.rubricAverage.toFixed(1)} / 10</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="hint-text">Shows up once enough of the club&rsquo;s games are analysed.</p>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
