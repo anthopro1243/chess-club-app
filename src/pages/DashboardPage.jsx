@@ -92,6 +92,8 @@ export default function DashboardPage({ onNavigate }) {
     return rankForLeaderboard(entries);
   }, [players, platformRatings, overrides]);
   const leaderboard = ranked;
+  // With nobody ranked, only the members who have an online rating are worth listing.
+  const unrankedShown = leaderboard.length ? unranked : unranked.filter((e) => e.resolved.rating != null);
 
   return (
     <div className="dashboard">
@@ -121,22 +123,25 @@ export default function DashboardPage({ onNavigate }) {
       )}
       {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
 
-      <section className="hero">
-        <div>
-          <h1>Chess Club</h1>
-          <p>
-            Play, go over your games, and see what to work on next.
-          </p>
-          <div className="hero-actions">
-            <button type="button" className="primary" onClick={() => onNavigate('play')}>
-              Play a game
-            </button>
-            <button type="button" onClick={() => onNavigate('roster')}>
-              View roster
-            </button>
+      {/* A member with their own page above already has "Play a game" there. */}
+      {!(isSupabaseConfigured && me && account.isApproved) && (
+        <section className="hero">
+          <div>
+            <h1>Chess Club</h1>
+            <p>
+              Play, go over your games, and see what to work on next.
+            </p>
+            <div className="hero-actions">
+              <button type="button" className="primary" onClick={() => onNavigate('play')}>
+                Play a game
+              </button>
+              <button type="button" onClick={() => onNavigate('roster')}>
+                View roster
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
 
       <section className="stat-row">
@@ -162,9 +167,11 @@ export default function DashboardPage({ onNavigate }) {
 
         {leaderboard.length === 0 ? (
           <p className="hint-text">
-            {cloud.configured
-              ? 'No one has joined yet. Sign in up top to create a profile.'
-              : 'Add players on the Roster page to start tracking ratings.'}
+            {players.length > 0
+              ? 'Nobody is ranked yet. A USCF rating, a Chess.com rapid rating from a linked account, or a rating the coach sets puts someone here.'
+              : cloud.configured
+                ? 'No one has joined yet.'
+                : 'Add players on the Roster page to start tracking ratings.'}
           </p>
         ) : (
           <div className="table-scroll">
@@ -200,28 +207,30 @@ export default function DashboardPage({ onNavigate }) {
                 })}
               </tbody>
             </table>
-            {unranked.length > 0 && (
-              <div className="unranked-note">
-                <p className="muted small">
-                  Not ranked. Online ratings aren&rsquo;t on the same scale as the ones above.
-                </p>
-                <ul className="muted small">
-                  {unranked.map((entry) => (
-                    <li key={entry.playerId}>
-                      {entry.player.name}:{' '}
-                      {entry.resolved.rating != null
-                        ? `${entry.resolved.rating} (${entry.resolved.label})`
-                        : 'unrated'}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          </div>
+        )}
+        {unrankedShown.length > 0 && (
+          <div className="unranked-note">
+            <p className="muted small">
+              {leaderboard.length
+                ? 'Not ranked. Online ratings aren’t on the same scale as the ones above.'
+                : 'Online ratings, not ranked: each site uses its own scale.'}
+            </p>
+            <ul className="muted small">
+              {unrankedShown.map((entry) => (
+                <li key={entry.playerId}>
+                  {entry.player.name}:{' '}
+                  {entry.resolved.rating != null
+                    ? `${entry.resolved.rating} (${entry.resolved.label})`
+                    : 'unrated'}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </section>
 
-      <div className="two-column">
+      <div className={account.isCoach ? 'two-column' : ''}>
         <section className="panel">
           <div className="panel-header">
             <h2>Club skill profile</h2>
@@ -254,23 +263,30 @@ export default function DashboardPage({ onNavigate }) {
           </p>
         </section>
 
-        <section className="panel">
-          <div className="panel-header">
-            <h2>
-              Teach to the whole group
-              <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
-            </h2>
-          </div>
-          <ol className="priority-list">
-            {weakest.map((area, index) => (
-              <li key={area.category}>
-                <span className="priority-rank">{index + 1}</span>
-                <span className="priority-label">{area.label}</span>
-                <span className="mono">{area.rubricAverage.toFixed(1)} / 10</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {/* Lesson planning is the coach's call; members have their own priority above. */}
+        {account.isCoach && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2>
+                Teach to the whole group
+                <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
+              </h2>
+            </div>
+            {weakest.length ? (
+              <ol className="priority-list">
+                {weakest.map((area, index) => (
+                  <li key={area.category}>
+                    <span className="priority-rank">{index + 1}</span>
+                    <span className="priority-label">{area.label}</span>
+                    <span className="mono">{area.rubricAverage.toFixed(1)} / 10</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="hint-text">Shows up once enough of the club&rsquo;s games are analysed.</p>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { useAnalysisForGame } from '../data/analysisStore.js';
 import { useDuePuzzles, useReviewSummary } from '../data/ownPuzzleStore.js';
 import GameAnalysisPanel from '../components/GameAnalysisPanel.jsx';
 import GameReview from '../components/GameReview.jsx';
+import { gameFromPlayerSide, shortGameDate } from '../analysis/playerHome.js';
 
 /*
  * MyGamesPage — a player's own game history, and the analyser on demand.
@@ -46,7 +47,8 @@ export default function MyGamesPage() {
             <h2>My games</h2>
           </div>
           <p className="muted">
-            Your account isn&rsquo;t linked to a roster player yet. Ask the coach to link it.
+            Your account isn&rsquo;t on the club roster yet. Ask the coach to link it from the Roster
+            page.
           </p>
         </section>
       </div>
@@ -77,16 +79,16 @@ export default function MyGamesPage() {
         )}
 
         {!!mine.length && (
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="table-scroll">
+            <table className="roster-table my-games-table">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Opponent</th>
-                  <th>Colour</th>
+                  <th className="hide-narrow">Colour</th>
                   <th>Result</th>
-                  <th>Moves</th>
-                  <th>Type</th>
+                  <th className="hide-narrow">Moves</th>
+                  <th className="hide-narrow">Type</th>
                   <th>Analysis</th>
                 </tr>
               </thead>
@@ -133,22 +135,31 @@ export default function MyGamesPage() {
 
 function MyGameRow({ game, playerId, open, onToggle }) {
   const analyses = useAnalysisForGame(game.id);
-  const asWhite = game.whitePlayerId === playerId;
-  const opponent = asWhite ? game.blackName : game.whiteName;
-  const mine = analyses.find((a) => a.side === (asWhite ? 'w' : 'b'));
+  // Result from the member's side ("Lost"), not the scoreline ("0-1").
+  const side = gameFromPlayerSide(game, playerId);
+  const mine = analyses.find((a) => a.side === side.side);
 
   return (
-    <tr className={open ? 'selected' : ''}>
-      <td className="mono">{String(game.playedAt ?? '').slice(0, 10)}</td>
-      <td>{opponent || '—'}</td>
-      <td>{asWhite ? 'White' : 'Black'}</td>
-      <td>{game.result}</td>
-      <td className="mono">{game.moveCount}</td>
-      <td>
+    <tr className={open ? 'selected' : ''} onClick={onToggle}>
+      <td className="nowrap" title={String(game.playedAt ?? '').slice(0, 10)}>{shortGameDate(game.playedAt)}</td>
+      <td className="my-games-opponent">{side.opponent}</td>
+      <td className="hide-narrow">{side.colour}</td>
+      <td title={game.result}>
+        <span className={`ph-outcome ${side.outcome}`}>{side.outcomeLabel}</span>
+      </td>
+      <td className="mono hide-narrow">{game.moveCount}</td>
+      <td className="hide-narrow">
         <span className="badge">{GAME_MODE_LABEL[game.mode] || game.mode}</span>
       </td>
       <td>
-        <button type="button" className="link-button" onClick={onToggle}>
+        <button
+          type="button"
+          className="link-button"
+          onClick={(event) => {
+            event.stopPropagation(); // the row toggles too; don't toggle twice
+            onToggle();
+          }}
+        >
           {mine?.accuracy != null ? `${mine.accuracy}%` : open ? 'Close' : 'Analyse'}
         </button>
       </td>

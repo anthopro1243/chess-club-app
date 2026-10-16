@@ -4,11 +4,12 @@ import { useMemo, useState } from 'react';
 import { useAnalysisForGame } from '../data/analysisStore.js';
 import { analyzeArchivedGame, isBusy, resetAfterTimeout } from '../analysis/runner.js';
 import {
-  playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor,
+  playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor, memberCategoryLines,
 } from '../analysis/presentation.js';
 import { improvementPlan } from '../analysis/scoring.js';
 import TimeUseChart from './TimeUseChart.jsx';
 import { CATEGORY_LABELS } from '../analysis/scoring.js';
+import { describeMotifs } from '../analysis/clubWeaknesses.js';
 
 /*
  * The engine's read on one archived game.
@@ -113,20 +114,24 @@ function SideReport({ row, game, staff }) {
   );
   const summary = useMemo(() => playerSummary(row.scores, plan), [row.scores, plan]);
   const coachRows = useMemo(() => (staff ? coachSummary(row.scores) : null), [row.scores, staff]);
+  const patterns = describeMotifs(row.motifCounts);
+  const memberLines = memberCategoryLines(summary.categories);
 
   return (
     <div className="analysis-side">
       <div className="analysis-headline">
         <strong>{name}</strong>
         <span className="badge mono">{row.accuracy != null ? `${row.accuracy}% accuracy` : '—'}</span>
-        {row.acpl != null && <span className="muted mono">ACPL {row.acpl}</span>}
-        <span className="muted mono">
-          depth {row.depth}
-        </span>
+        {/* Engine detail for the coach; a member gets the accuracy only. */}
+        {staff && row.acpl != null && <span className="muted mono">ACPL {row.acpl}</span>}
+        {staff && <span className="muted mono">depth {row.depth}</span>}
       </div>
 
+      {!staff && !memberLines.length && (
+        <p className="muted small">Skill scores show up once a few of your games are analysed.</p>
+      )}
       <ul className="score-list">
-        {(staff ? coachRows : summary.categories).map((entry) => {
+        {(staff ? coachRows : memberLines).map((entry) => {
           const key = entry.key ?? entry.label;
           if (staff) {
             return (
@@ -174,34 +179,13 @@ function SideReport({ row, game, staff }) {
         </div>
       )}
 
-      {!!row.critical?.length && (
-        <>
-          <h4>Turning points</h4>
-          <ol className="critical-list">
-            {row.critical.slice(0, staff ? 8 : 3).map((c) => (
-              <li key={c.ply}>
-                <span className="mono">
-                  {c.fullmove}. {c.san}
-                </span>{' '}
-                <span className={`badge ${c.label}`}>{c.label}</span>{' '}
-                <span className="muted">
-                  lost {c.winPercentLost}%. Better was {c.better}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-
-      {!!Object.keys(row.motifCounts || {}).length && (
-        <p className="muted">
-          Patterns:{' '}
-          {Object.entries(row.motifCounts)
-            .sort((a, b) => b[1] - a[1])
-            .map(([motif, n]) => `${motif} ×${n}`)
-            .join(', ')}
-        </p>
-      )}
+      {/*
+        The game's turning points are listed beside the board (GameReview),
+        explained in words, with the better move in normal notation and a tap
+        to see the position. This panel used to repeat them in engine notation
+        ("Better was f6d7") with raw labels, so it no longer does.
+      */}
+      {patterns && <p className="muted">Patterns in this game: {patterns}.</p>}
 
       {row.coachNote && <blockquote className="coach-note">{row.coachNote}</blockquote>}
     </div>

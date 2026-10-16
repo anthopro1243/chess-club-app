@@ -71,6 +71,22 @@ const toTime = (value) => {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A game's date for a narrow table: "Oct 1", or "Oct 1, 2025" outside the
+ * current year. Read in the viewer's time zone (a 7 pm Dallas game stored as
+ * the next day in UTC still says the day it was played).
+ */
+export function shortGameDate(value, now = Date.now()) {
+  if (value == null || value === '') return '';
+  const text = String(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T12:00:00`) : new Date(text);
+  if (Number.isNaN(date.getTime())) return '';
+  const label = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+  return date.getFullYear() === new Date(now).getFullYear() ? label : `${label}, ${date.getFullYear()}`;
+}
+
 /** The player's side, result and outcome in one game, from their point of view. */
 export function gameFromPlayerSide(game, playerId) {
   const asWhite = game.whitePlayerId === playerId;
@@ -241,13 +257,16 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
  * mistakes due for review, then their games, and a new member is sent to
  * play one.
  */
+// Straight to "Your mistakes" on Training, already set to the signed-in player.
+const REVIEW_HREF = '#/training?mode=mistakes';
+
 function nextStepFor({ priority, reviews, gamesCount }) {
   if (priority?.action) {
     return { href: priority.action.href, label: priority.action.label, reason: 'priority' };
   }
   if (reviews.due > 0) {
     return {
-      href: '#/training',
+      href: REVIEW_HREF,
       label: `Review ${plural(reviews.due, 'position')} from your games`,
       reason: 'reviews',
     };
@@ -333,7 +352,7 @@ export function buildPlayerHome({
     due: review.due,
     active: review.active,
     nextDueAt: review.nextDueAt,
-    href: '#/training',
+    href: REVIEW_HREF,
   };
 
   const recentGames = recentGamesFor(mineGames, mineAnalysed, playerId, recentLimit);

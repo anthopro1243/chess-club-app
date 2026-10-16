@@ -127,6 +127,15 @@ async function syncFromCloud() {
   store.set(data.filter((row) => !row.deleted_at).map(fromRow));
 }
 
+/**
+ * Re-read the roster now, rather than waiting for the Realtime event. Used
+ * after a database function changes player rows (linking an account), so
+ * the member's own row appears the moment the call returns.
+ */
+export async function refreshRoster() {
+  if (isSupabaseConfigured) await syncFromCloud();
+}
+
 /** The roster as the id allocator sees it: active members plus retired ids. */
 function allKnownPlayerIds(players) {
   return [...new Set([...issuedPlayerIds, ...players.map((p) => p.playerId)])];

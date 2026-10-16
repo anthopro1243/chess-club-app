@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { RUBRIC_CATEGORIES } from '../data/roster.js';
 import { useSkillsForPlayer } from '../data/analysisStore.js';
 import { suggestedRubric } from '../analysis/presentation.js';
-import { usePlayers, useCloudStatus, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
+import { usePlayers, useCloudStatus, useMyProfile, addPlayer, updatePlayer, updateRubric, removePlayer } from '../data/rosterStore.js';
+import { rosterAccess } from '../data/rosterAccess.js';
 import InfoTooltip from '../components/InfoTooltip.jsx';
 import { useAccount } from '../data/accountStore.js';
 import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../data/coachNotesStore.js';
@@ -10,6 +11,8 @@ import { usePlayerPrivate } from '../data/playerPrivateStore.js';
 import RosterImportModal from '../components/RosterImportModal.jsx';
 import ReportCard from '../components/ReportCard.jsx';
 import ArchiveGraduateModal from '../components/ArchiveGraduateModal.jsx';
+import AccountLinksPanel from '../components/AccountLinksPanel.jsx';
+import { isSupabaseConfigured } from '../data/supabaseClient.js';
 import { gradeSection } from '../data/privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
@@ -41,6 +44,11 @@ export default function RosterPage() {
   const [draft, setDraft] = useState(null);
 
   const selected = players.find((p) => p.playerId === selectedId) || null;
+  const me = useMyProfile();
+  const access = rosterAccess({
+    isCoach: account.isCoach,
+    isSelf: !!selected && !!me && selected.playerId === me.playerId,
+  });
   // Which member's report card is open (coach only); closes when another member is picked.
   const [cardFor, setCardFor] = useState(null);
   const [archiving, setArchiving] = useState(false);
@@ -121,6 +129,14 @@ export default function RosterPage() {
 
   return (
     <div className="roster-layout">
+      {account.isCoach && isSupabaseConfigured && (
+        <AccountLinksPanel
+          onSelectPlayer={(id) => {
+            setSelectedId(id);
+            setEditing(false);
+          }}
+        />
+      )}
       <section className="panel">
         <div className="panel-header">
           <h2>Roster</h2>
@@ -131,13 +147,15 @@ export default function RosterPage() {
                 Import CSV
               </button>
             )}
-            <button type="button" className="link-button" onClick={() => setAdding((v) => !v)}>
-              {adding ? 'Cancel' : '+ Add player'}
-            </button>
+            {access.canAdd && (
+              <button type="button" className="link-button" onClick={() => setAdding((v) => !v)}>
+                {adding ? 'Cancel' : '+ Add player'}
+              </button>
+            )}
           </div>
         </div>
 
-        {adding && (
+        {adding && access.canAdd && (
           <form className="roster-form" onSubmit={submitAdd}>
             <label className="field">
               <span>Name</span>
@@ -192,12 +210,12 @@ export default function RosterPage() {
         )}
 
         <div className="table-scroll">
-          <table className="roster-table">
+          <table className="roster-table roster-list">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="hide-narrow">ID</th>
                 <th>Name</th>
-                <th>Board</th>
+                <th className="hide-narrow">Board</th>
                 <th>USCF</th>
                 <th>Rapid</th>
                 <th>Track</th>
@@ -213,9 +231,9 @@ export default function RosterPage() {
                     setEditing(false);
                   }}
                 >
-                  <td className="mono">{player.playerId}</td>
-                  <td>{player.name}</td>
-                  <td>{player.boardRole}</td>
+                  <td className="mono hide-narrow">{player.playerId}</td>
+                  <td className="roster-name">{player.name}</td>
+                  <td className="hide-narrow">{player.boardRole}</td>
                   <td>{player.ratings.uscf ?? '—'}</td>
                   <td>{player.ratings.chesscomRapid ?? '—'}</td>
                   <td>
@@ -247,23 +265,27 @@ export default function RosterPage() {
                       Report card
                     </button>
                   )}
-                  <button type="button" className="link-button" onClick={startEdit}>
-                    Edit
-                  </button>
+                  {access.canEdit && (
+                    <button type="button" className="link-button" onClick={startEdit}>
+                      Edit
+                    </button>
+                  )}
                   {account.isCoach && (
                     <button type="button" className="link-button" onClick={() => setArchiving(true)}>
                       Archive graduate
                     </button>
                   )}
-                  <button type="button" className="link-button danger" onClick={remove}>
-                    Remove
-                  </button>
+                  {access.canRemove && (
+                    <button type="button" className="link-button danger" onClick={remove}>
+                      Remove
+                    </button>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          {editing && draft ? (
+          {editing && draft && access.canEdit ? (
             <>
               <div className="facts facts-edit">
                 <label className="field">
@@ -447,40 +469,48 @@ export default function RosterPage() {
                 </div>
               </dl>
 
-              <h3>Skill assessment</h3>
-              <div className="rubric">
-                {RUBRIC_CATEGORIES.map((category) => {
-                  const score = selected.rubric[category.key] ?? 0;
-                  return (
-                    <div className="rubric-row" key={category.key}>
-                      <span className="rubric-label">
-                        {category.label}
-                        {suggestions[category.key] ? (
-                          <em
-                            className="rubric-suggestion"
-                            title={`Engine's score, from ${suggestions[category.key].observations} data points`}
-                          >
-                            suggested {suggestions[category.key].suggestion}
-                          </em>
-                        ) : null}
-                      </span>
-                      <span className="rubric-bar">
-                        <span
-                          className={`rubric-fill ${score <= 3 ? 'low' : score <= 6 ? 'mid' : 'high'}`}
-                          style={{ width: `${score * 10}%` }}
-                        />
-                      </span>
-                      <span className="rubric-score mono">{score}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {access.showCoachingRecord ? (
+                <>
+                  <h3>Skill assessment</h3>
+                  <div className="rubric">
+                    {RUBRIC_CATEGORIES.map((category) => {
+                      const score = selected.rubric[category.key] ?? 0;
+                      return (
+                        <div className="rubric-row" key={category.key}>
+                          <span className="rubric-label">
+                            {category.label}
+                            {suggestions[category.key] ? (
+                              <em
+                                className="rubric-suggestion"
+                                title={`Engine's score, from ${suggestions[category.key].observations} data points`}
+                              >
+                                suggested {suggestions[category.key].suggestion}
+                              </em>
+                            ) : null}
+                          </span>
+                          <span className="rubric-bar">
+                            <span
+                              className={`rubric-fill ${score <= 3 ? 'low' : score <= 6 ? 'mid' : 'high'}`}
+                              style={{ width: `${score * 10}%` }}
+                            />
+                          </span>
+                          <span className="rubric-score mono">{score}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-              <h3>Current goal</h3>
-              <p>{selected.goal || '—'}</p>
+                  <h3>Current goal</h3>
+                  <p>{selected.goal || '—'}</p>
 
-              <h3>Training focus</h3>
-              <p>{selected.trainingFocus || '—'}</p>
+                  <h3>Training focus</h3>
+                  <p>{selected.trainingFocus || '—'}</p>
+                </>
+              ) : (
+                <p className="muted small">
+                  Skill scores and goals are private to each member and the coach.
+                </p>
+              )}
 
               {account.isCoach && (
                 <>

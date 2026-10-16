@@ -73,3 +73,12 @@ test('clubWeaknesses: back-rank links to the puzzle set\'s backRankMate theme', 
   });
   assert.equal(r.topMotifs[0].drill, '#/training?theme=backRankMate');
 });
+
+import { describeMotifs } from './clubWeaknesses.js';
+
+test('describeMotifs: plain words, most frequent first, code names never shown', () => {
+  assert.equal(describeMotifs({ hangingPiece: 1, fork: 2 }), 'Allowing forks (2), Leaving pieces hanging (1)');
+  assert.equal(describeMotifs({ someNewTag: 3, pin: 1 }), 'Pins (1)');
+  assert.equal(describeMotifs({ fork: 0 }), '');
+  assert.equal(describeMotifs(null), '');
+});

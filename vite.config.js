@@ -8,7 +8,8 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
-    // One JS file and one CSS file keeps the build easy to inline or deploy.
+    // Pages other than the Club page are split into their own files and load
+    // when opened (src/lazyPage.js). `base: './'` keeps those paths relative.
     rollupOptions: {
       output: {
         manualChunks: undefined,

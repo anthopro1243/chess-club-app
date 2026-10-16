@@ -198,3 +198,17 @@ test('an unknown training theme yields null rather than an empty filter', async 
   assert.equal(puzzleThemeFor('Something Invented'), null);
   assert.equal(puzzleThemeFor(null), null);
 });
+
+import { memberCategoryLines, playerSummary as summaryForMember } from './presentation.js';
+
+test('memberCategoryLines: only confident scores; none after a thin game (should fail if NOT_ENOUGH rows leak)', () => {
+  const thin = summaryForMember({}, null).categories;
+  assert.equal(thin.length, 8);
+  assert.deepEqual(memberCategoryLines(thin), []);
+  const lines = memberCategoryLines([
+    { label: 'Tactical vision', showNumber: true, text: '61' },
+    { label: 'Endgame technique', showNumber: false, text: 'not enough games yet' },
+  ]);
+  assert.deepEqual(lines.map((l) => l.label), ['Tactical vision']);
+  assert.deepEqual(memberCategoryLines(undefined), []);
+});

@@ -54,6 +54,11 @@ async function syncFromCloud() {
   );
 }
 
+/** Re-read player_private now (coach only; a member's read is refused, quietly). */
+export async function refreshPrivate() {
+  if (isSupabaseConfigured) await syncFromCloud();
+}
+
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase

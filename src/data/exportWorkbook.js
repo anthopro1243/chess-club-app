@@ -110,22 +110,6 @@ function gamesSheet(games) {
   }));
 }
 
-function attendanceSheet(players) {
-  const dates = [...new Set(players.flatMap((p) => (p.attendance || []).map((a) => a.date)))].sort();
-  return players.map((p) => {
-    const row = { 'Player ID': p.playerId, Name: p.name };
-    let present = 0;
-    for (const d of dates) {
-      const mark = (p.attendance || []).find((a) => a.date === d);
-      row[d] = mark ? (mark.present ? 'P' : 'A') : '';
-      if (mark?.present) present += 1;
-    }
-    row['Sessions Attended'] = present;
-    row['Sessions Held'] = dates.length;
-    return row;
-  });
-}
-
 function clubSummarySheet(players, games) {
   const rated = players.filter((p) => (p.clubRating?.count ?? 0) > 0);
   const avg = (list, pick) =>
@@ -183,7 +167,7 @@ export async function exportWorkbook(players, games, { coachNotes } = {}) {
   addSheet(XLSX, book, 'Skill Assessments', skillAssessmentSheet(players), ['Player ID', 'Name', 'Date']);
   addSheet(XLSX, book, 'Ratings Log', ratingsLogSheet(players), ['Player ID', 'Name', 'Date']);
   addSheet(XLSX, book, 'Games', gamesSheet(games), ['Date', 'White', 'Black', 'Result']);
-  addSheet(XLSX, book, 'Attendance', attendanceSheet(players), ['Player ID', 'Name']);
+  // No Attendance sheet: attendance was removed from the app (scope cut, 2026-09-27).
 
   const filename = `chess-club-${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(book, filename);

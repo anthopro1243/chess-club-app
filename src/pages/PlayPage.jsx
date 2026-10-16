@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../engine/chess.js';
 import { createEngine } from '../engine/stockfishClient.js';
-import { usePlayers, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
+import { usePlayers, useMyProfile, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
 import { recordGame } from '../data/gamesStore.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
@@ -500,6 +500,23 @@ export default function PlayPage() {
   const humanColor = computerColor === 'w' ? 'b' : 'w';
   const humanPlayerId = humanColor === 'w' ? whitePlayerId : blackPlayerId;
   const selectHumanPlayer = (id) => (humanColor === 'w' ? selectWhitePlayer(id) : selectBlackPlayer(id));
+
+  /*
+   * On a member's own phone, put them in their seat. A game with nobody
+   * picked is a guest game: it never reaches My games and is never analysed,
+   * which quietly breaks the whole analyse-and-practise loop. Only once per
+   * visit, before any moves, and only when no seat is filled, so a pick made
+   * during the visit (Guest included) stands.
+   */
+  const me = useMyProfile();
+  const seatedRef = useRef(!!(saved?.whitePlayerId || saved?.blackPlayerId));
+  useEffect(() => {
+    if (seatedRef.current || !me) return;
+    seatedRef.current = true;
+    if (whitePlayerId || blackPlayerId || live.moveHistory().length) return;
+    selectHumanPlayer(me.playerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.playerId]);
 
   return (
     <div className="play-layout">

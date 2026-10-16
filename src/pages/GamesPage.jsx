@@ -10,6 +10,7 @@ import PgnImportModal from '../components/PgnImportModal.jsx';
 import ScoresheetModal from '../components/ScoresheetModal.jsx';
 import { scoresheetGapOf } from '../data/scoresheet.js';
 import { useFlash } from '../components/useFlash.js';
+import { shortGameDate } from '../analysis/playerHome.js';
 import '../styles/scoresheet.css';
 
 const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
@@ -152,16 +153,16 @@ export default function GamesPage() {
           </p>
         ) : (
           <div className="table-scroll">
-            <table className="roster-table">
+            <table className="roster-table games-table">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>White</th>
                   <th>Black</th>
                   <th>Result</th>
-                  <th>Moves</th>
-                  <th>Type</th>
-                  <th />
+                  <th className="hide-narrow">Moves</th>
+                  <th className="hide-narrow">Type</th>
+                  <th className="hide-narrow" />
                 </tr>
               </thead>
               <tbody>
@@ -171,20 +172,23 @@ export default function GamesPage() {
                     className={`clickable ${openId === g.id ? 'selected' : ''}`}
                     onClick={() => setOpenId(openId === g.id ? null : g.id)}
                   >
-                    <td className="mono">{String(g.playedAt).slice(0, 10)}</td>
-                    <td>{g.whiteName}</td>
-                    <td>{g.blackName}</td>
-                    <td>
-                      {RESULT_LABEL[g.result] || g.result}
-                      {g.reason && <span className="hint-text"> · {g.reason}</span>}
+                    <td className="nowrap" title={String(g.playedAt).slice(0, 10)}>
+                      {shortGameDate(g.playedAt)}
                     </td>
-                    <td className="mono">{g.moveCount}</td>
+                    <td className="games-name">{g.whiteName}</td>
+                    <td className="games-name">{g.blackName}</td>
                     <td>
+                      <span className="hide-narrow">{RESULT_LABEL[g.result] || g.result}</span>
+                      <span className="show-narrow mono">{g.result === '1/2-1/2' ? '½-½' : g.result}</span>
+                      {g.reason && <span className="hint-text hide-narrow"> · {g.reason}</span>}
+                    </td>
+                    <td className="mono hide-narrow">{g.moveCount}</td>
+                    <td className="hide-narrow">
                       <span className={`track ${g.mode === 'human' ? 'competitive' : ''}`}>
                         {GAME_MODE_LABEL[g.mode] || g.mode}
                       </span>
                     </td>
-                    <td>
+                    <td className="hide-narrow">
                       <button
                         type="button"
                         className="link-button"

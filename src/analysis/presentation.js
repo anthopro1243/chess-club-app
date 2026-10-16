@@ -101,6 +101,16 @@ export function categoryLine(key, entry, trend = null) {
 }
 
 /**
+ * The rows worth showing a member under one game: only categories with a
+ * real score. After one game that is usually none, and eight rows of "not
+ * enough games yet" read as a wall of nothing; the caller shows one line
+ * instead when this comes back empty.
+ */
+export function memberCategoryLines(categories) {
+  return (categories || []).filter((c) => c.showNumber);
+}
+
+/**
  * The player's own view: one priority, not a ranked list of every failure.
  * A teenager handed eight numbers and told six are bad stops opening the app.
  */
