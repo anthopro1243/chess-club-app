@@ -579,7 +579,7 @@ export default function PlayPage() {
                 <label className="field">
                   <span>White player</span>
                   <select value={whitePlayerId} onChange={(event) => selectWhitePlayer(event.target.value)}>
-                    <option value="">Guest (not rated)</option>
+                    <option value="">Guest</option>
                     {players.map((p) => (
                       <option key={p.playerId} value={p.playerId}>
                         {p.name}
@@ -590,7 +590,7 @@ export default function PlayPage() {
                 <label className="field">
                   <span>Black player</span>
                   <select value={blackPlayerId} onChange={(event) => selectBlackPlayer(event.target.value)}>
-                    <option value="">Guest (not rated)</option>
+                    <option value="">Guest</option>
                     {players.map((p) => (
                       <option key={p.playerId} value={p.playerId}>
                         {p.name}

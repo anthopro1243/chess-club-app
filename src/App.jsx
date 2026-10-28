@@ -180,7 +180,7 @@ export default function App() {
           type="button"
           className="theme-toggle"
           onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-          aria-label="Toggle colour theme"
+          aria-label="Toggle color theme"
         >
           {theme === 'dark' ? 'Light' : 'Dark'}
         </button>

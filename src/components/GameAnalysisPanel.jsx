@@ -58,7 +58,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
       result = await withTimeout(
         analyzeArchivedGame(game, { onProgress: (p) => setProgress(p), signal: controller.signal }),
         GAME_TIMEOUT_MS,
-        { label: 'Analysing this game', onTimeout: () => controller.abort() },
+        { label: 'Analyzing this game', onTimeout: () => controller.abort() },
       );
     } catch (err) {
       if (err instanceof TimeoutError) resetAfterTimeout();
@@ -77,7 +77,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
         <h3>Game analysis</h3>
         {mayAnalyse && (
           <button type="button" onClick={run} disabled={running} aria-busy={running}>
-            {running ? 'Analysing…' : visible.length ? 'Re-analyse' : 'Analyse this game'}
+            {running ? 'Analyzing…' : visible.length ? 'Re-analyze' : 'Analyze this game'}
           </button>
         )}
       </div>
@@ -94,7 +94,7 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
       {!visible.length && !running && (
         <p className="muted">
           {mayAnalyse
-            ? 'Not analysed yet.'
+            ? 'Not analyzed yet.'
             : 'Your coach hasn’t shared an analysis of this game yet.'}
         </p>
       )}
@@ -123,12 +123,16 @@ function SideReport({ row, game, staff }) {
         <strong>{name}</strong>
         <span className="badge mono">{row.accuracy != null ? `${row.accuracy}% accuracy` : '—'}</span>
         {/* Engine detail for the coach; a member gets the accuracy only. */}
-        {staff && row.acpl != null && <span className="muted mono">ACPL {row.acpl}</span>}
-        {staff && <span className="muted mono">depth {row.depth}</span>}
+        {staff && row.acpl != null && (
+          <span className="muted small" title="Average centipawn loss: how much worse each move was than the engine's pick, on average. Lower is better.">
+            Avg. loss {row.acpl}
+          </span>
+        )}
+        {staff && <span className="muted small">Engine depth {row.depth}</span>}
       </div>
 
       {!staff && !memberLines.length && (
-        <p className="muted small">Skill scores show up once a few of your games are analysed.</p>
+        <p className="muted small">Skill scores show up once a few of your games are analyzed.</p>
       )}
       <ul className="score-list">
         {(staff ? coachRows : memberLines).map((entry) => {
@@ -139,7 +143,7 @@ function SideReport({ row, game, staff }) {
                 <span>{entry.label}</span>
                 <span className="mono">
                   {entry.score ?? '—'}
-                  {entry.caveat ? <em className="muted"> ({entry.caveat})</em> : null}
+                  {entry.caveat ? <span className="score-caveat">{entry.caveat}</span> : null}
                 </span>
               </li>
             );
@@ -173,7 +177,7 @@ function SideReport({ row, game, staff }) {
                 window.location.hash = `#/training?theme=${puzzleThemeFor(summary.priority.trainingTheme)}`;
               }}
             >
-              Practise {summary.priority.trainingTheme}
+              Practice {summary.priority.trainingTheme.toLowerCase()} puzzles
             </button>
           )}
         </div>

@@ -156,7 +156,7 @@ export function useAnalysisQueue({ enabled = true, playerId = null, preferPlayer
         result = await withTimeout(
           analyzeArchivedGame(record, { onProgress: setProgress, signal: controller.signal }),
           GAME_TIMEOUT_MS,
-          { label: 'Analysing this game', onTimeout: () => controller.abort() },
+          { label: 'Analyzing this game', onTimeout: () => controller.abort() },
         );
       } catch (error) {
         if (error instanceof TimeoutError) resetAfterTimeout();

@@ -143,9 +143,9 @@ export function coachSummary(scores, trends = {}) {
       observations: entry?.n ?? 0,
       trend: trends[key] ?? null,
       // A coach is shown the raw number even at low confidence, but it is
-      // always labelled, so "46 (low, n=4)" can never be mistaken for a fact.
+      // always labelled, so "46, rough, from 4 data points" can never be mistaken for a fact.
       caveat: entry?.score != null && (entry.confidence === 'low' || entry.confidence === 'none')
-        ? `low confidence, ${entry?.n ?? 0} observations`
+        ? `rough, from ${entry?.n ?? 0} data point${(entry?.n ?? 0) === 1 ? '' : 's'}`
         : null,
     };
   });

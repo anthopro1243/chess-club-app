@@ -783,7 +783,7 @@ export class Chess {
         over: true,
         result: this.turn === WHITE ? '0-1' : '1-0',
         reason: 'checkmate',
-        text: `Checkmate — ${this.turn === WHITE ? 'Black' : 'White'} wins`,
+        text: `${this.turn === WHITE ? 'Black' : 'White'} wins by checkmate`,
       };
     }
     if (this.isStalemate()) {
@@ -794,7 +794,7 @@ export class Chess {
         over: true,
         result: '1/2-1/2',
         reason: 'insufficient material',
-        text: 'Draw — insufficient material',
+        text: 'Draw by insufficient material',
       };
     }
     if (this.isThreefoldRepetition()) {

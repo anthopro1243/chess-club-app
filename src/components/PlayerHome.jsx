@@ -97,7 +97,7 @@ function NewMember({ firstName, canConnect }) {
       </p>
       <p className="muted">
         Link your Chess.com or Lichess account and your games come in by themselves, or play a game
-        here. Once a few are analysed, this page shows what to work on and your mistakes to review.
+        here. Once a few are analyzed, this page shows what to work on and your mistakes to review.
       </p>
       <div className="ph-actions">
         {canConnect && (
@@ -129,8 +129,8 @@ function Priority({ priority, analysedCount, isNextStep }) {
       ) : (
         <p className="muted">
           {analysedCount
-            ? 'Not enough games yet. Check back after a few more are analysed.'
-            : 'Shows up once your games are analysed.'}
+            ? 'Not enough games yet. Check back after a few more are analyzed.'
+            : 'Shows up once your games are analyzed.'}
         </p>
       )}
     </div>
@@ -154,7 +154,7 @@ function Trend({ trend, categories, analysedCount }) {
       <p className="ph-trend-headline">
         {trend.headline ?? (analysedCount
           ? 'Not enough games yet to show a trend.'
-          : 'Shows up once your games are analysed.')}
+          : 'Shows up once your games are analyzed.')}
       </p>
       {trend.biggestGain && <p className="muted small">Biggest gain: {trend.biggestGain.text}.</p>}
       {shown.length > 0 && (
@@ -172,7 +172,7 @@ function Trend({ trend, categories, analysedCount }) {
         <p className="muted small">
           {shown.length
             ? `${waiting} more skill${waiting === 1 ? '' : 's'} show up after more games.`
-            : 'Your skills show up here after a few more analysed games.'}
+            : 'Your skills show up here after a few more analyzed games.'}
         </p>
       )}
     </div>
@@ -219,7 +219,7 @@ function RecentGames({ games, total }) {
               </span>
             </span>
             <span className="ph-accuracy mono small">
-              {g.accuracy != null ? `${g.accuracy}% accuracy` : <span className="muted">not analysed yet</span>}
+              {g.accuracy != null ? `${g.accuracy}% accuracy` : <span className="muted">not analyzed yet</span>}
             </span>
           </li>
         ))}

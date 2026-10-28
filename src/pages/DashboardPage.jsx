@@ -259,7 +259,7 @@ export default function DashboardPage({ onNavigate }) {
             })}
           </div>
           <p className="muted small">
-            Scored from analysed games. A dash means not enough games yet.
+            Scored from analyzed games. A dash means not enough games yet.
           </p>
         </section>
 
@@ -283,7 +283,7 @@ export default function DashboardPage({ onNavigate }) {
                 ))}
               </ol>
             ) : (
-              <p className="hint-text">Shows up once enough of the club&rsquo;s games are analysed.</p>
+              <p className="hint-text">Shows up once enough of the club&rsquo;s games are analyzed.</p>
             )}
           </section>
         )}

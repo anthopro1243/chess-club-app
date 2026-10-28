@@ -31,7 +31,7 @@ export default function BackgroundActivity() {
     const queued = Math.max(0, (analysis.counts?.pending ?? 0));
     lines.push({
       key: 'analysis',
-      text: `Analysing a game${pct != null ? ` (${pct}%)` : '…'}${queued ? ` · ${queued} waiting` : ''}`,
+      text: `Analyzing a game${pct != null ? ` (${pct}%)` : '…'}${queued ? ` · ${queued} waiting` : ''}`,
       busy: true,
     });
   }

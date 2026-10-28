@@ -142,10 +142,10 @@ test('exactly one priority, from improvementPlan, with its advice and drill', ()
   assert.equal(priority.trainingTheme, 'Hanging Piece');
   // Two hanging pieces in each of two games: 4 summed, over the plan's
   // threshold of 3, so the concrete "this keeps happening" advice is used.
-  assert.match(priority.advice, /left undefended/);
+  assert.match(priority.advice, /leaving pieces undefended/);
   assert.deepEqual(priority.action, {
     href: '#/training?theme=hangingPiece',
-    label: 'Practise hanging piece puzzles',
+    label: 'Practice hanging piece puzzles',
   });
   assert.ok(!('score' in priority), 'the priority carries no number');
   assert.ok(!Array.isArray(priority), 'one priority, not a list');

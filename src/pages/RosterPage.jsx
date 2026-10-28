@@ -370,7 +370,7 @@ export default function RosterPage() {
                 })}
               </div>
               <p className="muted small">
-                &ldquo;Suggested&rdquo; is the engine&rsquo;s score from analysed games. Tap it to use
+                &ldquo;Suggested&rdquo; is the engine&rsquo;s score from analyzed games. Tap it to use
                 it.
               </p>
 

@@ -85,7 +85,7 @@ export default function MyGamesPage() {
                 <tr>
                   <th>Date</th>
                   <th>Opponent</th>
-                  <th className="hide-narrow">Colour</th>
+                  <th className="hide-narrow">Color</th>
                   <th>Result</th>
                   <th className="hide-narrow">Moves</th>
                   <th className="hide-narrow">Type</th>
@@ -160,7 +160,7 @@ function MyGameRow({ game, playerId, open, onToggle }) {
             onToggle();
           }}
         >
-          {mine?.accuracy != null ? `${mine.accuracy}%` : open ? 'Close' : 'Analyse'}
+          {mine?.accuracy != null ? `${mine.accuracy}%` : open ? 'Close' : 'Analyze'}
         </button>
       </td>
     </tr>

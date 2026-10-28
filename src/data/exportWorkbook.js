@@ -68,7 +68,7 @@ function skillAssessmentSheet(players) {
     if (!logged.length && p.rubric && Object.keys(p.rubric).length) {
       const row = { 'Player ID': p.playerId, Name: p.name, Date: date(p.joined) };
       for (const c of RUBRIC_CATEGORIES) row[c.label] = p.rubric?.[c.key] ?? '';
-      row.Notes = '(current rubric — not logged as a dated assessment)';
+      row.Notes = '(current rubric, not a dated assessment)';
       rows.push(row);
     }
   }
@@ -115,7 +115,7 @@ function clubSummarySheet(players, games) {
   const avg = (list, pick) =>
     list.length ? Math.round(list.reduce((s, x) => s + pick(x), 0) / list.length) : '';
   const rubricAverages = RUBRIC_CATEGORIES.map((c) => ({
-    Metric: `Avg rubric — ${c.label}`,
+    Metric: `Avg rubric: ${c.label}`,
     Value: players.length
       ? (players.reduce((s, p) => s + (p.rubric?.[c.key] || 0), 0) / players.length).toFixed(1)
       : '',
