@@ -200,7 +200,7 @@ test('notation is reported as unmeasured, never invented', () => {
   const s = rubricScores(analyseGameForSide(syntheticGame(), 'w', { baseSeconds: 1800 }).raw);
   assert.equal(s.notation.measured, false);
   assert.equal(s.notation.score, null);
-  assert.match(s.notation.note, /Not measurable from PGN/);
+  assert.match(s.notation.note, /Games can't measure this/);
 });
 
 /* ───────────────────── shrinkage ───────────────────── */

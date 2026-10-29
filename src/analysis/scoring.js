@@ -592,7 +592,7 @@ export function rubricScores(raw, opts = {}) {
   const notation = raw.notationScore != null && raw.notationSamples
     ? build('notation', raw.notationScore, raw.notationSamples, Kr)
     : { score: null, raw: null, n: 0, confidence: 'none', measured: false,
-        note: 'Not measurable from PGN — comes from SAN entry and scoresheet checks.' };
+        note: "Games can't measure this. It comes from typed-move drills and scoresheet checks." };
 
   return {
     openingKnowledge: build('openingKnowledge', openingRaw, raw.openingMoves || 0, K),
@@ -720,49 +720,49 @@ export const MOTIF_ADVICE_MIN_COUNT = 3;
 export const MOTIF_ADVICE_MAX_SCORE = 65;
 
 const MOTIF_ADVICE = {
-  fork: { theme: 'Fork', text: 'You are losing material to forks. Before every move, check what a knight or queen lands on that hits two of your pieces.' },
-  pin: { theme: 'Pin', text: 'Pieces are getting pinned and then lost. Watch for your king and queen sitting on the same line as an enemy bishop or rook.' },
-  skewer: { theme: 'Skewer', text: 'Your major pieces are getting skewered. Avoid lining the king up in front of the queen or a rook.' },
-  backRank: { theme: 'Back Rank Mate', text: 'Back-rank problems keep appearing. Make luft early when your rooks leave the back rank.' },
-  hangingPiece: { theme: 'Hanging Piece', text: 'Pieces are being left undefended. The one-move check — "is this square attacked?" — costs five seconds and would win you most of these games.' },
-  discoveredAttack: { theme: 'Discovered Attack', text: 'Discovered attacks keep catching you. When an enemy piece can move away and reveal a line at your king or queen, treat that line as live.' },
-  trappedPiece: { theme: 'Trapped Piece', text: 'Pieces are wandering into squares with no way back. Count escape squares before you commit a knight or bishop deep.' },
-  deflection: { theme: 'Deflection', text: 'Defenders are being pulled away. Ask what each of your pieces is defending before you move it.' },
-  smotheredMate: { theme: 'Smothered Mate', text: 'Watch the knight-and-queen mating net when your king is boxed in by its own pieces.' },
+  fork: { theme: 'Fork', text: 'You keep losing material to forks. Before each move, check where their knight or queen could land to hit two of your pieces.' },
+  pin: { theme: 'Pin', text: 'Your pieces keep getting pinned and lost. Watch out when your king or queen is on the same line as their bishop or rook.' },
+  skewer: { theme: 'Skewer', text: 'Your big pieces keep getting skewered. Try not to line your king up in front of your queen or a rook.' },
+  backRank: { theme: 'Back Rank Mate', text: 'Back-rank mates keep coming up. Once your rooks leave the back rank, push a pawn in front of your king so it has a square to run to.' },
+  hangingPiece: { theme: 'Hanging Piece', text: 'You keep leaving pieces undefended. Before you let go of a piece, ask "can they just take this?" It takes five seconds and saves a lot of games.' },
+  discoveredAttack: { theme: 'Discovered Attack', text: 'Discovered attacks keep catching you. If one of their pieces could move out of the way and open a line to your king or queen, treat that line as already open.' },
+  trappedPiece: { theme: 'Trapped Piece', text: 'Your pieces keep getting trapped. Before you send a knight or bishop deep into their side, count how many ways it has to get back.' },
+  deflection: { theme: 'Deflection', text: 'Your defenders keep getting pulled away. Before you move a piece, check what it was guarding.' },
+  smotheredMate: { theme: 'Smothered Mate', text: 'When your own pieces box your king in, watch out for a knight checkmate.' },
 };
 
 const CATEGORY_ADVICE = {
   openingKnowledge: {
     theme: 'Opening',
-    text: 'You are leaving the opening worse than you enter it. Pick one line for White and one for each of e4 and d4 as Black, and play only those for a month.',
+    text: 'You come out of the opening worse off than you started. Pick one opening as White, one answer to e4 and one to d4 as Black, and stick with just those for a month.',
   },
   tacticalVision: {
     theme: null,
-    text: 'Tactics are the fastest points available to you. Daily puzzles at a difficulty where you get about three in four right.',
+    text: 'Tactics are the quickest way for you to win more games. Do a few puzzles every day at a level where you get about three out of four right.',
   },
   positionalUnderstanding: {
     theme: 'Quiet Move',
-    text: 'In positions with nothing forcing, your moves drift. Work on quiet-move puzzles and on naming a plan before each move.',
+    text: 'When there are no checks or captures to make, your moves start to drift. Try quiet-move puzzles, and before you move, say what your plan is.',
   },
   endgameTechnique: {
     theme: 'Endgame',
-    text: 'Winning positions are not being converted. Drill the basics against the engine: king and pawn, Lucena, Philidor, opposition.',
+    text: 'You get winning positions but don’t finish them off. Practice the basic endgames against the engine: king and pawn, opposition, Lucena and Philidor.',
   },
   timeManagement: {
     theme: null,
-    text: 'You are reaching time trouble and then erring. Set a per-move budget: ten seconds on quiet moves buys you two minutes for the critical one.',
+    text: 'You get low on time and then make mistakes. Move faster when the move is obvious, so you have time left for the hard ones.',
   },
   boardVision: {
     theme: 'Hanging Piece',
-    text: 'Single-move oversights are costing you material. Before every move: what did my opponent just attack, and what am I leaving undefended?',
+    text: 'You keep losing material to one-move oversights. Before every move, ask: what did they just attack, and what am I leaving undefended?',
   },
   psychologicalResilience: {
     theme: null,
-    text: 'Your play falls off sharply once you are behind. Practise playing on from worse positions against the engine — the goal is to make the position complicated, not to resign.',
+    text: 'Once you fall behind, your play drops off a lot. Practice playing on from bad positions against the engine. Make it messy and hard for them instead of giving up.',
   },
   notation: {
     theme: null,
-    text: 'Notation is scored from scoresheet checks and typed-move drills, not from games.',
+    text: 'Notation is scored from scoresheet checks and typed-move drills, not from your games.',
   },
 };
 

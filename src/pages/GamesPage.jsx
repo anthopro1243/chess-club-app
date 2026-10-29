@@ -123,7 +123,7 @@ export default function GamesPage() {
           />
         )}
 
-        <div className="opponent-controls">
+        <div className="opponent-controls games-filters">
           <label className="field">
             <span>Player</span>
             <select value={playerFilter} onChange={(e) => setPlayerFilter(e.target.value)}>
@@ -240,7 +240,7 @@ export default function GamesPage() {
                 Entered from a scoresheet: {scoresheetGapOf(game.pgn)}.
                 {/\[SetUp "1"\]/.test(game.pgn)
                   ? ' The board starts after the gap. The moves before it are in the PGN comment.'
-                  : ' Only the moves that could be read are analysed.'}
+                  : ' Only the moves that could be read are analyzed.'}
               </p>
             )}
             <GameReviewFor game={game} />
@@ -248,10 +248,9 @@ export default function GamesPage() {
               <summary>Raw PGN</summary>
               <pre className="pgn-block">{game.pgn}</pre>
             </details>
-            <div className="button-grid">
+            <div className="button-grid game-actions">
               <button
                 type="button"
-                className="primary"
                 onClick={async () => ((await copyText(game.pgn)) ? showCopied(game.id) : flash('Copy failed'))}
               >
                 {copied === game.id ? 'Copied ✓' : 'Copy PGN'}

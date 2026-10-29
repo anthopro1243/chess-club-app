@@ -371,7 +371,7 @@ export async function applyRosterImport(rows) {
  * the existing one if they'd already claimed a profile.
  */
 export async function claimProfile({ name, grade }) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  if (!isSupabaseConfigured) throw new Error('This copy of the app isn’t connected to the club server.');
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) throw new Error('Sign in first.');

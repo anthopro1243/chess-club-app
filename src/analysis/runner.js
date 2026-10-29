@@ -54,7 +54,7 @@ export function resetAfterTimeout() {
  * @param {object} game a row from gamesStore (needs pgn, id, player ids)
  */
 export async function analyzeArchivedGame(game, opts = {}) {
-  if (!game?.pgn) return { ok: false, error: 'that game has no PGN to analyse' };
+  if (!game?.pgn) return { ok: false, error: 'that game has no PGN to analyze' };
   busy = true;
   try {
     const analysis = await analyzeGame(game.pgn, getEngine(), {

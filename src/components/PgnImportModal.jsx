@@ -225,7 +225,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
           <div className="import-result">
             <p>
               Added <strong>{result.added}</strong> {result.added === 1 ? 'game' : 'games'}. They&rsquo;ll
-              be analysed shortly.
+              be analyzed shortly.
             </p>
             <button type="button" className="primary" onClick={onClose}>
               Done

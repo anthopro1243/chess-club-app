@@ -63,7 +63,7 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
                     </a>
                     <span className={`rq-reason ${item.otb ? 'otb' : ''}`}>
                       {item.reason}
-                      {!item.analysed && ' · not analysed yet'}
+                      {!item.analysed && ' · not analyzed yet'}
                     </span>
                   </div>
                   <button

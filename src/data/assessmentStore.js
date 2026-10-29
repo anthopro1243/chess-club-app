@@ -87,8 +87,8 @@ export async function recordEngineAssessment(playerId, skills, { gamesAnalysed =
     player_id: playerId,
     source: 'engine',
     assessed_at: new Date().toISOString(),
-    notes: `Derived from ${gamesAnalysed} analysed game${gamesAnalysed === 1 ? '' : 's'}. `
-      + 'Engine estimate — a coach assessment overrides this.',
+    notes: `Engine estimate from ${gamesAnalysed} analyzed game${gamesAnalysed === 1 ? '' : 's'}. `
+      + 'A coach assessment replaces it.',
     ...Object.fromEntries(
       Object.entries(rubric).map(([key, value]) => [COLUMN_BY_RUBRIC_KEY[key], value]),
     ),

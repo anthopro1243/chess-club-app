@@ -30,7 +30,7 @@ export default function ClubWeaknessesPanel() {
         <h2>
           Club weaknesses, last {report.windowDays} days
           <InfoTooltip>
-            What keeps going wrong in members&rsquo; analysed games. Use it to plan the next
+            What keeps going wrong in members&rsquo; analyzed games. Use it to plan the next
             lesson.
           </InfoTooltip>
         </h2>
@@ -40,8 +40,8 @@ export default function ClubWeaknessesPanel() {
       {!report.enough ? (
         <p className="hint-text">
           {report.analysedGames === 0
-            ? 'No analysed games from the last 30 days yet.'
-            : `Only ${report.analysedGames} analysed game${report.analysedGames === 1 ? '' : 's'} so far. Needs at least ${MIN_GAMES}.`}
+            ? 'No analyzed games from the last 30 days yet.'
+            : `Only ${report.analysedGames} analyzed game${report.analysedGames === 1 ? '' : 's'} so far. Needs at least ${MIN_GAMES}.`}
         </p>
       ) : (
         <div className="two-column">

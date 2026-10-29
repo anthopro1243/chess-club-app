@@ -40,13 +40,13 @@ export default function AnalysisQueuePanel({ queue }) {
       </div>
 
       <p className="muted">
-        New games get analysed on their own while the app is open. You shouldn&rsquo;t need to
+        New games get analyzed on their own while the app is open. You shouldn&rsquo;t need to
         touch this.
       </p>
 
       {running && (
         <p className="muted">
-          Analysing now
+          Analyzing now
           {progress?.total ? `: position ${progress.done} of ${progress.total}` : '…'}
         </p>
       )}
@@ -63,7 +63,8 @@ export default function AnalysisQueuePanel({ queue }) {
       <div className="button-grid">
         <button
           type="button"
-          className="primary"
+          // Only loud when there's something to retry.
+          className={shown?.failed || shown?.skipped ? 'primary' : undefined}
           disabled={working}
           aria-busy={working}
           onClick={async () => {
@@ -81,7 +82,7 @@ export default function AnalysisQueuePanel({ queue }) {
               result.ok
                 ? result.queued
                   ? `${result.queued} game${result.queued === 1 ? '' : 's'} put back in the queue.`
-                  : 'Nothing to retry. Every game is analysed or already in line.'
+                  : 'Nothing to retry. Every game is analyzed or already in line.'
                 : `Couldn’t retry: ${result.error}`,
             );
           }}
@@ -92,7 +93,7 @@ export default function AnalysisQueuePanel({ queue }) {
 
       {shown?.failed > 0 && (
         <p className="muted">
-          {shown.failed} game{shown.failed === 1 ? '' : 's'} couldn&rsquo;t be analysed after a few
+          {shown.failed} game{shown.failed === 1 ? '' : 's'} couldn&rsquo;t be analyzed after a few
           tries. Press the button above to try again.
         </p>
       )}

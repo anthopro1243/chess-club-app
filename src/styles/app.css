@@ -622,6 +622,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .badge {
+  white-space: nowrap;
   font-size: 0.76rem;
   color: var(--text-muted);
   background: var(--bg-sunken);
@@ -795,9 +796,9 @@ button.primary:hover:not(:disabled) {
 
 .coord {
   position: absolute;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  opacity: 0.55;
+  opacity: 0.8;
   pointer-events: none;
   z-index: 3;
 }
@@ -1323,9 +1324,7 @@ button.primary:hover:not(:disabled) {
 
 .rubric-label {
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .rubric-bar {
@@ -1518,6 +1517,14 @@ button.primary:hover:not(:disabled) {
 .games-layout .opponent-controls {
   margin-bottom: 14px;
 }
+
+/* Player and type filters sit side by side (the Play page's first field spans
+   the row; here neither needs to). */
+.opponent-controls.games-filters .field:first-child { grid-column: auto; }
+
+/* Copy / Download as a pair, Delete off to the side so it isn't hit by accident. */
+.button-grid.game-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.button-grid.game-actions .link-button.danger { margin-left: auto; padding: 8px 4px; background: none; border: none; }
 
 .pgn-block {
   background: var(--bg-sunken);
@@ -1730,9 +1737,14 @@ textarea:focus {
 
 .panel-header-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 6px 12px;
 }
+
+.player-detail > .panel-header { flex-wrap: wrap; align-items: flex-start; }
+.player-detail > .panel-header h2 { flex: 1 1 12ch; min-width: 0; }
 
 .link-button {
   background: none;
@@ -1741,6 +1753,7 @@ textarea:focus {
   font-size: 0.82rem;
   cursor: pointer;
   padding: 0;
+  white-space: nowrap;
 }
 
 .link-button:hover {
@@ -1922,9 +1935,6 @@ textarea:focus {
     text-overflow: ellipsis;
   }
 
-  .show-narrow {
-    display: inline;
-  }
 
   .games-table th,
   .games-table td {
@@ -1932,10 +1942,10 @@ textarea:focus {
     padding-right: 7px;
   }
 
-  .games-name {
-    max-width: 24vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .games-table td.games-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
   }
 
   .roster-list th,
@@ -1990,6 +2000,26 @@ button.rubric-suggestion:hover { opacity: 1; }
   border-radius: 4px;
 }
 .analysis-priority p { margin: 4px 0 8px; }
+.analysis-priority button { display: block; margin-top: 8px; }
+
+/* One side's report: name and accuracy on one line, then the skill scores as
+   label / number rows so the eye can run straight down the numbers. */
+.analysis-side + .analysis-side { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.analysis-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 10px; }
+.analysis-headline strong { font-size: 1rem; }
+.score-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 2px; }
+.score-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.88rem;
+}
+.score-list li > span:first-child { color: var(--text-muted); }
+.score-list li > span:last-child { text-align: right; font-weight: 600; }
+.score-list .score-caveat { display: block; font-family: var(--font); font-weight: 400; font-style: normal; font-size: 0.76rem; color: var(--text-muted); }
 
 /* Game review: board on the left, moves and turning points on the right. */
 .game-review { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr); gap: 18px; align-items: start; }
@@ -2003,6 +2033,9 @@ button.rubric-suggestion:hover { opacity: 1; }
 .button-grid.review-controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
 .nowrap { white-space: nowrap; }
 .show-narrow { display: none; }
+/* Must come after the rule above, or phones never see these (the games list's
+   Result column was blank on a phone). */
+@media (max-width: 640px) { .show-narrow { display: inline; } }
 .review-eval { margin-top: 8px; font-size: 0.9rem; }
 .review-eval.blunder { color: var(--danger, #e06c6c); }
 .review-eval.mistake { color: #e0a76c; }

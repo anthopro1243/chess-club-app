@@ -235,7 +235,7 @@ export default function TrainingPage() {
         ? `${duePuzzles.length} position${duePuzzles.length === 1 ? '' : 's'} from your games to review. Get one right and it comes back later. Miss it and you'll see it again tomorrow.`
         : reviewState.active
           ? `Nothing due today. ${reviewState.active} more will come back later.`
-          : 'No mistakes saved yet. They show up once your games are analysed.'
+          : 'No mistakes saved yet. They show up once your games are analyzed.'
       : null;
 
   const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
@@ -384,7 +384,7 @@ export default function TrainingPage() {
           <div className="panel-block">
             <h2>Nothing to review right now</h2>
             <p className="hint-text">
-              Positions you get wrong in your games show up here once the games are analysed. Try
+              Positions you get wrong in your games show up here once the games are analyzed. Try
               the tactics library meanwhile.
             </p>
           </div>
@@ -480,9 +480,9 @@ export default function TrainingPage() {
         </div>
 
         <div className="panel-block">
-          <h2>Puzzle type</h2>
+          <h2>Puzzles</h2>
           <label className="field">
-            <span>Puzzles</span>
+            <span>Practice from</span>
             <select value={source} onChange={(event) => setSource(event.target.value)}>
               <option value="library">Tactics library ({PUZZLES.length})</option>
               <option value="mistakes" disabled={!traineeId}>

@@ -51,7 +51,7 @@ export const POSITIONS = Object.freeze([
     idea: 'Their bishop can\'t control h8. Keep your king in the corner and they can never force it out.' },
   { id: 'lucena', band: 'rook', title: 'The Lucena position (build a bridge)', fen: '1K1k4/1P6/8/8/8/8/r7/2R5 w - - 0 1', goal: 'win', successWhen: 'promote', maxMoves: 20,
     idea: 'Cut their king off, bring your rook to the fourth rank, then use it as a bridge to block the checks.' },
-  { id: 'philidor', band: 'rook', title: 'The Philidor defence', fen: '3k4/8/r7/3PK3/8/8/8/7R b - - 0 1', goal: 'draw', successWhen: 'hold', holdMoves: 20,
+  { id: 'philidor', band: 'rook', title: 'The Philidor Defense', fen: '3k4/8/r7/3PK3/8/8/8/7R b - - 0 1', goal: 'draw', successWhen: 'hold', holdMoves: 20,
     idea: 'Keep your rook on your third rank until their pawn advances, then check from behind.' },
   { id: 'opposite-bishops', band: 'rook', title: 'Opposite-coloured bishops', fen: '8/8/4k3/3p4/3P1P2/4K3/2B5/5b2 b - - 0 1', goal: 'draw', successWhen: 'hold', holdMoves: 20,
     idea: 'Blockade on the squares your bishop controls. A pawn down is still a draw if their pawns can\'t pass.' },

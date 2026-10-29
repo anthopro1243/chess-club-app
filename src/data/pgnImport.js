@@ -447,7 +447,7 @@ export function importPgnText(text, { playerId = null, roster = [] } = {}) {
     if (parsed.length !== 1) {
       errors.push({
         index,
-        message: `game ${humanIndex}: could not be separated from its neighbours in the file.`,
+        message: `game ${humanIndex}: could not be separated from its neighbors in the file.`,
       });
       return;
     }

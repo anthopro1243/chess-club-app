@@ -137,7 +137,7 @@ test('the coach view keeps the shaky numbers but always labels them', () => {
   const rows = coachSummary(SCORES, { tacticalVision: -3 });
   const positional = rows.find((r) => r.key === 'positionalUnderstanding');
   assert.equal(positional.score, 55);
-  assert.match(positional.caveat, /low confidence, 3 observations/);
+  assert.match(positional.caveat, /rough, from 3 data points/);
   const tactics = rows.find((r) => r.key === 'tacticalVision');
   assert.equal(tactics.caveat, null);
   assert.equal(tactics.trend, -3);

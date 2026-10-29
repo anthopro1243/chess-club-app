@@ -39,7 +39,7 @@ const redirectTo = () => window.location.origin + window.location.pathname;
  * message either way.
  */
 export async function signUpWithPassword(email, password) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  if (!isSupabaseConfigured) throw new Error('This copy of the app isn’t connected to the club server.');
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -50,21 +50,21 @@ export async function signUpWithPassword(email, password) {
 }
 
 export async function signInWithPassword(email, password) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  if (!isSupabaseConfigured) throw new Error('This copy of the app isn’t connected to the club server.');
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 }
 
 /** Emails a reset link. Works even for an account that has no password yet (magic-link-only). */
 export async function sendPasswordReset(email) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  if (!isSupabaseConfigured) throw new Error('This copy of the app isn’t connected to the club server.');
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() });
   if (error) throw error;
 }
 
 /** Sets a new password on the current session — used both by the reset-link landing and a signed-in "change password". */
 export async function updatePassword(newPassword) {
-  if (!isSupabaseConfigured) throw new Error('Cloud sync is not configured for this deployment.');
+  if (!isSupabaseConfigured) throw new Error('This copy of the app isn’t connected to the club server.');
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
 }

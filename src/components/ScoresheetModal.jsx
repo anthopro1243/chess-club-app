@@ -574,8 +574,8 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
             )}
             <p className="muted">
               {saved.local
-                ? 'Saved in this browser only. No server is connected, so it won’t be analysed.'
-                : 'It’ll be analysed shortly.'}
+                ? 'Saved in this browser only. No server is connected, so it won’t be analyzed.'
+                : 'It’ll be analyzed shortly.'}
             </p>
             <div className="import-actions">
               <button type="button" className="primary" onClick={enterAnother}>

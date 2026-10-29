@@ -133,7 +133,7 @@ export default function ReportCard({ playerId, onClose }) {
           {card.weakest.length ? (
             <p><strong>Weakest areas:</strong> {card.weakest.map((c) => `${c.label} (${c.level})`).join(', ')}</p>
           ) : (
-            <p className="muted">Not enough analysed games yet ({card.analysedCount} so far).</p>
+            <p className="muted">Not enough analyzed games yet ({card.analysedCount} so far).</p>
           )}
           {card.missedTactics.length > 0 && (
             <p><strong>Missed most often:</strong> {card.missedTactics.map((m) => `${m.label} (${m.count})`).join(', ')}</p>
