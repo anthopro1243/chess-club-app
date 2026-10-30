@@ -6,7 +6,7 @@
  * button is an override for clearing a backlog, not the mechanism.
  *
  * Deliberately unhurried:
- *   - one game at a time, because the engine is single-threaded
+ *   - one game at a time, because there is one analysis engine
  *   - only while the tab is visible, so a backgrounded tab is not burning
  *     someone's battery, and it wakes on visibilitychange rather than giving up
  *   - claims are taken in the database, so two open tabs cannot analyse the
@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { claimNext, markDone, markFailed, queueCounts } from './queue.js';
-import { analyzeArchivedGame, isBusy, resetAfterTimeout } from './runner.js';
+import { analyzeArchivedGame, engineReady, isBusy, resetAfterTimeout } from './runner.js';
 import { DEFAULT_DEPTH } from './analyzeGame.js';
 import { useStore } from '../data/store.js';
 import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
@@ -38,6 +38,12 @@ const ERROR_MS = 30 * 1000;
  * retried later with backoff) and a fresh engine is started.
  */
 export const GAME_TIMEOUT_MS = 5 * 60 * 1000;
+/*
+ * The first run downloads the engine (about 99 MB), which can take far longer
+ * than a game on a phone, so it gets its own limit: otherwise a slow connection
+ * would fail the game and throw the download away, over and over.
+ */
+const ENGINE_LOAD_TIMEOUT_MS = 20 * 60 * 1000;
 
 /*
  * What the background drainer is doing, for anyone who wants to show it —
@@ -153,6 +159,7 @@ export function useAnalysisQueue({ enabled = true, playerId = null, preferPlayer
 
       let result;
       try {
+        await withTimeout(engineReady(), ENGINE_LOAD_TIMEOUT_MS, { label: 'Downloading the chess engine' });
         result = await withTimeout(
           analyzeArchivedGame(record, { onProgress: setProgress, signal: controller.signal }),
           GAME_TIMEOUT_MS,

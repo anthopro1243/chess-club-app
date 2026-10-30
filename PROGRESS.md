@@ -1,3 +1,22 @@
+# Stockfish 19 full — 2026-10-30 (owner's instruction: the best engine available)
+
+Replaced Stockfish 18 lite single-threaded with **Stockfish 19 full, multi-threaded** (`public/stockfish/`).
+Analysis settings are unchanged (depth 14/16, 400k nodes). Old analyses stay as they are; new rows are labelled
+`stockfish-19`.
+
+- **Cost:** a ~99 MB download the first time a device needs the engine (was 7 MB). Cached for a year after that.
+- **Headers:** multi-threading needs cross-origin isolation, so `vercel.json` and `vite.config.js` send
+  COOP/COEP on every page. Without them the engine won't start.
+- **So the download is bearable:** Play and Endgames show download progress and say so if a device can't load
+  the engine. Play only starts the engine in a game against the computer. The analysis queue gets a separate
+  20-minute limit for the download, so a slow connection doesn't fail the game and restart the download.
+- **Threads:** cores minus one, at most four.
+- **Checked:** `npm test`, `npm run test:engine`, build; headless Chrome at phone size with a 4x slower CPU.
+  **Not checked on a real phone.** The engine fails to start in the Claude desktop app's browser pane (helper
+  threads die on start-up), though it works in Google Chrome.
+
+---
+
 # Improvement pass — 2026-10-05 (cloud session, branch `claude/laughing-mccarthy-v2msz3`)
 
 Audit, then one fix per commit, each pushed. Full detail, how each was checked and the coach's steps:

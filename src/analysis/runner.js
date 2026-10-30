@@ -28,6 +28,9 @@ function getEngine() {
   return engine;
 }
 
+/** Resolves once the analysis engine has downloaded and started. */
+export const engineReady = () => getEngine().ready;
+
 export function shutdownEngine() {
   if (engine) {
     engine.terminate();

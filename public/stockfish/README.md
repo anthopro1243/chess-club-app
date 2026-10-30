@@ -1,30 +1,33 @@
 # Stockfish (vendored)
 
-`stockfish-18-lite-single.js` + `.wasm` — the single-threaded, lite-NNUE WASM
-build of Stockfish 18, from the [`stockfish`](https://www.npmjs.com/package/stockfish)
-npm package (`nmrugg/stockfish.js`) v18.0.8.
+`stockfish-19.js` + `stockfish-19.wasm`: the full, multi-threaded WASM build of
+Stockfish 19, from the [`stockfish`](https://www.npmjs.com/package/stockfish)
+npm package (`nmrugg/stockfish.js`) v19.0.1.
 
-Vendored here (not an npm dependency) because the full package is ~250MB
-unpacked — everything from every build variant. We only ever need these two
-files, served as static assets so the engine can run in a Web Worker with no
-build step.
+Vendored here (not an npm dependency) because the full package is ~205MB
+unpacked, with every build variant. We only need these two files, served as
+static assets so the engine can run in a Web Worker with no build step.
 
-**Why this variant:** single-threaded means no `SharedArrayBuffer` / no
-cross-origin-isolation headers required, so it runs unmodified on any static
-host, including GitHub Pages. "Lite" trims the NNUE network for a much
-smaller download (~7MB vs. ~113MB) — still far stronger than any club player.
+**Why this variant:** it's the strongest build, on the owner's instruction: the
+full neural network plus multiple threads. It costs a ~99MB download the first
+time a device needs the engine, and it needs a cross-origin isolated page
+(`SharedArrayBuffer`). `vercel.json` and `vite.config.js` send those headers;
+without them the engine won't start.
+
+`package.json` here marks these files as CommonJS so the engine runs under Node
+in the tests (see `src/engine/nodeTransport.js`).
 
 **To update to a newer Stockfish release:**
 
 ```bash
-npm install stockfish@latest
-cp node_modules/stockfish/bin/stockfish-<version>-lite-single.js public/stockfish/
-cp node_modules/stockfish/bin/stockfish-<version>-lite-single.wasm public/stockfish/
-npm uninstall stockfish
+npm pack stockfish@latest
+tar -xzf stockfish-*.tgz package/bin/stockfish-<version>.js package/bin/stockfish-<version>.wasm
+cp package/bin/stockfish-<version>.* public/stockfish/
 ```
 
-Then update the filename in `src/engine/stockfishClient.js` (`ENGINE_URL`) to
-match.
+Then update the filename in `src/engine/stockfishClient.js` (`engineUrl`) and
+`src/engine/nodeTransport.js`, and `ENGINE_NAME` in `src/analysis/analyzeGame.js`.
+Use a new filename for each version: `/stockfish/*` is cached for a year.
 
 License: GPLv3 (`Copying.txt` in the npm package). Stockfish is free
 software; this app talks to it over UCI as a separate process/worker rather
