@@ -140,6 +140,9 @@ export default function PlayPage() {
   );
   const [eloRange, setEloRange] = useState(DEFAULT_ELO_RANGE);
   const [thinking, setThinking] = useState(false);
+  // How far the engine download has got (0 to 1), or null once it's loaded.
+  const [engineDownload, setEngineDownload] = useState(null);
+  const [engineFailed, setEngineFailed] = useState(false);
 
   /*
    * The clock. Kept in a ref rather than state because it is read on every
@@ -165,15 +168,30 @@ export default function PlayPage() {
   const engineRef = useRef(null);
   const requestIdRef = useRef(0);
 
+  // Only start the engine for a game against it: it's a big download on a phone.
   useEffect(() => {
-    const engine = createEngine();
+    if (mode !== 'computer') return undefined;
+    setEngineFailed(false);
+    const engine = createEngine({ onDownloadProgress: setEngineDownload });
     engineRef.current = engine;
+    engine.ready.then(
+      () => setEngineDownload(null),
+      () => {
+        setEngineDownload(null);
+        setEngineFailed(true);
+      },
+    );
     engine.eloRange().then((range) => {
       setEloRange(range);
       setElo((current) => Math.min(Math.max(current, range.min), range.max));
-    });
-    return () => engine.terminate();
-  }, []);
+    }).catch(() => {}); // already reported through engine.ready
+    return () => {
+      engine.terminate();
+      engineRef.current = null;
+      setEngineDownload(null);
+      setEngineFailed(false);
+    };
+  }, [mode]);
 
   // How this build can hand the viewer a file. Running from a local folder or
   // any normal web host that is an ordinary blob download. When the page is
@@ -240,6 +258,9 @@ export default function PlayPage() {
           setViewPly(null);
           bump();
         }
+      })
+      .catch(() => {
+        if (requestId === requestIdRef.current) setThinking(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, computerColor, maxStrength, elo, thinkTime, atLive, status.over, pendingPromotion, live.fen()]);
@@ -560,7 +581,15 @@ export default function PlayPage() {
 
       <aside className="side-panel">
         <div className={`status-banner ${status.over ? 'over' : ''} ${status.reason === 'check' ? 'check' : ''}`}>
-          <strong>{thinking ? 'Computer is thinking…' : status.text}</strong>
+          <strong>
+            {engineFailed
+              ? "This device couldn't load the computer player."
+              : engineDownload != null
+                ? `Downloading the computer player: ${Math.round(engineDownload * 100)}%`
+                : thinking
+                  ? 'Computer is thinking…'
+                  : status.text}
+          </strong>
           {!atLive && <span className="reviewing">Reviewing move {viewPly} of {moves.length}</span>}
         </div>
 

@@ -37,6 +37,8 @@ export default function EndgameTrainer({ trainee, rating = null }) {
   const [playerMoves, setPlayerMoves] = useState(0);
   const [outcome, setOutcome] = useState(null);
   const [thinking, setThinking] = useState(false);
+  const [engineDownload, setEngineDownload] = useState(null);
+  const [engineFailed, setEngineFailed] = useState(false);
   const [lastMove, setLastMove] = useState(null);
   const [showIdea, setShowIdea] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState(null);
@@ -47,8 +49,15 @@ export default function EndgameTrainer({ trainee, rating = null }) {
   const playerColor = new Chess(drill.fen).turn;
 
   useEffect(() => {
-    const engine = createEngine();
+    const engine = createEngine({ onDownloadProgress: setEngineDownload });
     engineRef.current = engine;
+    engine.ready.then(
+      () => setEngineDownload(null),
+      () => {
+        setEngineDownload(null);
+        setEngineFailed(true);
+      },
+    );
     return () => engine.terminate();
   }, []);
 
@@ -181,7 +190,15 @@ export default function EndgameTrainer({ trainee, rating = null }) {
       <div className={`puzzle-banner ${outcome ? (outcome.status === 'success' ? 'solved' : 'wrong') : ''}`}>
         <div><strong>{drill.title}</strong></div>
         <span className="puzzle-prompt" aria-live="polite">
-          {outcome ? outcome.reason : thinking ? 'Engine is thinking…' : goal}
+          {engineFailed
+            ? "This device couldn't load the engine."
+            : outcome
+              ? outcome.reason
+              : engineDownload != null
+                ? `Downloading the engine: ${Math.round(engineDownload * 100)}%`
+                : thinking
+                  ? 'Engine is thinking…'
+                  : goal}
         </span>
       </div>
 

@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs && node src/data/chessClock.test.mjs && node --test 'src/**/*.test.js' && node supabase/rls-test.mjs",
     "test:rls": "node supabase/rls-test.mjs",
-    "test:engine": "node --test src/engine/stockfishClient.test.mjs src/analysis/analyzeGame.test.mjs",
+    "test:engine": "node --test --test-force-exit src/engine/stockfishClient.test.mjs src/analysis/analyzeGame.test.mjs",
     "test:all": "npm test && npm run test:engine"
   },
   "dependencies": {

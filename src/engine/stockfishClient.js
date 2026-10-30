@@ -1,6 +1,6 @@
 /*
  * stockfishClient.js — a thin promise-based wrapper around the real
- * Stockfish 18 engine (single-threaded WASM build, served from
+ * Stockfish 19 engine (full, multi-threaded WASM build, served from
  * public/stockfish/) so the rest of the app never has to speak raw UCI.
  *
  * No custom evaluation, no guessed strength — every move and every
@@ -17,7 +17,7 @@
 function engineUrl() {
   const base =
     (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
-  return `${base}stockfish/stockfish-18-lite-single.js`;
+  return `${base}stockfish/stockfish-19.js`;
 }
 
 /** Default transport: a real Web Worker. Replaced by the Node shim in tests. */
@@ -30,8 +30,23 @@ function browserTransport() {
         fn(typeof event.data === 'string' ? event.data : '');
       };
     },
+    onError: (fn) => {
+      worker.onerror = (event) => fn(new Error(event.message || 'The chess engine could not load'));
+    },
+    // The bundle reports its own download progress over a port we hand it.
+    onDownloadProgress: (fn) => {
+      const { port1, port2 } = new MessageChannel();
+      port1.onmessage = (event) => fn(event.data.percent);
+      worker.postMessage({ progressPort: port2 }, [port2]);
+    },
     terminate: () => worker.terminate(),
   };
+}
+
+/** Up to four threads: more only heats a phone, and every search here is short. */
+function threadCount() {
+  const cores = globalThis.navigator?.hardwareConcurrency || 2;
+  return Math.max(1, Math.min(4, cores - 1));
 }
 
 function parseOption(line) {
@@ -79,8 +94,14 @@ export function parseInfo(line) {
 }
 
 /** Start a Stockfish worker and resolve once it has reported `uciok`/`readyok`. */
-export function createEngine({ transport } = {}) {
+export function createEngine({ transport, onDownloadProgress } = {}) {
   const channel = transport || browserTransport();
+  let started = false; // a late progress report must not read as still downloading
+  if (onDownloadProgress) {
+    channel.onDownloadProgress?.((percent) => {
+      if (!started) onDownloadProgress(percent);
+    });
+  }
   const listeners = new Set();
   const options = new Map();
   let identity = '';
@@ -108,14 +129,22 @@ export function createEngine({ transport } = {}) {
       listeners.add(handler);
     });
 
-  const ready = (async () => {
-    const gotUciok = waitFor((line) => line === 'uciok');
-    send('uci');
-    await gotUciok;
-    const gotReadyok = waitFor((line) => line === 'readyok');
-    send('isready');
-    await gotReadyok;
-  })();
+  // Rejects if the engine can't load (a phone out of memory, say), so callers
+  // can say so instead of waiting forever.
+  const ready = new Promise((resolve, reject) => {
+    channel.onError?.(reject);
+    (async () => {
+      const gotUciok = waitFor((line) => line === 'uciok');
+      send('uci');
+      await gotUciok;
+      send(`setoption name Threads value ${threadCount()}`);
+      const gotReadyok = waitFor((line) => line === 'readyok');
+      send('isready');
+      await gotReadyok;
+      started = true;
+    })().then(resolve, reject);
+  });
+  ready.catch(() => {}); // handled by whoever awaits it
 
   // bestMove() calls are serialized through this queue: the UCI protocol has
   // no per-request id, so a "bestmove" line can't be matched to a specific
@@ -151,9 +180,8 @@ export function createEngine({ transport } = {}) {
   }
 
   /*
-   * One search per position, queued alongside bestMove(): a single-threaded
-   * WASM engine has one brain, and UCI has no per-request id, so two searches
-   * in flight cannot be told apart.
+   * One search per position, queued alongside bestMove(): UCI has no
+   * per-request id, so two searches in flight cannot be told apart.
    */
   async function runEvaluate(fen, { depth = 14, multiPV = 1, maxNodes = 400000, signal } = {}) {
     await ready;

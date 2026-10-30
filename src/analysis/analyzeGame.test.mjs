@@ -135,7 +135,7 @@ test('Gate 4A — a real game analyses end to end', async () => {
   assert.equal(analysis.rows.length, 2);
   for (const row of analysis.rows) {
     assert.ok(row.side === 'w' || row.side === 'b');
-    assert.equal(row.engine, 'stockfish-18-lite-single');
+    assert.equal(row.engine, 'stockfish-19');
     assert.equal(row.depth, 12);
     assert.equal(row.schema_version, 1);
     assert.ok(Array.isArray(row.critical));

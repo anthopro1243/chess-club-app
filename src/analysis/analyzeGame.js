@@ -15,7 +15,7 @@ import {
   CATEGORY_KEYS,
 } from './scoring.js';
 
-export const ENGINE_NAME = 'stockfish-18-lite-single';
+export const ENGINE_NAME = 'stockfish-19';
 export const SCHEMA_VERSION = 1;
 export const DEFAULT_DEPTH = 14;
 /** Tournament games get the deeper pass; see Decision 2 in the spec. */
