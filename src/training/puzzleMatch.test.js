@@ -6,9 +6,12 @@ import { targetRating, matchPuzzles, STRETCH, MIN_POOL } from './puzzleMatch.js'
 const LIBRARY = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url), 'utf8'));
 const P = (id, rating, themes = ['fork']) => ({ id, rating, themes });
 
-test('targetRating: an established club rating wins, then US Chess, then 1000', () => {
-  assert.deepEqual(targetRating({ clubRating: { rating: 1180.4, count: 12 }, ratings: { uscf: 900 } }), { rating: 1180, source: 'club' });
-  assert.deepEqual(targetRating({ clubRating: { rating: 1500, count: 2 }, ratings: { uscf: 900 } }), { rating: 900, source: 'uscf' });
+test('targetRating: an established puzzle rating wins, then US Chess, then 1000', () => {
+  const puzzleStats = (rating, count) => ({ solvedIds: [], rating: { rating, rd: 80, volatility: 0.06, count } });
+  assert.deepEqual(targetRating({ puzzleStats: puzzleStats(1180.4, 12), ratings: { uscf: 900 } }), { rating: 1180, source: 'puzzle' });
+  assert.deepEqual(targetRating({ puzzleStats: puzzleStats(1500, 2), ratings: { uscf: 900 } }), { rating: 900, source: 'uscf' });
+  // The club rating (fed by online games) no longer picks puzzle difficulty.
+  assert.deepEqual(targetRating({ clubRating: { rating: 1900, count: 40 }, ratings: { uscf: 900 } }), { rating: 900, source: 'uscf' });
   assert.deepEqual(targetRating({}), { rating: 1000, source: 'default' });
   assert.deepEqual(targetRating(null), { rating: 1000, source: 'default' });
 });

@@ -3,16 +3,18 @@
  * (research F021). A 700 player drowning in 1600 puzzles learns nothing but
  * frustration; a 1500 player breezing through 600s learns nothing at all.
  *
- * The target is the player's club rating once it rests on enough results
- * (every solved or failed puzzle moves it, so the target follows the player
- * up), else their US Chess rating, else a beginner's 1000. Puzzles are pitched
+ * The target is the player's puzzle rating once it rests on enough results
+ * (every first-try solve or miss moves it, so the target follows the player
+ * up), else their US Chess rating, else a beginner's 1000. It used to be the
+ * club rating, which online games also feed: a Chess.com sync reached the
+ * five-result mark at once and set puzzle difficulty from blitz results. Puzzles are pitched
  * a little above the target so there is something to reach for, and the
  * window widens until there are enough unsolved ones to work through.
  */
 
 export const DEFAULT_TARGET = 1000;
-/** Club-rating results needed before it outranks the US Chess rating. */
-export const MIN_CLUB_RESULTS = 5;
+/** Puzzle-rating results needed before it outranks the US Chess rating. */
+export const MIN_PUZZLE_RESULTS = 5;
 /** How far above the target the middle of the window sits. */
 export const STRETCH = 50;
 export const START_WINDOW = 150;
@@ -21,9 +23,9 @@ export const MIN_POOL = 10;
 
 /** The rating to pitch puzzles at, and where it came from. */
 export function targetRating(player) {
-  const club = player?.clubRating;
-  if (club && Number.isFinite(club.rating) && (club.count || 0) >= MIN_CLUB_RESULTS) {
-    return { rating: Math.round(club.rating), source: 'club' };
+  const puzzle = player?.puzzleStats?.rating;
+  if (puzzle && Number.isFinite(puzzle.rating) && (puzzle.count || 0) >= MIN_PUZZLE_RESULTS) {
+    return { rating: Math.round(puzzle.rating), source: 'puzzle' };
   }
   const uscf = Number(player?.ratings?.uscf);
   if (Number.isFinite(uscf) && uscf > 0) return { rating: uscf, source: 'uscf' };

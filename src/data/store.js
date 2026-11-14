@@ -9,6 +9,33 @@ function safeParse(raw, fallback) {
   }
 }
 
+/** Every store made here, so sign-out can empty them all at once. */
+const registry = new Set();
+
+/** Browser keys that survive sign-out: preferences, not anyone's data. */
+const KEEP_ON_SIGN_OUT = new Set(['cc-theme', 'cc-last-user']);
+
+/**
+ * Forget everything this browser holds about the club: every store goes back
+ * to its starting value and every `cc-*` key except the theme is removed.
+ * Called on sign-out and when a different account signs in, so the next
+ * person on a shared school computer can't read the last one's roster,
+ * notes or student ids from the browser.
+ */
+export function clearUserData() {
+  for (const reset of registry) reset();
+  try {
+    const doomed = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('cc-') && !KEEP_ON_SIGN_OUT.has(key)) doomed.push(key);
+    }
+    doomed.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    /* storage unavailable: nothing was persisted either */
+  }
+}
+
 /**
  * A small localStorage-backed store: get / set / subscribe, shaped for
  * useSyncExternalStore. If storage is unavailable (private browsing, a
@@ -35,6 +62,16 @@ export function createStore(key, initialValue) {
       /* storage full or blocked; state still holds for this visit */
     }
   };
+
+  registry.add(() => {
+    value = initialValue;
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* nothing to remove */
+    }
+    listeners.forEach((fn) => fn());
+  });
 
   return {
     get: () => value,

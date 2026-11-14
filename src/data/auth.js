@@ -15,6 +15,33 @@
 
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
+import { clearUserData } from './store.js';
+
+const LAST_USER_KEY = 'cc-last-user';
+
+/*
+ * Nothing from one account may be left in the browser for the next. On
+ * sign-out, or when a different account signs in on the same browser, every
+ * cached store is emptied (store.js). Registered before the data stores
+ * subscribe, so the clear runs before they fetch the new account's rows.
+ */
+if (isSupabaseConfigured) {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      clearUserData();
+      return;
+    }
+    const uid = session?.user?.id;
+    if (!uid) return;
+    try {
+      const last = localStorage.getItem(LAST_USER_KEY);
+      if (last && last !== uid) clearUserData();
+      localStorage.setItem(LAST_USER_KEY, uid);
+    } catch {
+      /* storage blocked: nothing was cached either */
+    }
+  });
+}
 
 export function useSession() {
   const [session, setSession] = useState(null);
@@ -72,4 +99,5 @@ export async function updatePassword(newPassword) {
 export async function signOut() {
   if (!isSupabaseConfigured) return;
   await supabase.auth.signOut();
+  clearUserData();
 }

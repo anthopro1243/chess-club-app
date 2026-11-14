@@ -1380,6 +1380,12 @@ button.primary:hover:not(:disabled) {
   border-left-color: var(--bad);
 }
 
+.puzzle-feedback {
+  margin: 8px 0 0;
+  color: var(--bad);
+  font-weight: 600;
+}
+
 .puzzle-counter {
   color: var(--text-faint);
   font-size: 0.78rem;

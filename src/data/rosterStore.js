@@ -26,6 +26,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
 import { updateRating, DEFAULT_RATING } from './glicko2.js';
 import { reportSyncError } from './syncStatus.js';
+import { fromRow, toRow, toRowPatch, applyRealtimeChange, applyPuzzleOutcome } from './playerRows.js';
 import { savePrivateRows } from './playerPrivateStore.js';
 
 const store = createStore('cc-roster-v1', SAMPLE_PLAYERS);
@@ -42,65 +43,6 @@ export function getPlayers() {
 
 let cloudReady = false;
 let channel = null;
-
-function fromRow(row) {
-  return {
-    playerId: row.player_id,
-    userId: row.user_id || null,
-    name: row.name,
-    grade: row.grade || '',
-    joined: row.joined || '',
-    boardRole: row.board_role || '',
-    commitment: row.commitment || 'Casual',
-    experience: row.experience || '',
-    guardianEmail: row.guardian_email || '',
-    // null = not recorded, which privacy.js treats as "no release".
-    mediaRelease: row.media_release ?? null,
-    ratings: row.ratings || {},
-    preferredOpenings: row.preferred_openings || [],
-    style: row.style || '',
-    rubric: row.rubric || {},
-    goal: row.goal || '',
-    trainingFocus: row.training_focus || '',
-    coachNotes: row.coach_notes || '',
-    puzzleStats: row.puzzle_stats || { solvedIds: [], attempts: 0, lastPlayed: null },
-    clubRating: row.club_rating || { ...DEFAULT_RATING, count: 0 },
-    ratingHistory: row.rating_history || [],
-    assessments: row.assessments || [],
-    attendance: row.attendance || [],
-    connections: row.connections || {},
-    importedGameIds: row.imported_game_ids || [],
-  };
-}
-
-function toRow(player) {
-  return {
-    player_id: player.playerId,
-    user_id: player.userId || null,
-    name: player.name,
-    grade: player.grade,
-    joined: player.joined || null,
-    board_role: player.boardRole,
-    commitment: player.commitment,
-    experience: player.experience || null,
-    guardian_email: player.guardianEmail || null,
-    media_release: player.mediaRelease ?? null,
-    ratings: player.ratings,
-    preferred_openings: player.preferredOpenings,
-    style: player.style,
-    rubric: player.rubric,
-    goal: player.goal,
-    training_focus: player.trainingFocus,
-    coach_notes: player.coachNotes,
-    puzzle_stats: player.puzzleStats,
-    club_rating: player.clubRating,
-    rating_history: player.ratingHistory || [],
-    assessments: player.assessments || [],
-    attendance: player.attendance || [],
-    connections: player.connections || {},
-    imported_game_ids: player.importedGameIds || [],
-  };
-}
 
 /*
  * Every player id the table has ever issued, soft-deleted ones included.
@@ -154,8 +96,10 @@ function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('players-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
-      syncFromCloud();
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, (payload) => {
+      const id = payload?.new?.player_id;
+      if (id) issuedPlayerIds = [...new Set([...issuedPlayerIds, id])];
+      store.set((players) => applyRealtimeChange(players, payload));
     })
     .subscribe();
 }
@@ -188,19 +132,66 @@ function cloudActive() {
   return isSupabaseConfigured && cloudReady;
 }
 
-async function pushToCloud(player) {
-  if (!cloudActive() || !player) return;
-  const { error } = await supabase.from('players').upsert(toRow(player));
-  if (error) reportSyncError('the roster', error.message);
+/*
+ * Write only the fields that changed. Every write used to upsert the whole
+ * row from this browser's copy, so a coach saving a rubric and a member
+ * finishing a puzzle at the same moment silently erased one another's edit.
+ */
+async function pushFields(player, fields) {
+  if (!cloudActive() || !player) return true;
+  const patch = toRowPatch(player, fields);
+  if (!Object.keys(patch).length) return true;
+  const { error } = await supabase.from('players').update(patch).eq('player_id', player.playerId);
+  if (error) {
+    reportSyncError('the roster', error.message);
+    return false;
+  }
+  return true;
+}
+
+const UNIQUE_VIOLATION = '23505';
+
+/*
+ * Insert a brand-new row. Never an upsert: if another device took the same
+ * CC-### id a moment ago, an upsert would overwrite that person's row. On a
+ * clash, re-read the roster and try the next free id.
+ */
+async function insertNewPlayer(player) {
+  if (!cloudActive() || !player) return player;
+  let candidate = player;
+  for (let tries = 0; tries < 3; tries += 1) {
+    const { error } = await supabase.from('players').insert(toRow(candidate));
+    if (!error) {
+      issuedPlayerIds = [...new Set([...issuedPlayerIds, candidate.playerId])];
+      return candidate;
+    }
+    if (error.code !== UNIQUE_VIOLATION) {
+      reportSyncError('the roster', error.message);
+      return candidate;
+    }
+    const takenId = candidate.playerId;
+    await syncFromCloud();
+    candidate = { ...candidate, playerId: nextPlayerId(store.get()) };
+    const moved = candidate;
+    // The re-read replaced the store with the server's rows, so our unsaved
+    // row is gone from it; put it back under its new id.
+    store.set((players) => [...players.filter((p) => p.playerId !== takenId || p.userId), moved]);
+  }
+  reportSyncError('the roster', 'Could not find a free player id. Reload and try again.');
+  return candidate;
 }
 
 async function retireInCloud(playerId) {
-  if (!cloudActive()) return;
+  if (!cloudActive()) return true;
   const { error } = await supabase
     .from('players')
     .update({ deleted_at: new Date().toISOString() })
     .eq('player_id', playerId);
-  if (error) reportSyncError('removing that player', error.message);
+  if (error) {
+    reportSyncError('removing that player', error.message);
+    return false;
+  }
+  return true;
 }
 
 /** Whether the roster is backed by a live, shared connection right now. */
@@ -286,7 +277,7 @@ export function addPlayer(partial) {
     });
     return [...players, created];
   });
-  pushToCloud(created);
+  insertNewPlayer(created);
   return created.playerId;
 }
 
@@ -388,8 +379,7 @@ export async function claimProfile({ name, grade }) {
     });
     return [...players, created];
   });
-  await pushToCloud(created);
-  return created;
+  return insertNewPlayer(created);
 }
 
 export function updatePlayer(playerId, patch) {
@@ -401,7 +391,7 @@ export function updatePlayer(playerId, patch) {
       return updated;
     }),
   );
-  pushToCloud(updated);
+  pushFields(updated, Object.keys(patch));
 }
 
 export function updateRubric(playerId, rubricPatch) {
@@ -413,7 +403,7 @@ export function updateRubric(playerId, rubricPatch) {
       return updated;
     }),
   );
-  pushToCloud(updated);
+  pushFields(updated, ['rubric']);
 }
 
 /**
@@ -424,9 +414,12 @@ export function updateRubric(playerId, rubricPatch) {
  *
  * Undo from SQL: update players set deleted_at = null where player_id = ...
  */
-export function removePlayer(playerId) {
-  store.set((players) => players.filter((p) => p.playerId !== playerId));
-  retireInCloud(playerId);
+export async function removePlayer(playerId) {
+  // Server first: if it refuses, the player stays visible instead of looking
+  // removed until the next reload.
+  const ok = await retireInCloud(playerId);
+  if (ok) store.set((players) => players.filter((p) => p.playerId !== playerId));
+  return ok;
 }
 
 /**
@@ -440,7 +433,10 @@ export async function archiveGraduate(playerId, patch) {
   if (!current) return false;
   const scrubbed = { ...current, ...patch };
   if (cloudActive()) {
-    const { error } = await supabase.from('players').upsert(toRow(scrubbed));
+    const { error } = await supabase
+      .from('players')
+      .update(toRowPatch(scrubbed, Object.keys(patch)))
+      .eq('player_id', playerId);
     if (error) {
       reportSyncError('archiving that member', error.message);
       return false;
@@ -451,32 +447,17 @@ export async function archiveGraduate(playerId, patch) {
   return true;
 }
 
-/** Called when a trainee solves a puzzle — writes the result onto their row. */
-export function recordPuzzleSolved(playerId, puzzleId) {
+/** Called when a trainee finishes (or gives up on) a puzzle. */
+export function recordPuzzleResult(playerId, outcome) {
   let updated = null;
   store.set((players) =>
     players.map((p) => {
       if (p.playerId !== playerId) return p;
-      const stats = p.puzzleStats || { solvedIds: [], attempts: 0, lastPlayed: null };
-      const solvedIds = stats.solvedIds.includes(puzzleId)
-        ? stats.solvedIds
-        : [...stats.solvedIds, puzzleId];
-      updated = {
-        ...p,
-        puzzleStats: {
-          solvedIds,
-          attempts: (stats.attempts || 0) + 1,
-          lastPlayed: new Date().toISOString(),
-        },
-      };
+      updated = { ...p, puzzleStats: applyPuzzleOutcome(p.puzzleStats, outcome) };
       return updated;
     }),
   );
-  pushToCloud(updated);
-}
-
-export function resetRoster() {
-  store.set(SAMPLE_PLAYERS);
+  pushFields(updated, ['puzzleStats']);
 }
 
 // -- club rating (Glicko-2, see glicko2.js) -------------------------------
@@ -509,7 +490,7 @@ export function recordRatingResult(playerId, { opponentRating, opponentRd, score
       return updated;
     }),
   );
-  pushToCloud(updated);
+  pushFields(updated, ['clubRating', 'ratingHistory']);
   return updated?.clubRating ?? null;
 }
 
@@ -579,8 +560,35 @@ export function recordGameResult(whitePlayerId, blackPlayerId, whiteScore) {
       return p;
     });
   });
-  pushToCloud(whiteUpdated);
-  pushToCloud(blackUpdated);
+  pushGameRatings(whiteUpdated, blackUpdated);
+}
+
+/*
+ * A club game changes two rows. A member may only write their own, so two
+ * members playing on one tablet always ended in "Couldn't save the roster".
+ * record_club_game_ratings (migration 0026) writes both in one transaction
+ * for anyone who played in the game. Until it exists, fall back to two
+ * column-only writes.
+ */
+async function pushGameRatings(white, black) {
+  if (!cloudActive() || !white || !black) return;
+  const lastEntry = (p) => (p.ratingHistory || []).at(-1) ?? null;
+  const { error } = await supabase.rpc('record_club_game_ratings', {
+    p_white: white.playerId,
+    p_white_rating: white.clubRating,
+    p_white_entry: lastEntry(white),
+    p_black: black.playerId,
+    p_black_rating: black.clubRating,
+    p_black_entry: lastEntry(black),
+  });
+  if (!error) return;
+  const missing = error.code === 'PGRST202' || /could not find the function|does not exist/i.test(error.message || '');
+  if (!missing) {
+    reportSyncError('the game ratings', error.message);
+    return;
+  }
+  await pushFields(white, ['clubRating', 'ratingHistory']);
+  await pushFields(black, ['clubRating', 'ratingHistory']);
 }
 
 // -- linked Chess.com / Lichess accounts ----------------------------------
@@ -611,7 +619,7 @@ export function setConnection(playerId, platform, connection) {
       return updated;
     }),
   );
-  pushToCloud(updated);
+  pushFields(updated, ['connections']);
   return updated;
 }
 
@@ -627,7 +635,7 @@ export function removeConnection(playerId, platform) {
       return updated;
     }),
   );
-  pushToCloud(updated);
+  pushFields(updated, ['connections']);
 }
 
 /** Merge freshly-read platform ratings into the row's `ratings` block. */
@@ -711,7 +719,7 @@ export function recordExternalResults(playerId, platform, games, { ratings, ...c
     }),
   );
 
-  pushToCloud(updated);
+  pushFields(updated, ['clubRating', 'ratingHistory', 'ratings', 'importedGameIds', 'connections']);
   return {
     imported: accepted,
     ratingBefore: before?.rating ?? null,
@@ -736,19 +744,5 @@ export function recordAssessment(playerId, rubric, notes = '') {
       return updated;
     }),
   );
-  pushToCloud(updated);
-}
-
-/** Mark a player present or absent for a given club date (YYYY-MM-DD). */
-export function setAttendance(playerId, date, present) {
-  let updated = null;
-  store.set((players) =>
-    players.map((p) => {
-      if (p.playerId !== playerId) return p;
-      const rest = (p.attendance || []).filter((a) => a.date !== date);
-      updated = { ...p, attendance: [...rest, { date, present }].sort((a, b) => a.date.localeCompare(b.date)) };
-      return updated;
-    }),
-  );
-  pushToCloud(updated);
+  pushFields(updated, ['rubric', 'assessments']);
 }
