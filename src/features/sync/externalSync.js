@@ -12,12 +12,12 @@
  * roster only does the arithmetic.
  */
 
-import { fetchGames, fetchProfile, PLATFORMS } from './externalChess.js';
-import { getPlayers, recordExternalResults, setConnection } from '../../features/roster/rosterStore.js';
-import { recordExternalGames } from '../../features/games/gamesStore.js';
-import { enqueueGameRow } from '../../analysis/queue.js';
+import { fetchGames, fetchProfile, PLATFORMS } from '../../services/external/externalChess.js';
+import { getPlayers, recordExternalResults, setConnection } from '../roster/rosterStore.js';
+import { recordExternalGames } from '../games/gamesStore.js';
+import { enqueueGameRow } from '../analysis/queue.js';
 import { toRatingRows } from '../../analysis/ratings.js';
-import { savePlatformRatings } from '../../features/ratings/ratingStore.js';
+import { savePlatformRatings } from '../ratings/ratingStore.js';
 
 /*
  * Decision 1: the scale.

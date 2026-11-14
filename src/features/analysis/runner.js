@@ -10,14 +10,14 @@
  * club night.
  */
 
-import { createEngine } from '../engine/stockfishClient.js';
-import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from './analyzeGame.js';
+import { createEngine } from '../../engine/stockfishClient.js';
+import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from '../../analysis/analyzeGame.js';
 import {
   saveAnalysis, saveSkillScores, getAnalyses, getSkillsForPlayer,
-} from '../features/analysis/analysisStore.js';
-import { addOwnGamePuzzles } from '../features/training/ownPuzzleStore.js';
-import { recordEngineAssessment } from '../features/coach/assessmentStore.js';
-import { aggregateRaw, rubricScores, updatePlayerScores } from './scoring.js';
+} from './analysisStore.js';
+import { addOwnGamePuzzles } from '../training/ownPuzzleStore.js';
+import { recordEngineAssessment } from '../coach/assessmentStore.js';
+import { aggregateRaw, rubricScores, updatePlayerScores } from '../../analysis/scoring.js';
 
 let engine = null;
 let busy = false;

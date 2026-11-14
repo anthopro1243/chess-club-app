@@ -10,7 +10,7 @@ import { useAccount } from '../features/account/accountStore.js';
 import { useSyncError, clearSyncError } from '../services/syncStatus.js';
 import { reportClientError } from '../services/errorLog.js';
 import { useAnalysisQueue } from '../features/analysis/useAnalysisQueue.js';
-import { useAutoSync } from '../services/external/useAutoSync.js';
+import { useAutoSync } from '../features/sync/useAutoSync.js';
 import { useMyProfile } from '../features/roster/rosterStore.js';
 import BackgroundActivity from './BackgroundActivity.jsx';
 import { ROUTES, visibleRoutes, canOpenRoute, documentTitle } from './routes.js';

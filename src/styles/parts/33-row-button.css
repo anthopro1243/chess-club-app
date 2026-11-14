@@ -1,0 +1,15 @@
+/* A table cell's main control: looks like the text it was, works from the keyboard. */
+.row-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-button:hover {
+  text-decoration: underline;
+}

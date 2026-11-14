@@ -1,0 +1,42 @@
+/* Board rows exist for screen readers only; the squares stay in the 8x8 grid. */
+.board-row {
+  display: contents;
+}
+
+.square:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+.san-input {
+  margin-top: 10px;
+}
+
+.san-input-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.san-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.san-input-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+}
+
+.san-input-error {
+  color: var(--bad);
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+}
+
+.san-input-hint {
+  margin: 4px 0 0;
+}

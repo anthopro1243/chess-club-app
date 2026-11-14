@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../services/store.js';
 import { useAnalysisActivity } from '../features/analysis/useAnalysisQueue.js';
-import { autoSyncStatus } from '../services/external/useAutoSync.js';
+import { autoSyncStatus } from '../features/sync/useAutoSync.js';
 
 /*
  * BackgroundActivity — a small, quiet note in the corner saying what the app

@@ -1,0 +1,31 @@
+/* ---------- promotion --------------------------------------------------- */
+
+.promotion-choices {
+  display: flex;
+  gap: 8px;
+}
+
+.promotion-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 78px;
+  padding: 10px 6px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.promotion-choice:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.promotion-choice .piece {
+  width: 42px;
+  height: 42px;
+}

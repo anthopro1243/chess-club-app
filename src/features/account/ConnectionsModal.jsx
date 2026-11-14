@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMyProfile, removeConnection } from '../roster/rosterStore.js';
 import { PLATFORMS } from '../../services/external/externalChess.js';
-import { connectAccount, syncPlatform } from '../../services/external/externalSync.js';
+import { connectAccount, syncPlatform } from '../sync/externalSync.js';
 import { withTimeout, retry, TimeoutError } from '../../services/external/autoPolicy.js';
 
 /* Both sites usually answer in a second or two; past these, say so. */

@@ -1,0 +1,56 @@
+/* ---------- shell: skip link, page heading, nav edges --------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 50;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 10px;
+}
+
+.content:focus {
+  outline: none;
+}
+
+.banner-slot:empty {
+  display: none;
+}
+
+/* The phone nav scrolls sideways; fade the edge that has more links past it. */
+.nav.fade-right {
+  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+  mask-image: linear-gradient(to right, #000 82%, transparent);
+}
+.nav.fade-left {
+  -webkit-mask-image: linear-gradient(to left, #000 82%, transparent);
+  mask-image: linear-gradient(to left, #000 82%, transparent);
+}
+.nav.fade-left.fade-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+}
+
+.hero-title {
+  font-size: 2rem;
+}

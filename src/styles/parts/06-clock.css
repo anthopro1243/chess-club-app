@@ -1,0 +1,94 @@
+/* ---------- clock ------------------------------------------------------- */
+
+.player-bar .clock {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 5.2ch;
+  text-align: right;
+}
+
+.player-bar .clock.running {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.player-bar .clock.low {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.badge.warn {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.auth-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1180px;
+  width: calc(100% - 48px);
+  margin: 16px auto 0;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  font-size: 0.88rem;
+}
+
+.auth-banner.error {
+  background: rgba(217, 105, 95, 0.12);
+  border-color: var(--bad);
+  color: var(--text);
+}
+
+.auth-banner.success {
+  background: rgba(111, 191, 115, 0.12);
+  border-color: var(--good);
+  color: var(--text);
+}
+
+.auth-banner button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 18px 24px 28px;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+}

@@ -17,12 +17,12 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { isSupabaseConfigured } from '../supabaseClient.js';
-import { useMyProfile, getPlayers } from '../../features/roster/rosterStore.js';
+import { isSupabaseConfigured } from '../../services/supabaseClient.js';
+import { useMyProfile, getPlayers } from '../roster/rosterStore.js';
 import { syncPlatform } from './externalSync.js';
-import { platformsDueForSync, withTimeout, AUTO_SYNC_MIN_INTERVAL_MS } from './autoPolicy.js';
+import { platformsDueForSync, withTimeout, AUTO_SYNC_MIN_INTERVAL_MS } from '../../services/external/autoPolicy.js';
 import { planClubSync, backoffAfter429, clearBackoff } from './clubSync.js';
-import { createStore } from '../store.js';
+import { createStore } from '../../services/store.js';
 
 /*
  * Back-off state for the club sweep, kept across reloads so a site that said

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { queueCounts, enqueueAll } from '../../analysis/queue.js';
+import { queueCounts, enqueueAll } from './queue.js';
 import { useAnalysisActivity } from './useAnalysisQueue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
 import { isCloud } from '../../services/backend.js';

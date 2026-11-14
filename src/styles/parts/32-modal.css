@@ -1,0 +1,46 @@
+/* ---------- dialogs (ui/Modal.jsx) ------------------------------------- */
+
+.modal {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal-panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
+}

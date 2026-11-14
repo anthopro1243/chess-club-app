@@ -16,8 +16,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { claimNext, markDone, markFailed, queueCounts } from '../../analysis/queue.js';
-import { analyzeArchivedGame, isBusy, resetAfterTimeout } from '../../analysis/runner.js';
+import { claimNext, markDone, markFailed, queueCounts } from './queue.js';
+import { analyzeArchivedGame, isBusy, resetAfterTimeout } from './runner.js';
 import { DEFAULT_DEPTH } from '../../analysis/analyzeGame.js';
 import { useStore } from '../../services/store.js';
 import { withTimeout, TimeoutError } from '../../services/external/autoPolicy.js';

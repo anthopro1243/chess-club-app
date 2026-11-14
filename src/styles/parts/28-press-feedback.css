@@ -1,0 +1,109 @@
+/* ---------- press feedback: every button ---------------------------------
+   Last in the file so it wins ties. Base looks use :where() (no specificity)
+   so any button that already has its own style keeps it; only bare buttons
+   and primary buttons outside a button group pick these up. */
+
+button,
+[role='button'],
+tr.clickable {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(button:not([class])) {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.88rem;
+}
+
+:where(button:not([class])):hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+:where(button.primary) {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.88rem;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button {
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s,
+    filter 0.12s, box-shadow 0.12s, transform 0.08s ease-out;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+button.primary:active:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.link-button:active:not(:disabled) {
+  opacity: 0.65;
+}
+
+.link-button:disabled:hover {
+  text-decoration: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+tr.clickable:active {
+  background: var(--accent-soft);
+}
+
+/* A button that is working shows a small spinner and stays readable. */
+button[aria-busy='true'] {
+  cursor: progress;
+}
+
+button[aria-busy='true']:disabled {
+  opacity: 0.75;
+}
+
+button[aria-busy='true']::before {
+  content: '';
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.45em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: button-spin 0.7s linear infinite;
+}
+
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled) {
+    transform: none;
+  }
+
+  button[aria-busy='true']::before {
+    animation-duration: 2s;
+  }
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { planPgnImport, rowProblem, recordsToImport, summarise } from './pgnImportPlan.js';
 import { recordImportedGames } from './gamesStore.js';
-import { enqueueGameRow } from '../../analysis/queue.js';
+import { enqueueGameRow } from '../analysis/queue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
 import Modal from '../../ui/Modal.jsx';
 import { useAccount } from '../account/accountStore.js';

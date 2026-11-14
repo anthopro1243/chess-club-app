@@ -3,7 +3,7 @@ import { GAME_TIMEOUT_MS } from './useAnalysisQueue.js';
 import { useMemo, useState } from 'react';
 import Link from '../../ui/Link.jsx';
 import { useAnalysisForGame } from './analysisStore.js';
-import { analyzeArchivedGame, isBusy, resetAfterTimeout } from '../../analysis/runner.js';
+import { analyzeArchivedGame, isBusy, resetAfterTimeout } from './runner.js';
 import {
   playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor, memberCategoryLines,
 } from '../../analysis/presentation.js';

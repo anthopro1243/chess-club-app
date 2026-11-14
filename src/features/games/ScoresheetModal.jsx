@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../../engine/chess.js';
 import Board from '../../board/Board.jsx';
 import PromotionDialog from '../../board/PromotionDialog.jsx';
-import PositionEditor from '../../board/PositionEditor.jsx';
+import PositionEditor from './PositionEditor.jsx';
 import { matchMove, suggestMoves, splitMoveText, plyLabel } from './sanMatch.js';
 import {
   RESULTS,
@@ -18,7 +18,7 @@ import {
   validateSetup,
 } from './scoresheet.js';
 import { recordImportedGames } from './gamesStore.js';
-import { enqueueGameRow } from '../../analysis/queue.js';
+import { enqueueGameRow } from '../analysis/queue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
 import './scoresheet.css';
 import Modal from '../../ui/Modal.jsx';
