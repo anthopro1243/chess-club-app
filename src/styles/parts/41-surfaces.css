@@ -130,3 +130,216 @@ a.person:hover .person-name,
 .skeleton-panel {
   height: 320px;
 }
+
+/* ---------- the Club page ------------------------------------------------ */
+
+/* What people come to do, as large targets. */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.action-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.action-card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* The first card is the main thing to do here. */
+.action-card:first-child .action-card-icon {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.action-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.action-card-detail {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.action-card-chevron {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.action-card:hover .action-card-chevron {
+  color: var(--accent-ink);
+}
+
+/* Stat tiles: the icon sits top right, out of the way of the number. */
+.stat {
+  position: relative;
+}
+
+.stat-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+}
+
+/* Leaderboard places: the top three get a medal. */
+.rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rank-1,
+.rank-2,
+.rank-3 {
+  color: #1c1608;
+}
+
+.rank-1 { background: #e6b84a; }
+.rank-2 { background: #c3c8cf; }
+.rank-3 { background: #cf9565; }
+
+/* The coach's "Preview as" picker, in the page header (local mode only). */
+.preview-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.preview-pick select {
+  width: auto;
+  max-width: 180px;
+}
+
+/* ---------- a player's record on the Roster page ------------------------- */
+
+.player-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.player-head-text {
+  min-width: 0;
+}
+
+.player-head h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.player-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.player-actions {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+/* A row's name button keeps the avatar beside it. */
+.row-button.person:hover {
+  text-decoration: none;
+}
+
+.row-button.person:hover .person-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 940px) {
+  .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .action-card {
+    padding: var(--space-3);
+  }
+
+  .action-card-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .action-card-title {
+    font-size: var(--text-md);
+  }
+
+  .action-card-detail,
+  .action-card-chevron {
+    display: none;
+  }
+
+  .player-actions .push {
+    margin-left: 0;
+  }
+}
+
+/* Scrolled to from a link, the record clears the phone's top bar. */
+.player-detail {
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-3));
+}

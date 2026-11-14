@@ -6,25 +6,6 @@
   gap: 20px;
 }
 
-.hero {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px 26px;
-}
-
-.hero p {
-  color: var(--text-muted);
-  max-width: 52ch;
-  margin-top: 8px;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
-}
-
 .stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

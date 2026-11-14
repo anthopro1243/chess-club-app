@@ -280,18 +280,6 @@
   margin-top: 0;
 }
 
-/* The coach's local "Preview as" picker on the Club page. */
-.ph-preview-picker {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-}
-
-.ph-preview-picker select {
-  max-width: 100%;
-}
-
 @media (max-width: 760px) {
   .ph-grid {
     grid-template-columns: minmax(0, 1fr);

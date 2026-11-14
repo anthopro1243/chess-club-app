@@ -36,7 +36,3 @@
 .banner-slot:empty {
   display: none;
 }
-
-.hero-title {
-  font-size: 2rem;
-}

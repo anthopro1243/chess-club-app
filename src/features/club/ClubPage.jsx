@@ -11,6 +11,18 @@ import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../ratings/ratingStore.js';
 import { rankForLeaderboard } from '../../analysis/ratings.js';
 import Link from '../../ui/Link.jsx';
+import Icon from '../../ui/Icon.jsx';
+import Avatar from '../../ui/Avatar.jsx';
+import EmptyState from '../../ui/EmptyState.jsx';
+import { PageActions, usePageMeta } from '../../ui/PageHeader.jsx';
+
+// What people come to the home page to do, as large targets.
+const QUICK_ACTIONS = [
+  { to: 'play', icon: 'play', title: 'Play a game', text: 'A clubmate or the computer.' },
+  { to: 'training', icon: 'training', title: 'Train', text: 'Puzzles for what you miss.' },
+  { to: 'games', icon: 'games', title: 'Games', text: 'Review one or log a result.' },
+  { to: 'roster', icon: 'roster', title: 'Roster', text: 'Everyone in the club.' },
+];
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */
 export default function ClubPage() {
@@ -96,60 +108,60 @@ export default function ClubPage() {
   // With nobody ranked, only the members who have an online rating are worth listing.
   const unrankedShown = leaderboard.length ? unranked : unranked.filter((e) => e.resolved.rating != null);
 
+  // A member is greeted by name; everyone else gets the page's own title.
+  const hasOwnHome = isCloud && !!me && account.isApproved;
+  const firstName = hasOwnHome ? String(me.name || '').trim().split(/\s+/)[0] : '';
+  usePageMeta(
+    firstName ? { title: `Welcome back, ${firstName}`, summary: 'Your games, your training, and the club.' } : null,
+  );
+
   return (
     <div className="dashboard">
 
-      {isCloud && me && account.isApproved && (
-        <PlayerHome playerId={me.playerId} viewer={myViewer} />
+      {/* Local mode has no sign-in, so the coach picks whose page to look at. */}
+      {canPreview && players.length > 0 && (
+        <PageActions>
+          <label className="preview-pick">
+            <span>Preview as</span>
+            <select value={previewing ? previewId : ''} onChange={(event) => setPreviewId(event.target.value)}>
+              <option value="">Nobody</option>
+              {players.map((p) => (
+                <option key={p.playerId} value={p.playerId}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </PageActions>
       )}
 
-      {canPreview && players.length > 0 && (
-        <section className="panel ph-preview-picker" aria-label="Preview a player's home page">
-          <label htmlFor="ph-preview-select" className="muted small">
-            Preview a player&rsquo;s home page:
-          </label>
-          <select
-            id="ph-preview-select"
-            value={previewing ? previewId : ''}
-            onChange={(event) => setPreviewId(event.target.value)}
-          >
-            <option value="">Nobody (club page only)</option>
-            {players.map((p) => (
-              <option key={p.playerId} value={p.playerId}>
-                {p.name} ({p.playerId})
-              </option>
-            ))}
-          </select>
-        </section>
-      )}
+      {hasOwnHome && <PlayerHome playerId={me.playerId} viewer={myViewer} />}
       {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
 
       {/* A member with their own page above already has "Play a game" there. */}
-      {!(isCloud && me && account.isApproved) && (
-        <section className="hero">
-          <div>
-            <h2 className="hero-title">Chess Club</h2>
-            <p>
-              Play, go over your games, and see what to work on next.
-            </p>
-            <div className="hero-actions">
-              <Link to="play" className="button primary">
-                Play a game
-              </Link>
-              <Link to="roster" className="button">
-                View roster
-              </Link>
-            </div>
-          </div>
-        </section>
+      {!hasOwnHome && !previewing && (
+        <nav className="action-grid" aria-label="Start here">
+          {QUICK_ACTIONS.map((action) => (
+            <Link key={action.to} to={action.to} className="action-card">
+              <span className="action-card-icon">
+                <Icon name={action.icon} size={22} />
+              </span>
+              <span className="action-card-text">
+                <span className="action-card-title">{action.title}</span>
+                <span className="action-card-detail">{action.text}</span>
+              </span>
+              <Icon name="chevron-right" size={18} className="action-card-chevron" />
+            </Link>
+          ))}
+        </nav>
       )}
 
-
-      <section className="stat-row">
-        <Stat label="Players" value={players.length} />
-        <Stat label="Rated players" value={rated.length} />
-        <Stat label="Average USCF" value={averageRating ?? '—'} />
+      <section className="stat-row" aria-label="The club in numbers">
+        <Stat icon="roster" label="Players" value={players.length} />
+        <Stat icon="star" label="Rated players" value={rated.length} />
+        <Stat icon="chart" label="Average USCF" value={averageRating ?? '—'} />
         <Stat
+          icon="trophy"
           label="Competitive track"
           value={players.filter((p) => p.commitment === 'Competitive').length}
         />
@@ -167,23 +179,31 @@ export default function ClubPage() {
         </div>
 
         {leaderboard.length === 0 ? (
-          <p className="hint-text">
+          <EmptyState
+            icon="trophy"
+            title={players.length > 0 ? 'Nobody is ranked yet' : 'No players yet'}
+            actions={
+              <Link to="roster" className="btn">
+                Open the roster
+              </Link>
+            }
+          >
             {players.length > 0
-              ? 'Nobody is ranked yet. A USCF rating, a Chess.com rapid rating from a linked account, or a rating the coach sets puts someone here.'
+              ? 'A USCF rating, a Chess.com rapid rating from a linked account, or a rating the coach sets puts someone here.'
               : cloud.configured
                 ? 'No one has joined yet.'
                 : 'Add players on the Roster page to start tracking ratings.'}
-          </p>
+          </EmptyState>
         ) : (
           <div className="table-scroll">
-            <table className="roster-table">
-<caption className="sr-only">Club leaderboard</caption>
+            <table className="roster-table leaderboard">
+              <caption className="sr-only">Club leaderboard</caption>
               <thead>
                 <tr>
                   <th scope="col">Rank</th>
                   <th scope="col">Name</th>
                   <th scope="col">Rating</th>
-                  <th scope="col">Puzzles solved</th>
+                  <th scope="col" className="hide-narrow">Puzzles solved</th>
                   <th scope="col">Track</th>
                 </tr>
               </thead>
@@ -192,13 +212,20 @@ export default function ClubPage() {
                   const player = entry.player;
                   return (
                     <tr key={player.playerId}>
-                      <td className="mono">{index + 1}</td>
-                      <td>{player.name}</td>
+                      <td>
+                        <span className={`rank ${index < 3 ? `rank-${index + 1}` : ''}`}>{index + 1}</span>
+                      </td>
+                      <td>
+                        <Link to="roster" params={{ player: player.playerId }} className="person">
+                          <Avatar name={player.name} size="sm" />
+                          <span className="person-name">{player.name}</span>
+                        </Link>
+                      </td>
                       <td className="mono">
                         {entry.resolved.rating}
                         <span className="hint-text"> {entry.resolved.label}</span>
                       </td>
-                      <td className="mono">{player.puzzleStats?.solvedIds?.length || 0}</td>
+                      <td className="mono hide-narrow">{player.puzzleStats?.solvedIds?.length || 0}</td>
                       <td>
                         <span className={`track ${player.commitment.toLowerCase()}`}>
                           {player.commitment}
@@ -221,7 +248,10 @@ export default function ClubPage() {
             <ul className="muted small">
               {unrankedShown.map((entry) => (
                 <li key={entry.playerId}>
-                  {entry.player.name}:{' '}
+                  <Link to="roster" params={{ player: entry.playerId }} className="name-link">
+                    {entry.player.name}
+                  </Link>
+                  :{' '}
                   {entry.resolved.rating != null
                     ? `${entry.resolved.rating} (${entry.resolved.label})`
                     : 'unrated'}
@@ -294,9 +324,12 @@ export default function ClubPage() {
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ icon, label, value }) {
   return (
     <div className="stat">
+      <span className="stat-icon">
+        <Icon name={icon} size={18} />
+      </span>
       <span className="stat-value">{value}</span>
       <span className="stat-label">{label}</span>
     </div>
