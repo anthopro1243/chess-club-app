@@ -31,11 +31,15 @@ written to be safe against a database with real rows and safe to run twice.
 | `0025_link_account_to_student.sql` | linking a signed-up account to its student row by student ID and name |
 | `0026_ratings_rpc_column_guard_game_inserts.sql` | `record_club_game_ratings`, a guard so members can't edit coach-only columns, tighter game inserts, `erase_student()` |
 | `0027_client_errors.sql` | the `client_errors` table the Coach page's error list reads |
+| `0028_policy_checks_once_per_query.sql` | row-level policies check "who is asking" once per query instead of once per row (game analyses were timing out) |
 
 `0005` must run before every later file: they call its helper functions.
 
 **As of November 2026, `0025`, `0026` and `0027` are new and not yet applied
-to the live database.** Apply them in that order, then deploy. Until 0026 is
+to the live database.** Apply them in that order, then deploy. `0028` was applied to the live database
+on 14 November 2026, ahead of them; it only rewrites existing policies, so it
+is safe in any order. After applying `0025`–`0027`, run `0028` again so their
+new policies get the same treatment. Until 0026 is
 applied, two-player game ratings fall back to two separate updates, which
 still works.
 
