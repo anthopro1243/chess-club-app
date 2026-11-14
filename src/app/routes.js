@@ -14,20 +14,60 @@
  */
 
 export const ROUTES = [
-  { id: 'home', label: 'Club', title: 'Club' },
-  { id: 'play', label: 'Play', title: 'Play' },
-  { id: 'training', label: 'Training', title: 'Training' },
-  { id: 'games', label: 'Games', title: 'Games' },
-  { id: 'my-games', label: 'My games', title: 'My games' },
-  { id: 'roster', label: 'Roster', title: 'Roster' },
-  { id: 'coach', label: 'Coach', title: 'Coach', coachOnly: true },
+  { id: 'home', label: 'Club', title: 'Club', icon: 'home', group: 'club', summary: 'The leaderboard and how the club is doing.' },
+  { id: 'play', label: 'Play', title: 'Play', icon: 'play', group: 'play', summary: 'A game against a clubmate or the computer.' },
+  { id: 'training', label: 'Training', title: 'Training', icon: 'training', group: 'play', summary: 'Puzzles picked for what you need to work on.' },
+  { id: 'games', label: 'Games', title: 'Games', icon: 'games', group: 'records', summary: 'Every game the club has played, newest first.' },
+  { id: 'my-games', label: 'My games', title: 'My games', icon: 'my-games', group: 'records', summary: 'Your own games, with the analysis for each.' },
+  { id: 'roster', label: 'Roster', title: 'Roster', icon: 'roster', group: 'club', summary: 'Everyone in the club and their record.' },
+  { id: 'coach', label: 'Coach', title: 'Coach', icon: 'coach', group: 'coach', summary: 'Queues, progress and tools for running the club.', coachOnly: true },
 ];
+
+/*
+ * The menu is grouped by what a page is for. Group order is the order of the
+ * sidebar; a group nobody may see (Coach, for a member) is left out whole.
+ */
+export const NAV_GROUPS = [
+  { id: 'club', label: 'Club' },
+  { id: 'play', label: 'Play and train' },
+  { id: 'records', label: 'Game records' },
+  { id: 'coach', label: 'Coaching' },
+];
+
+/** The phone's bottom bar: the pages people use most. The rest sit under "More". */
+const TAB_IDS = ['home', 'play', 'training', 'games'];
 
 export const SITE_NAME = 'Chess Club';
 
 /** The routes this account may see in the nav. */
 export function visibleRoutes({ isCoach = false } = {}) {
   return ROUTES.filter((route) => !route.coachOnly || isCoach);
+}
+
+/** The sidebar: [{ id, label, routes }], empty groups dropped. */
+export function navGroups(account = {}) {
+  const routes = visibleRoutes(account);
+  return NAV_GROUPS.map((group) => ({ ...group, routes: routes.filter((r) => r.group === group.id) })).filter(
+    (group) => group.routes.length,
+  );
+}
+
+/** The phone's bottom bar: { tabs, more }. Every visible route is in exactly one. */
+export function tabRoutes(account = {}) {
+  const routes = visibleRoutes(account);
+  return {
+    tabs: TAB_IDS.map((id) => routes.find((r) => r.id === id)).filter(Boolean),
+    more: routes.filter((r) => !TAB_IDS.includes(r.id)),
+  };
+}
+
+/**
+ * What counts as "a different view" for focus and scroll: the page, plus the
+ * one game a Games link opens. Other parameters (a puzzle theme, a selected
+ * player) change what a page shows without leaving it.
+ */
+export function viewKey({ id, params = {} } = {}) {
+  return id === 'games' && params.game ? `games:${params.game}` : id;
 }
 
 /** Whether this account may open the route at all (a typed-in #/coach included). */

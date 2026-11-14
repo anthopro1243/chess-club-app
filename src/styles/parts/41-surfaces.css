@@ -1,0 +1,132 @@
+/* ---------- surfaces: panels, avatars, empty and loading states ----------- */
+
+.panel,
+.panel-block,
+.stat {
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-panel {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Initials on a tint picked from the name (ui/Avatar.jsx). */
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: hsl(var(--avatar-hue, 350) var(--avatar-bg));
+  color: hsl(var(--avatar-hue, 350) var(--avatar-ink));
+  font-family: var(--font);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 0.68rem;
+}
+
+.avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
+}
+
+/* A name with its avatar, in a table cell or a heading. */
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+a.person,
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.person:hover .person-name,
+.name-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-ink);
+  text-underline-offset: 3px;
+}
+
+/* An empty list: an icon, what is missing, and the way to fill it. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.empty-text {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* A page that is still downloading shows its shape, not the word "Loading". */
+.skeleton-page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.skeleton {
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.skeleton-tile {
+  height: 84px;
+}
+
+.skeleton-panel {
+  height: 320px;
+}

@@ -31,10 +31,6 @@
   font-weight: 600;
 }
 
-.theme-toggle:hover {
-  color: var(--text);
-  border-color: var(--text-faint);
-}
 
 .content {
   flex: 1;

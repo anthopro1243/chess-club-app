@@ -1,4 +1,4 @@
-/* ---------- shell: skip link, page heading, nav edges --------------------- */
+/* ---------- shell: skip link, screen-reader text ------------------------- */
 
 .sr-only {
   position: absolute;
@@ -35,20 +35,6 @@
 
 .banner-slot:empty {
   display: none;
-}
-
-/* The phone nav scrolls sideways; fade the edge that has more links past it. */
-.nav.fade-right {
-  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
-  mask-image: linear-gradient(to right, #000 82%, transparent);
-}
-.nav.fade-left {
-  -webkit-mask-image: linear-gradient(to left, #000 82%, transparent);
-  mask-image: linear-gradient(to left, #000 82%, transparent);
-}
-.nav.fade-left.fade-right {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
 }
 
 .hero-title {

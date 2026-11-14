@@ -59,14 +59,20 @@
     color: #000;
   }
 
-  html.rc-printing .topbar,
+  html.rc-printing .shell,
+  html.rc-printing .tabbar,
+  html.rc-printing .page-header,
   html.rc-printing .footer,
   html.rc-printing .auth-banner,
   html.rc-printing .background-activity,
   html.rc-printing .toast,
   html.rc-printing .rc-actions,
-  html.rc-printing .content > * > *:not(.report-card) {
+  html.rc-printing .page-body > * > *:not(.report-card) {
     display: none !important;
+  }
+
+  html.rc-printing .app {
+    padding: 0;
   }
 
   html.rc-printing .report-card,

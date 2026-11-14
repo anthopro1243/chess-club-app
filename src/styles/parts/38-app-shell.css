@@ -1,0 +1,417 @@
+/* ---------- app shell (app/App.jsx) ---------------------------------------
+   One <header class="shell">. On a laptop it is a sidebar fixed to the left
+   edge with the whole menu in it; at 940px and under it is a slim top bar,
+   and the menu moves to a tab bar along the bottom of the screen. */
+
+.app {
+  padding-left: var(--sidebar-w);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  width: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 18px 14px 14px;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+}
+
+.shell .brand {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 1.1rem;
+}
+
+/* Quick search: looks like a search box, is a button that opens the palette. */
+.shell-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 8px 0 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+}
+
+.shell-search:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.shell-search-label {
+  flex: 1;
+}
+
+.kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* The menu. Only this part of the sidebar scrolls, so the account menu
+   (which opens upward out of the tools row) is never clipped. */
+.sidenav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -6px;
+  padding: 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sidenav ul,
+.more-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sidenav ul {
+  display: grid;
+  gap: 2px;
+}
+
+.sidenav-label {
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.sidenav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.sidenav-link:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+.sidenav-link.active {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 650;
+}
+
+.sidenav-link.active svg {
+  color: var(--accent-ink);
+}
+
+.sidenav-link.active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.shell-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.shell .account-button {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 9px;
+}
+
+/* In the sidebar the account menu opens upward and to the right. */
+.shell .account-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: auto;
+}
+
+.shell-theme {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 38px;
+  padding: 0 10px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-align: left;
+}
+
+.shell-theme:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+.footer .kbd {
+  margin: 0 2px;
+}
+
+/* The phone's tab bar; hidden until the sidebar goes. */
+.tabbar {
+  display: none;
+}
+
+.more-list {
+  display: grid;
+  gap: 4px;
+}
+
+.more-sheet {
+  width: min(440px, calc(100vw - 24px));
+}
+
+.more-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  text-decoration: none;
+}
+
+.more-link:hover {
+  background: var(--bg-sunken);
+}
+
+.more-link.active {
+  background: var(--accent-soft);
+}
+
+.more-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  color: var(--accent-ink);
+}
+
+.more-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.more-text span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.more-chevron {
+  flex: none;
+  color: var(--text-faint);
+}
+
+@media (max-width: 940px) {
+  .app {
+    padding-left: 0;
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .shell {
+    position: sticky;
+    bottom: auto;
+    width: auto;
+    height: var(--topbar-h);
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .shell .brand {
+    margin-right: auto;
+    padding: 2px;
+    font-size: 1.02rem;
+  }
+
+  .sidenav {
+    display: none;
+  }
+
+  .shell-search {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    flex: none;
+  }
+
+  .shell-search-label,
+  .shell-search .kbd,
+  .shell-theme-label,
+  .footer span:last-child {
+    display: none;
+  }
+
+  .shell-tools {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .shell .account-button {
+    width: auto;
+    /* What is left after the brand, search, the theme switch and the gaps. */
+    max-width: calc(100vw - 262px);
+  }
+
+  .shell .account-popover {
+    top: calc(100% + 8px);
+    bottom: auto;
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 24px);
+  }
+
+  .shell-theme {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    border-color: var(--border);
+    flex: none;
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 4px env(safe-area-inset-bottom, 0px);
+    background: var(--bg-raised);
+    border-top: 1px solid var(--border);
+  }
+
+  .tab {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .tab.active {
+    color: var(--text);
+  }
+
+  .tab.active svg {
+    color: var(--accent-ink);
+  }
+
+  .tab.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 28%;
+    right: 28%;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--accent);
+  }
+
+  /* Things pinned to the bottom of the screen sit above the tab bar. */
+  .toast {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
+  }
+
+  .background-activity {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+
+  /* A dialog on a phone is a sheet: full width, rising from the bottom edge. */
+  .more-sheet {
+    width: 100vw;
+  }
+}
+
+@media (max-width: 359px) {
+  /* The smallest phones: the seal alone stands for the club name. */
+  .brand-name {
+    display: none;
+  }
+
+  .shell .account-button {
+    max-width: calc(100vw - 170px);
+  }
+}

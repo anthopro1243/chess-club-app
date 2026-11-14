@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ROUTES, visibleRoutes, canOpenRoute, parseHash, href, documentTitle } from './routes.js';
+import {
+  ROUTES,
+  visibleRoutes,
+  canOpenRoute,
+  parseHash,
+  href,
+  documentTitle,
+  navGroups,
+  tabRoutes,
+  viewKey,
+} from './routes.js';
 
 test('a member does not see the Coach page in the nav', () => {
   const ids = visibleRoutes({ isCoach: false }).map((r) => r.id);
@@ -40,4 +50,30 @@ test('href builds what parseHash reads, dropping empty parameters', () => {
 test('documentTitle names the page', () => {
   assert.equal(documentTitle('games'), 'Games · Chess Club');
   assert.equal(documentTitle('home'), 'Chess Club');
+});
+
+test('navGroups: every visible page once, and no Coaching group for a member', () => {
+  const coach = navGroups({ isCoach: true });
+  assert.deepEqual(coach.flatMap((g) => g.routes.map((r) => r.id)).sort(), ROUTES.map((r) => r.id).sort());
+  const member = navGroups({ isCoach: false });
+  assert.ok(!member.some((g) => g.id === 'coach'));
+  assert.ok(member.every((g) => g.routes.length > 0));
+});
+
+test('tabRoutes: four tabs, the rest under More, nothing lost or repeated', () => {
+  const { tabs, more } = tabRoutes({ isCoach: true });
+  assert.deepEqual(tabs.map((r) => r.id), ['home', 'play', 'training', 'games']);
+  assert.equal(tabs.length + more.length, ROUTES.length);
+  assert.ok(!tabRoutes({ isCoach: false }).more.some((r) => r.id === 'coach'));
+});
+
+test('every route has an icon, a group and a summary', () => {
+  for (const route of ROUTES) assert.ok(route.icon && route.group && route.summary, route.id);
+});
+
+test('viewKey: a linked game is its own view, other parameters are not', () => {
+  assert.equal(viewKey(parseHash('#/games?game=abc')), 'games:abc');
+  assert.equal(viewKey(parseHash('#/games')), 'games');
+  assert.equal(viewKey(parseHash('#/roster?player=CC-001')), 'roster');
+  assert.equal(viewKey(parseHash('#/training?theme=fork')), 'training');
 });
