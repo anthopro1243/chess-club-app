@@ -176,7 +176,7 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
             <div className="critical-head">
               <h4>{showingBig ? 'Big mistakes' : 'Turning points'}</h4>
               {big.length > 0 && big.length < explained.length && (
-                <button type="button" className="link-button" onClick={() => setBigOnly((v) => !v)}>
+                <button type="button" className="btn btn-sm" onClick={() => setBigOnly((v) => !v)}>
                   {showingBig ? 'Show all turning points' : 'Big mistakes only'}
                 </button>
               )}

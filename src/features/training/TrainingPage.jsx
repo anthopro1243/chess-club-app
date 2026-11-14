@@ -409,7 +409,7 @@ export default function TrainingPage() {
           {setIds.length > 0 && source !== 'mistakes' && (
             <div className="hw-set-chip">
               <span>Puzzle set: {filtered.length} puzzles</span>
-              <button type="button" className="link-button" onClick={() => setSetIds([])}>
+              <button type="button" className="btn btn-sm" onClick={() => setSetIds([])}>
                 Show all puzzles
               </button>
             </div>

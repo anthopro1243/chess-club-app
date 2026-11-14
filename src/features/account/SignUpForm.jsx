@@ -79,7 +79,7 @@ export default function SignUpForm({ onDone, onSwitch }) {
           {error}
         </span>
       )}
-      <button type="submit" className="primary" disabled={status === 'sending'}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={status === 'sending'}>
         Create account
       </button>
       <button type="button" className="link-button" onClick={() => onSwitch('signin')}>

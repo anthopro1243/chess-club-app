@@ -406,7 +406,7 @@ function CoachOnly() {
     <section className="panel access-gate">
       <h2>Coaches only</h2>
       <p>This page is for the coach. Your own games and what to work on are on the Club page.</p>
-      <Link to="home" className="button primary">
+      <Link to="home" className="btn btn-primary">
         Go to the Club page
       </Link>
     </section>
@@ -455,7 +455,7 @@ class PageErrorBoundary extends Component {
             ? 'Check your connection and try again.'
             : 'It’s been reported to the coach. Reloading usually gets you going again.'}
         </p>
-        <button type="button" className="primary" onClick={() => window.location.reload()}>
+        <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
           Reload
         </button>
       </section>

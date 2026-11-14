@@ -46,7 +46,7 @@ export default function ForgotPasswordForm({ onSwitch }) {
           }}
         />
       </label>
-      <button type="submit" className="primary" disabled={status === 'sending'}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={status === 'sending'}>
         Send reset link
       </button>
       {status && status !== 'sending' && (

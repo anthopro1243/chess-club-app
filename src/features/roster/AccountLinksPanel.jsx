@@ -122,6 +122,7 @@ export default function AccountLinksPanel({ onSelectPlayer }) {
                   {item.holder && !item.holder.userId && (
                     <button
                       type="button"
+                      className="btn btn-sm btn-primary"
                       disabled={!!busy}
                       aria-busy={busy === `fix-${item.link.userId}`}
                       onClick={() => run(`fix-${item.link.userId}`, item.link.userId, item.holder.playerId)}
@@ -132,7 +133,7 @@ export default function AccountLinksPanel({ onSelectPlayer }) {
                   {item.current && (
                     <button
                       type="button"
-                      className="link-button"
+                      className="btn btn-sm"
                       disabled={!!busy}
                       onClick={() => run(`keep-${item.link.userId}`, item.link.userId, item.current.playerId)}
                     >
@@ -195,7 +196,7 @@ export default function AccountLinksPanel({ onSelectPlayer }) {
                   })}
                   <button
                     type="button"
-                    className="link-button danger"
+                    className="btn btn-sm btn-danger"
                     disabled={!!busy}
                     title="The member will be asked “Who are you?” again"
                     onClick={() => run(`unlink-${item.player.userId}`, item.player.userId, null)}

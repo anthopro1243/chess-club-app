@@ -58,7 +58,7 @@ export default function BackgroundActivity() {
           {line.busy && <span className="activity-dot" aria-hidden="true" />}
           <span>{line.text}</span>
           {line.dismiss && (
-            <button type="button" className="link-button" onClick={line.dismiss} aria-label="Dismiss">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={line.dismiss} aria-label="Dismiss">
               ×
             </button>
           )}

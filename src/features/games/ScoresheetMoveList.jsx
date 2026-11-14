@@ -47,7 +47,7 @@ export default function ScoresheetMoveList({ sheet, checked, target, gap, listRe
               {seg.startPly - 1 > checked.segments[k - 1].endPly ? ` to ${describePly(seg.startPly - 1)}` : ''}. Picks up
               from a set-up position.
             </span>
-            <button type="button" className="link-button" onClick={() => onRemoveGap(k)}>
+            <button type="button" className="btn btn-sm" onClick={() => onRemoveGap(k)}>
               Remove gap
             </button>
           </div>
@@ -83,7 +83,7 @@ export default function ScoresheetMoveList({ sheet, checked, target, gap, listRe
         {k === checked.segments.length - 1 && sheet.endsUnknown && (
           <div className="ss-gap-row">
             <span>The rest of the game can’t be read.</span>
-            <button type="button" className="link-button" onClick={onReopenEnd}>
+            <button type="button" className="btn btn-sm" onClick={onReopenEnd}>
               Undo
             </button>
           </div>

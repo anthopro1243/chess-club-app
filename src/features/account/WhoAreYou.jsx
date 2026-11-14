@@ -88,7 +88,7 @@ export default function WhoAreYou({ onDone }) {
         </label>
         <p className="muted small">Only you and the coach can see your student ID.</p>
         {failure && <p className="field-error" role="alert">{failure}</p>}
-        <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
           {busy ? 'Saving…' : 'Save'}
         </button>
       </form>

@@ -46,7 +46,7 @@ export default function SignInForm({ onDone, onSwitch }) {
           {error}
         </span>
       )}
-      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
       <div className="auth-links">

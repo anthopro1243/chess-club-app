@@ -171,7 +171,7 @@ function MyGameRow({ game, playerId, open, onToggle }) {
       <td>
         <button
           type="button"
-          className="link-button"
+          className="btn btn-sm"
           aria-expanded={open}
           onClick={(event) => {
             event.stopPropagation(); // the row toggles too; don't toggle twice

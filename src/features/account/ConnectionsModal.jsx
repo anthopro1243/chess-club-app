@@ -60,7 +60,7 @@ export default function ConnectionsModal({ onClose }) {
           </div>
         )}
 
-        <button type="button" className="link-button" onClick={onClose}>
+        <button type="button" className="btn btn-block" onClick={onClose}>
           Close
         </button>
     </Modal>
@@ -142,7 +142,7 @@ function PlatformCard({ platform, profile }) {
             }}
           />
           {error && <span className="hint-text auth-error">{error}</span>}
-          <button type="submit" className="primary" disabled={!!busy} aria-busy={!!busy}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={!!busy} aria-busy={!!busy}>
             {busy === 'connecting' ? 'Checking…' : busy === 'syncing' ? 'Importing games…' : 'Connect'}
           </button>
         </form>
@@ -185,10 +185,10 @@ function PlatformCard({ platform, profile }) {
       {error && <span className="hint-text auth-error">{error}</span>}
 
       <div className="auth-links">
-        <button type="button" className="link-button" onClick={runSync} disabled={!!busy} aria-busy={busy === 'syncing'}>
+        <button type="button" className="btn btn-sm" onClick={runSync} disabled={!!busy} aria-busy={busy === 'syncing'}>
           {busy === 'syncing' ? 'Syncing…' : 'Sync now'}
         </button>
-        <button type="button" className="link-button danger" onClick={disconnect} disabled={!!busy}>
+        <button type="button" className="btn btn-sm btn-danger" onClick={disconnect} disabled={!!busy}>
           Unlink
         </button>
       </div>

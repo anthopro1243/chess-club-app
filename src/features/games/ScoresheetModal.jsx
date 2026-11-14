@@ -492,7 +492,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                     interactive={!blocked && !appendClosed && !gap}
                   />
                 )}
-                <button type="button" className="link-button ss-flip" onClick={() => setOrientation((o) => (o === 'w' ? 'b' : 'w'))}>
+                <button type="button" className="btn btn-sm ss-flip" onClick={() => setOrientation((o) => (o === 'w' ? 'b' : 'w'))}>
                   Flip board
                 </button>
               </div>
@@ -590,7 +590,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
                             Unreadable from here…
                           </button>
                           {selected && (
-                            <button type="button" className="link-button" onClick={() => setSelected(null)}>
+                            <button type="button" onClick={() => setSelected(null)}>
                               Back to the end
                             </button>
                           )}
@@ -663,10 +663,10 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
               )}
               {saveError && <p className="ss-error">{saveError}</p>}
               <div className="import-actions">
-                <button type="button" className="link-button" onClick={startOver} disabled={busy}>
+                <button type="button" className="btn btn-danger" onClick={startOver} disabled={busy}>
                   Start over
                 </button>
-                <button type="button" className="primary" onClick={save} disabled={busy || alreadyArchived} aria-busy={busy}>
+                <button type="button" className="btn btn-primary" onClick={save} disabled={busy || alreadyArchived} aria-busy={busy}>
                   {busy ? 'Saving…' : 'Save game'}
                 </button>
               </div>
