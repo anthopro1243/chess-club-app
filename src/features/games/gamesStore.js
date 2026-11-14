@@ -13,7 +13,7 @@
 
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-games-v1', []);
@@ -115,9 +115,10 @@ async function syncFromCloud() {
     .order('played_at', { ascending: false })
     .limit(500);
   if (error) {
-    reportSyncError('the game archive', error.message);
+    reportLoadError('the game archive', error.message);
     return;
   }
+  reportSyncOk('the game archive');
   cloudReady = true;
   store.set(data.map(fromRow));
 }
@@ -171,6 +172,7 @@ export function recordGame(game) {
       .insert(toRow(record))
       .then(({ error }) => {
         if (error) reportSyncError('that game', error.message);
+        else reportSyncOk('that game');
       });
   }
   return record;
@@ -202,6 +204,7 @@ export function recordExternalGames(games) {
       .upsert(added.map(toRow))
       .then(({ error }) => {
         if (error) reportSyncError('the imported games', error.message);
+        else reportSyncOk('the imported games');
       });
   }
   return added;
@@ -245,6 +248,7 @@ export async function recordImportedGames(games) {
     reportSyncError('the imported games', error.message);
     return { ok: false, added: [], error: error.message };
   }
+  reportSyncOk('the imported games');
   return { ok: true, added };
 }
 
@@ -265,6 +269,7 @@ export function setGameReviewed(id, reviewed = true) {
         .eq('id', id)
         .then(({ error }) => {
           if (error) reportSyncError('marking that game reviewed', error.message);
+          else reportSyncOk('marking that game reviewed');
         }),
     );
   }
@@ -288,6 +293,7 @@ export async function renameInGames(updates = []) {
     if (error) failed += 1;
   }
   if (failed) reportSyncError('renaming archived games', `${failed} game(s) were not updated`);
+  else reportSyncOk('renaming archived games');
   return failed;
 }
 
@@ -300,6 +306,7 @@ export function removeGame(id) {
       .eq('id', id)
       .then(({ error }) => {
         if (error) reportSyncError('removing that game', error.message);
+        else reportSyncOk('removing that game');
       });
   }
 }

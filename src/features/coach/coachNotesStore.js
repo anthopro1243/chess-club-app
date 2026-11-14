@@ -13,7 +13,7 @@
 
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportSyncOk } from '../../services/syncStatus.js';
 import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-coach-notes-v1', {});
@@ -83,6 +83,7 @@ export function setCoachNote(playerId, note) {
       .upsert({ player_id: playerId, note, updated_at: new Date().toISOString() }, { onConflict: 'player_id' })
       .then(({ error }) => {
         if (error) reportSyncError('that coach note', error.message);
+        else reportSyncOk('that coach note');
       });
   }
 }

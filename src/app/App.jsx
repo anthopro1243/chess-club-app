@@ -257,8 +257,11 @@ export default function App() {
         {syncError && (
           <div className="auth-banner error">
             <span>
-              Couldn&rsquo;t save {syncError.what} to the server. It&rsquo;s only saved in this browser
-              for now. {syncError.message}
+              {syncError.kind === 'load'
+                ? <>Couldn&rsquo;t load {syncError.what} from the server, so what you see may be out of
+                    date. {syncError.message}</>
+                : <>Couldn&rsquo;t save {syncError.what} to the server. It&rsquo;s only saved in this
+                    browser for now. {syncError.message}</>}
             </span>
             <button type="button" onClick={clearSyncError} aria-label="Dismiss">
               ×

@@ -16,7 +16,7 @@
 
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportSyncOk } from '../../services/syncStatus.js';
 import { coalesce } from '../../services/coalesce.js';
 
 // { [playerId]: { studentId, schoolEmail } }
@@ -118,6 +118,7 @@ export async function clearPrivateRow(playerId) {
     reportSyncError('clearing the private roster fields', error.message);
     return false;
   }
+  reportSyncOk('clearing the private roster fields');
   return true;
 }
 
@@ -151,4 +152,5 @@ export async function savePrivateRows(rows) {
     reportSyncError('the private roster fields', error.message);
     throw new Error(error.message);
   }
+  reportSyncOk('the private roster fields');
 }

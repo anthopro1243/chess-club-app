@@ -14,7 +14,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../roster/retiredPlayers.js';
 import { readyForRetry, viewerFirst } from '../../services/external/autoPolicy.js';
 
@@ -43,9 +43,10 @@ export async function queueCounts() {
   );
   const failed = results.find((r) => r.error);
   if (failed) {
-    reportSyncError('the analysis queue', failed.error.message);
+    reportLoadError('the analysis queue', failed.error.message);
     return null;
   }
+  reportSyncOk('the analysis queue');
   return Object.fromEntries(STATUSES.map((status, i) => [status, results[i].count ?? 0]));
 }
 
@@ -156,6 +157,7 @@ export async function markDone(gameId, depth) {
     })
     .eq('id', gameId);
   if (error) reportSyncError('the analysis queue', error.message);
+  else reportSyncOk('the analysis queue');
 }
 
 /**
@@ -175,6 +177,7 @@ export async function markFailed(gameId, message, attempts) {
     })
     .eq('id', gameId);
   if (error) reportSyncError('the analysis queue', error.message);
+  else reportSyncOk('the analysis queue');
 }
 
 /** Put everything unanalysed back in the queue. The coach's backfill button. */
@@ -192,6 +195,7 @@ export async function enqueueAll({ playerId = null } = {}) {
     reportSyncError('the analysis queue', error.message);
     return { ok: false, queued: 0, error: error.message };
   }
+  reportSyncOk('the analysis queue');
   return { ok: true, queued: data?.length ?? 0 };
 }
 

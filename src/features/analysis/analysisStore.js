@@ -13,7 +13,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 
 const analyses = createStore('cc-game-analyses-v1', []);
@@ -115,6 +115,7 @@ export async function saveAnalysis(rows) {
     reportSyncError('the game analysis', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the game analysis');
   return { ok: true };
 }
 
@@ -151,6 +152,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
     reportSyncError('the skill scores', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the skill scores');
 
   const history = rows.map((r) => ({
     player_id: r.player_id,
@@ -161,6 +163,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
   }));
   const { error: histError } = await supabase.from('player_skill_history').insert(history);
   if (histError) reportSyncError('the skill history', histError.message);
+  else reportSyncOk('the skill history');
 
   return { ok: true };
 }
@@ -175,18 +178,20 @@ export async function syncFromCloud() {
     .order('analyzed_at', { ascending: false })
     .limit(LOCAL_LIMIT);
   if (error) {
-    reportSyncError('the analysis archive', error.message);
+    reportLoadError('the analysis archive', error.message);
     return;
   }
+  reportSyncOk('the analysis archive');
   analyses.set((data || []).map(fromRow));
 
   const { data: skillData, error: skillError } = await supabase
     .from('player_skill_scores')
     .select('*');
   if (skillError) {
-    reportSyncError('the skill scores', skillError.message);
+    reportLoadError('the skill scores', skillError.message);
     return;
   }
+  reportSyncOk('the skill scores');
   skills.set((skillData || []).map(skillFromRow));
 }
 

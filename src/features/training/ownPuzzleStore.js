@@ -12,7 +12,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { newPuzzleState, review, dueNow, reviewSummary } from '../../analysis/spacedRepetition.js';
 
 const store = createStore('cc-own-puzzles-v1', []);
@@ -109,6 +109,7 @@ export async function addOwnGamePuzzles(puzzles, { now = Date.now() } = {}) {
     reportSyncError('the review queue', error.message);
     return { ok: false, error: error.message, added: fresh.length };
   }
+  reportSyncOk('the review queue');
   return { ok: true, added: fresh.length };
 }
 
@@ -137,6 +138,7 @@ export async function reviewOwnPuzzle(puzzle, grade, { now = Date.now() } = {}) 
     reportSyncError('the review schedule', error.message);
     return { ok: false, error: error.message, state: next };
   }
+  reportSyncOk('the review schedule');
   return { ok: true, state: next };
 }
 
@@ -146,9 +148,10 @@ export async function syncOwnPuzzlesFromCloud(playerId = null) {
   if (playerId) query = query.eq('player_id', playerId);
   const { data, error } = await query.limit(1000);
   if (error) {
-    reportSyncError('the review queue', error.message);
+    reportLoadError('the review queue', error.message);
     return;
   }
+  reportSyncOk('the review queue');
   store.set((data || []).map(fromRow));
 }
 

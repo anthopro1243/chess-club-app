@@ -34,13 +34,33 @@ export function useSyncError() {
   return useStore(memoryStore);
 }
 
+/** The current error, for code outside React (and the tests). */
+export function getSyncError() {
+  return memoryStore.get();
+}
+
 /**
  * Record a failed cloud operation. `what` names the thing in the user's
- * terms ("the roster", "that game"), not the table.
+ * terms ("the roster", "that game"), not the table. `kind` is 'save' for a
+ * write and 'load' for a read, so the banner says which one failed.
  */
-export function reportSyncError(what, message) {
+export function reportSyncError(what, message, kind = 'save') {
   reportClientError(`sync: ${what}`, message);
-  memoryStore.set({ what, message, at: Date.now() });
+  memoryStore.set({ what, message, kind, at: Date.now() });
+}
+
+/** A failed read: same banner, different wording (nothing was lost). */
+export function reportLoadError(what, message) {
+  reportSyncError(what, message, 'load');
+}
+
+/**
+ * A later sync of `what` worked, so a banner about it is out of date. Only
+ * that thing's own error is cleared: success saving the roster says nothing
+ * about the analysis archive.
+ */
+export function reportSyncOk(what) {
+  if (memoryStore.get()?.what === what) memoryStore.set(null);
 }
 
 export function clearSyncError() {
@@ -51,5 +71,6 @@ export function clearSyncError() {
 export function reportIfFailed(what) {
   return ({ error }) => {
     if (error) reportSyncError(what, error.message);
+    else reportSyncOk(what);
   };
 }
