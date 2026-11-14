@@ -13,16 +13,13 @@ import { useFlash } from '../../ui/useFlash.js';
 import {
   TIME_CONTROLS,
   findControl,
-  createClock,
-  startClock,
-  pressClock,
   remainingFor,
-  hasFlagged,
   annotatePgnWithClocks,
   pgnTimeControlTag,
 } from './chessClock.js';
 import Toast, { useToast } from '../../ui/Toast.jsx';
 import SanInput from '../../board/SanInput.jsx';
+import { useChessClock } from './useChessClock.js';
 
 const COMPUTER_OPPONENT_RD = 40; // Stockfish at a set Elo is very consistent — low uncertainty
 
@@ -98,20 +95,9 @@ export default function PlayPage() {
     THINK_TIME_MS[saved?.thinkTime] ? saved.thinkTime : 'normal',
   );
 
-  /*
-   * The clock. Kept in a ref rather than state because it is read on every
-   * animation tick and written on every move; `clockTick` is what actually
-   * triggers a re-render, once every 100ms while it is running.
-   *
-   * A flag is not something the rules engine knows about, so running out of
-   * time is tracked separately and folded into the game status below.
-   */
+  // The clock lives in useChessClock; this is just which control is chosen.
   const [timeControlId, setTimeControlId] = useState(() => saved?.timeControlId || 'none');
   const timeControl = findControl(timeControlId);
-  const clockRef = useRef(null);
-  if (clockRef.current === null) clockRef.current = createClock(timeControl, gameRef.current.turn);
-  const [, setClockTick] = useState(0);
-  const [flagged, setFlagged] = useState(saved?.flagged || null);
 
   /*
    * A game can also end by agreement or resignation, neither of which the
@@ -157,6 +143,13 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [atLive, viewPly, moves.length, live.fen()],
   );
+
+  const { clockRef, flagged, pressAfterMove, resetClock } = useChessClock({
+    timeControl,
+    initialTurn: live.turn,
+    savedFlagged: saved?.flagged || null,
+    gameOver: !!agreedEnd || live.status().over,
+  });
 
   const shownMove = atLive ? moves[moves.length - 1] : moves[viewPly - 1];
 
@@ -293,43 +286,6 @@ export default function PlayPage() {
   const flash = showToast;
   const [copied, showCopied] = useFlash();
 
-  /*
-   * Tick while the clock runs, and stop the game the moment someone flags.
-   * 100ms is fast enough for the tenths shown under ten seconds without
-   * re-rendering the board pointlessly.
-   */
-  useEffect(() => {
-    if (timeControl.baseMs === 0 || flagged || liveStatus.over) return undefined;
-    const timer = setInterval(() => {
-      const clock = clockRef.current;
-      if (clock.running && hasFlagged(clock)) {
-        clockRef.current = { ...clock, running: false };
-        setFlagged(clock.turn);
-      }
-      setClockTick((t) => t + 1);
-    }, 100);
-    return () => clearInterval(timer);
-  }, [timeControl.baseMs, flagged, liveStatus.over]);
-
-  /** Hand the move over on the clock, starting it if this is the first move. */
-  const pressAfterMove = useCallback(() => {
-    if (timeControl.baseMs === 0) return;
-    const started = clockRef.current.running
-      ? clockRef.current
-      : startClock(clockRef.current);
-    clockRef.current = pressClock(started);
-    setClockTick((t) => t + 1);
-  }, [timeControl.baseMs]);
-
-  /** Put the clock back to the start of a fresh game under the chosen control. */
-  const resetClock = useCallback(
-    (control, turn = 'w') => {
-      clockRef.current = createClock(control, turn);
-      setFlagged(null);
-      setClockTick((t) => t + 1);
-    },
-    [],
-  );
 
   const handleMove = useCallback(
     ({ from, to, promotion }) => {
