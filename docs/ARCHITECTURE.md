@@ -29,12 +29,13 @@ src/
   app/            the shell: App.jsx, routes, useRoute, lazy pages, error boundary
   features/       one folder per area of the app (below)
   board/          the chessboard and its pieces, move list, keyboard/SR support
-  ui/             shared widgets: Modal, Link, Toast, InfoTooltip, flash timer
+  ui/             shared widgets: Modal, Link, Toast, InfoTooltip, flash timer,
+                  PageHeader, Icon, Avatar, EmptyState, JumpNav, Skeleton
   services/       Supabase client, auth, the localStorage store, error log,
                   external/ (Chess.com and Lichess adapters)
   analysis/       pure game analysis: scoring, motifs, SEE, skill model, PGN
   engine/         the rules engine and the Stockfish client
-  styles/         app.css, which @imports parts/01-…37-… in order
+  styles/         app.css, which @imports parts/01-…42-… in order
 ```
 
 Dependencies point down only: `app` → `features` → `board` / `ui` →
@@ -66,11 +67,54 @@ feature's store (Training reads the roster), but nothing under `analysis/`,
 `useSyncExternalStore`; `goTo()` changes it. Use `<Link>` from `ui/` for
 navigation, so links are real anchors that open in a new tab.
 
-`App.jsx` renders the page from a map, moves focus to a hidden page heading
+`App.jsx` renders the page from a map, moves focus to the page heading
 on every route change, sets `document.title`, and wraps each page in an error
 boundary that tells a failed download (new deploy) apart from a crash.
 It also handles two Supabase auth redirects in the hash: an error becomes a
 banner, a recovery token opens `ResetPasswordModal`.
+
+Two routes carry a record in the query string, so Back works and the view can
+be linked: `#/games?game=<id>` is one game (the list is replaced by the board
+review, with a Games › White vs Black breadcrumb) and `#/roster?player=<id>`
+opens the roster with that player selected. Link to a player with
+`<Link to="roster" params={{ player: id }}>`.
+
+## Shell and page chrome
+
+`App.jsx` draws the shell. Above 940px that is a sidebar: the brand, a search
+button, the menu in groups (`navGroups()` in `routes.js`: Club, Play and
+train, Game records, Coaching), then the theme switch and the account. At
+940px and below it is a top bar and a bottom tab bar (`tabRoutes()` in
+`routes.js`: four tabs and a "More" sheet, which is a `Modal`). Each route in
+`ROUTES` has an `icon`, a `group` and a one-line `summary`.
+
+Every page gets a visible header from `ui/PageHeader.jsx`: the `<h1>` (which
+takes focus on navigation), the route's summary, and the page's actions on the
+right. A page does not render the header. It fills it:
+
+- `<PageActions>…</PageActions>` puts buttons in the header (a portal).
+- `usePageMeta({ title, summary, crumbs })` replaces the title or adds a
+  breadcrumb, as the game view does.
+
+Quick search (`app/CommandPalette.jsx`, Ctrl/Cmd K or the search button) is a
+`Modal` with a combobox over pages, players and games. The matching is pure
+and tested in `app/paletteSearch.js`.
+
+Shared pieces to reach for before writing new markup:
+
+| Piece | Use |
+|---|---|
+| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm` | Every action. One primary per page. `.link-button` is for inline text actions only |
+| `ui/Icon.jsx` | Inline SVG icons by name, `aria-hidden`; the label is always text |
+| `ui/Avatar.jsx` | Initials on a colour picked from the name |
+| `ui/EmptyState.jsx` | An icon, a title, a sentence and the action that fills the list |
+| `ui/JumpNav.jsx` | A row of jump links built from a page's panel headings (Coach) |
+| `ui/Skeleton.jsx` | The placeholder shown while a page's code downloads |
+| `.hide-narrow` | Drops a table column at 640px so the table fits a phone |
+
+Styles for these are in `styles/parts/38-app-shell.css` to `42-motion.css`.
+Motion (page and dialog fades) is all in `42-motion.css` and is off under
+`prefers-reduced-motion`.
 
 ## Data layer
 

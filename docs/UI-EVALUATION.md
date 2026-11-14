@@ -128,3 +128,25 @@ search and player links (5), the Club page (6), the visual system (7), states (8
 motion (9), then Coach jump links and the small things (10, 11).
 
 Not in scope: the board, the rules engine, ratings, and anything that touches the database.
+
+## What was built
+
+Each finding above, and what answers it. After screenshots are in
+`docs/screenshots/ui/` beside the before ones.
+
+| Finding | Now |
+|---|---|
+| 1. Flat navigation | A grouped sidebar with icons on a laptop; on a phone a bottom tab bar (Club, Play, Training, Games) and a More sheet. Nothing scrolls sideways |
+| 2. No page title | Every page has a visible heading, a line of context and its actions beside it |
+| 3. Actions as footnotes | Real buttons, one primary per page, destructive ones set apart in red |
+| 4. Opening a game | A game is its own view at `#/games?game=<id>` with a breadcrumb; Back returns to the list |
+| 5. No way to jump | Quick search (Ctrl K or the search button) over pages, players and games; names link to the player at `#/roster?player=<id>` |
+| 6. Club page | Opens on the things to do (play, train, log a game), then the leaderboard with ranks and avatars. The preview control is a small "Preview as" select in the page header |
+| 7. Same flat surfaces | A type scale, two levels of elevation, avatars, icons, and tables with hover and selected rows |
+| 8. States | A skeleton while a page loads; empty states with an icon, a sentence and the next action |
+| 9. Motion | Pages and dialogs fade in briefly; off under `prefers-reduced-motion` |
+| 10. Coach | Jump links to each section, export in the page header, links in the accent colour |
+| 11. Small things | Icon theme switch, report card buttons, the Play board sized so both clocks stay on screen |
+
+Left as it was: the account menu (it needs a backend to exercise), the board,
+and the long forms inside dialogs, which only took the new buttons.
