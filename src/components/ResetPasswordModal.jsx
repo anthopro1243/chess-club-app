@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { updatePassword } from '../data/auth.js';
+import Modal from '../ui/Modal.jsx';
 
 const MIN_LENGTH = 8;
 
@@ -38,14 +39,7 @@ export default function ResetPasswordModal({ onDone, onCancel }) {
   };
 
   return (
-    <div className="promotion-backdrop" onClick={onCancel}>
-      <div
-        className="promotion-dialog auth-modal"
-        role="dialog"
-        aria-label="Set a new password"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h3>Set a new password</h3>
+    <Modal title="Set a new password" onClose={onCancel} closeLabel={null} className="auth-modal">
         <form className="signin-form" onSubmit={submit}>
           <input
             type="password"
@@ -70,7 +64,6 @@ export default function ResetPasswordModal({ onDone, onCancel }) {
             Cancel
           </button>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

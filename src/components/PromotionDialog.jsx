@@ -1,4 +1,5 @@
 import Piece from './Piece.jsx';
+import Modal from '../ui/Modal.jsx';
 
 const CHOICES = [
   { type: 'q', label: 'Queen' },
@@ -10,14 +11,7 @@ const CHOICES = [
 /** Asks which piece a promoting pawn becomes. Underpromotion matters. */
 export default function PromotionDialog({ color, onChoose, onCancel }) {
   return (
-    <div className="promotion-backdrop" onClick={onCancel}>
-      <div
-        className="promotion-dialog"
-        role="dialog"
-        aria-label="Choose a promotion piece"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h3>Promote to</h3>
+    <Modal title="Promote to" onClose={onCancel} closeLabel={null}>
         <div className="promotion-choices">
           {CHOICES.map((choice) => (
             <button
@@ -31,7 +25,6 @@ export default function PromotionDialog({ color, onChoose, onCancel }) {
             </button>
           ))}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

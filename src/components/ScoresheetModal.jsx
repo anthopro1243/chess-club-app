@@ -21,6 +21,7 @@ import { recordImportedGames } from '../data/gamesStore.js';
 import { enqueueGameRow } from '../analysis/queue.js';
 import { withTimeout } from '../data/autoPolicy.js';
 import '../styles/scoresheet.css';
+import Modal from '../ui/Modal.jsx';
 
 const DRAFT_KEY = 'cc-scoresheet-draft-v1';
 const OTHER_TC = '__other__';
@@ -545,20 +546,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
     (firstError && !gap ? { message: firstError.message, options: onErrorPly ? firstError.options || [] : [] } : null);
 
   return (
-    <div className="promotion-backdrop" onClick={busy ? undefined : onClose}>
-      <div
-        className="promotion-dialog ss-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Enter a scoresheet"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="panel-header">
-          <h3>Enter a scoresheet</h3>
-          <button type="button" className="link-button" onClick={onClose} disabled={busy}>
-            Close
-          </button>
-        </div>
+    <Modal title="Enter a scoresheet" onClose={onClose} busy={busy} className="ss-modal">
 
         {saved ? (
           <div className="ss-saved" role="status">
@@ -953,7 +941,6 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
             onCancel={() => setPendingPromotion(null)}
           />
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

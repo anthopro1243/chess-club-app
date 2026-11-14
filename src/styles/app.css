@@ -159,6 +159,7 @@ code {
   gap: 10px;
   background: none;
   border: none;
+  text-decoration: none;
   color: var(--text);
   font-family: inherit;
   font-size: 1.02rem;
@@ -186,6 +187,7 @@ code {
 .nav-link {
   background: none;
   border: none;
+  text-decoration: none;
   color: var(--text-muted);
   font-family: inherit;
   font-size: 0.93rem;
@@ -357,10 +359,6 @@ code {
   overflow-y: auto;
 }
 
-.connections-modal h3 {
-  display: flex;
-  align-items: center;
-}
 
 .connection-cards {
   display: grid;
@@ -557,7 +555,8 @@ button {
 .button-grid button,
 .stepper button,
 .puzzle-controls button,
-.hero-actions button {
+.hero-actions button,
+a.button {
   background: var(--bg-sunken);
   color: var(--text);
   border: 1px solid var(--border);
@@ -570,7 +569,8 @@ button {
 .button-grid button:hover:not(:disabled),
 .stepper button:hover:not(:disabled),
 .puzzle-controls button:hover:not(:disabled),
-.hero-actions button:hover:not(:disabled) {
+.hero-actions button:hover:not(:disabled),
+a.button:hover {
   border-color: var(--border-strong);
   background: var(--bg-raised);
 }
@@ -580,7 +580,13 @@ button:disabled {
   cursor: default;
 }
 
-button.primary {
+a.button {
+  display: inline-block;
+  text-decoration: none;
+}
+
+button.primary,
+a.button.primary {
   background: var(--accent);
   color: var(--accent-text);
   border-color: var(--accent);
@@ -1064,29 +1070,6 @@ button.primary:hover:not(:disabled) {
 }
 
 /* ---------- promotion --------------------------------------------------- */
-
-.promotion-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.promotion-dialog {
-  background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow);
-}
-
-.promotion-dialog h3 {
-  margin: 0 0 12px;
-  color: var(--text);
-}
 
 .promotion-choices {
   display: flex;
@@ -2284,6 +2267,7 @@ button.primary:active:not(:disabled) {
 }
 
 button:focus-visible,
+a:focus-visible,
 [role='button']:focus-visible,
 .nav-link:focus-visible {
   outline: 2px solid var(--accent-ink);
@@ -2450,4 +2434,108 @@ button[aria-busy='true']::before {
 .page-loading {
   text-align: center;
   padding: 48px 0;
+}
+
+/* ---------- shell: skip link, page heading, nav edges --------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 50;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 10px;
+}
+
+.content:focus {
+  outline: none;
+}
+
+.banner-slot:empty {
+  display: none;
+}
+
+/* The phone nav scrolls sideways; fade the edge that has more links past it. */
+.nav.fade-right {
+  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+  mask-image: linear-gradient(to right, #000 82%, transparent);
+}
+.nav.fade-left {
+  -webkit-mask-image: linear-gradient(to left, #000 82%, transparent);
+  mask-image: linear-gradient(to left, #000 82%, transparent);
+}
+.nav.fade-left.fade-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+}
+
+.hero-title {
+  font-size: 2rem;
+}
+
+/* ---------- dialogs (ui/Modal.jsx) ------------------------------------- */
+
+.modal {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal-panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
 }

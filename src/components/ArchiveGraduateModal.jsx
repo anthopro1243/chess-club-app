@@ -4,6 +4,7 @@ import { archiveGraduate } from '../data/rosterStore.js';
 import { clearPrivateRow } from '../data/playerPrivateStore.js';
 import { setCoachNote } from '../data/coachNotesStore.js';
 import { archivePlan, confirmsArchive } from '../data/graduateArchive.js';
+import Modal from '../ui/Modal.jsx';
 
 /*
  * ArchiveGraduateModal — the coach's "Archive graduate" (research F120).
@@ -38,20 +39,13 @@ export default function ArchiveGraduateModal({ player, onClose, onArchived }) {
   };
 
   return (
-    <div className="promotion-backdrop" onClick={busy ? undefined : onClose}>
-      <div
-        className="promotion-dialog archive-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Archive ${player.name}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="panel-header">
-          <h2>Archive {player.name} as a graduate</h2>
-          <button type="button" className="link-button" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-        </div>
+    <Modal
+      title={`Archive ${player.name} as a graduate`}
+      onClose={onClose}
+      busy={busy}
+      closeLabel="Cancel"
+      className="archive-dialog"
+    >
         <p>
           <strong>Removed:</strong> their name (shown as &ldquo;{plan.label}&rdquo; from now on), linked
           Chess.com / Lichess accounts and US Chess ID, guardian email, goal, style, training focus, your coach
@@ -73,7 +67,6 @@ export default function ArchiveGraduateModal({ player, onClose, onArchived }) {
             {busy ? 'Archiving…' : 'Archive graduate'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

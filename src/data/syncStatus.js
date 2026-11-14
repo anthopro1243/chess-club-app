@@ -11,6 +11,7 @@
  */
 
 import { useStore } from './store.js';
+import { reportClientError } from './errorLog.js';
 
 // Deliberately not persisted: a stale error from a previous visit would be
 // worse than no error at all.
@@ -38,7 +39,7 @@ export function useSyncError() {
  * terms ("the roster", "that game"), not the table.
  */
 export function reportSyncError(what, message) {
-  console.error(`Sync failed (${what}):`, message);
+  reportClientError(`sync: ${what}`, message);
   memoryStore.set({ what, message, at: Date.now() });
 }
 

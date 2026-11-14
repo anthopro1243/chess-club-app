@@ -3,6 +3,7 @@ import { buildImportPlan, importableRows, highestPlayerNumber } from '../data/ro
 import { applyRosterImport, getIssuedPlayerIds } from '../data/rosterStore.js';
 import { getPrivateRows } from '../data/playerPrivateStore.js';
 import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
+import Modal from '../ui/Modal.jsx';
 
 /*
  * RosterImportModal — read a Google Form CSV, show what it would do, write
@@ -121,20 +122,7 @@ export default function RosterImportModal({ players, onClose, onImported }) {
   const summary = plan?.summary;
 
   return (
-    <div className="promotion-backdrop" onClick={busy ? undefined : onClose}>
-      <div
-        className="promotion-dialog roster-import-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Import roster from CSV"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="panel-header">
-          <h3>Import roster from CSV</h3>
-          <button type="button" className="link-button" onClick={onClose} disabled={busy}>
-            Close
-          </button>
-        </div>
+    <Modal title="Import roster from CSV" onClose={onClose} busy={busy} className="roster-import-modal">
 
         {!plan && (
           <div className="import-intro">
@@ -249,7 +237,6 @@ export default function RosterImportModal({ players, onClose, onImported }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -3,6 +3,7 @@ import { planPgnImport, rowProblem, recordsToImport, summarise } from '../data/p
 import { recordImportedGames } from '../data/gamesStore.js';
 import { enqueueGameRow } from '../analysis/queue.js';
 import { withTimeout } from '../data/autoPolicy.js';
+import Modal from '../ui/Modal.jsx';
 
 /*
  * PgnImportModal — paste or upload PGN, check who played, then archive.
@@ -95,20 +96,7 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
   );
 
   return (
-    <div className="promotion-backdrop" onClick={busy ? undefined : onClose}>
-      <div
-        className="promotion-dialog roster-import-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Import games from PGN"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="panel-header">
-          <h3>Import games from PGN</h3>
-          <button type="button" className="link-button" onClick={onClose} disabled={busy}>
-            Close
-          </button>
-        </div>
+    <Modal title="Import games from PGN" onClose={onClose} busy={busy} className="roster-import-modal">
 
         {!plan && (
           <div className="import-intro">
@@ -232,7 +220,6 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from '../data/puzzleAttemptsStore.js';
 import { parseTrainingLink, traineeIdFor } from '../data/trainingLink.js';
 import { targetRating, matchPuzzles } from '../training/puzzleMatch.js';
+import { useRoute } from '../app/useRoute.js';
 import { puzzleRatingScore } from '../training/puzzleRating.js';
 
 const TRAINEE_KEY = 'cc-trainee';
@@ -131,18 +132,17 @@ export default function TrainingPage() {
 
   // A training link followed while already on this page changes only the
   // hash; the page stays mounted, so the new filter is applied here.
+  const { id: routeId, hash } = useRoute();
+  const firstHashRef = useRef(hash);
   useEffect(() => {
-    const onHashChange = () => {
-      if (!window.location.hash.startsWith('#/training')) return;
-      const link = linkFromHash();
-      setThemeFilter(link.theme);
-      setDifficultyFilter(link.difficulty || NEAR);
-      setSetIds(link.puzzleIds);
-      setSource(link.mode || 'library');
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+    if (routeId !== 'training' || hash === firstHashRef.current) return;
+    firstHashRef.current = hash;
+    const link = linkFromHash();
+    setThemeFilter(link.theme);
+    setDifficultyFilter(link.difficulty || NEAR);
+    setSetIds(link.puzzleIds);
+    setSource(link.mode || 'library');
+  }, [routeId, hash]);
   // Some theme + difficulty combinations have no puzzles at all — fall back
   // to a harmless placeholder so every hook below still has a real puzzle
   // to work with; the empty case is handled in the render instead.

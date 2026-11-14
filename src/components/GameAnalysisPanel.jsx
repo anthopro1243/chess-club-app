@@ -1,6 +1,7 @@
 import { withTimeout, TimeoutError } from '../data/autoPolicy.js';
 import { GAME_TIMEOUT_MS } from '../analysis/useAnalysisQueue.js';
 import { useMemo, useState } from 'react';
+import Link from '../ui/Link.jsx';
 import { useAnalysisForGame } from '../data/analysisStore.js';
 import { analyzeArchivedGame, isBusy, resetAfterTimeout } from '../analysis/runner.js';
 import {
@@ -170,15 +171,13 @@ function SideReport({ row, game, staff }) {
           <strong>Work on: {summary.priority.label}</strong>
           {summary.priority.advice && <p className="muted">{summary.priority.advice}</p>}
           {puzzleThemeFor(summary.priority.trainingTheme) && (
-            <button
-              type="button"
-              className="primary"
-              onClick={() => {
-                window.location.hash = `#/training?theme=${puzzleThemeFor(summary.priority.trainingTheme)}`;
-              }}
+            <Link
+              to="training"
+              params={{ theme: puzzleThemeFor(summary.priority.trainingTheme) }}
+              className="button primary"
             >
               Practice {summary.priority.trainingTheme.toLowerCase()} puzzles
-            </button>
+            </Link>
           )}
         </div>
       )}

@@ -10,9 +10,10 @@ import { clubProfile, weakestCategories } from '../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../data/ratingStore.js';
 import { resolveRating, rankForLeaderboard } from '../analysis/ratings.js';
+import Link from '../ui/Link.jsx';
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */
-export default function DashboardPage({ onNavigate }) {
+export default function DashboardPage() {
   const players = usePlayers();
   const cloud = useCloudStatus();
 
@@ -127,17 +128,17 @@ export default function DashboardPage({ onNavigate }) {
       {!(isSupabaseConfigured && me && account.isApproved) && (
         <section className="hero">
           <div>
-            <h1>Chess Club</h1>
+            <h2 className="hero-title">Chess Club</h2>
             <p>
               Play, go over your games, and see what to work on next.
             </p>
             <div className="hero-actions">
-              <button type="button" className="primary" onClick={() => onNavigate('play')}>
+              <Link to="play" className="button primary">
                 Play a game
-              </button>
-              <button type="button" onClick={() => onNavigate('roster')}>
+              </Link>
+              <Link to="roster" className="button">
                 View roster
-              </button>
+              </Link>
             </div>
           </div>
         </section>

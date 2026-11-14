@@ -8,6 +8,7 @@ import { withTimeout, retry, TimeoutError } from '../data/autoPolicy.js';
 const CONNECT_TIMEOUT_MS = 20 * 1000;
 const SYNC_TIMEOUT_MS = 90 * 1000;
 import InfoTooltip from './InfoTooltip.jsx';
+import Modal from '../ui/Modal.jsx';
 
 const RATING_LABELS = [
   ['bullet', 'Bullet'],
@@ -40,19 +41,14 @@ export default function ConnectionsModal({ onClose }) {
   const profile = useMyProfile();
 
   return (
-    <div className="promotion-backdrop" onClick={onClose}>
-      <div
-        className="promotion-dialog connections-modal"
-        role="dialog"
-        aria-label="Connected accounts"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h3>
-          Connected accounts
-          <InfoTooltip>
-            Your rated games on these sites count toward your club rating.
-          </InfoTooltip>
-        </h3>
+    <Modal
+      title="Connected accounts"
+      titleExtra={
+        <InfoTooltip>Your rated games on these sites count toward your club rating.</InfoTooltip>
+      }
+      onClose={onClose}
+      className="connections-modal"
+    >
 
         {!profile ? (
           <p className="hint-text">Set up your player profile first.</p>
@@ -67,8 +63,7 @@ export default function ConnectionsModal({ onClose }) {
         <button type="button" className="link-button" onClick={onClose}>
           Close
         </button>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

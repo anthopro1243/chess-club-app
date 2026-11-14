@@ -56,6 +56,16 @@ export function useSession() {
   return session;
 }
 
+/**
+ * Run `callback` on every sign-in event, so the UI can react to one without
+ * importing the Supabase client itself. Returns an unsubscribe function.
+ */
+export function onAuthEvent(callback) {
+  if (!isSupabaseConfigured) return () => {};
+  const { data } = supabase.auth.onAuthStateChange((event) => callback(event));
+  return () => data.subscription.unsubscribe();
+}
+
 const redirectTo = () => window.location.origin + window.location.pathname;
 
 /**
