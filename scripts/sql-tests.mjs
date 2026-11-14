@@ -16,6 +16,7 @@ const root = resolve(new URL('..', import.meta.url).pathname);
 const SCENARIOS = [
   ['supabase/tests/0025-stub-setup.sql', 'supabase/tests/0025-link-account.sql'],
   ['supabase/tests/0026-stub-setup.sql', 'supabase/tests/0026-ratings-guard-games.sql'],
+  ['supabase/tests/0026-stub-setup.sql', 'supabase/tests/0027-client-errors.sql'],
 ];
 
 const expand = (file) =>

@@ -2654,3 +2654,17 @@ button[aria-busy='true']::before {
 .san-input-hint {
   margin: 4px 0 0;
 }
+
+.error-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.error-list li {
+  border-left: 3px solid var(--bad);
+  padding: 4px 10px;
+  word-break: break-word;
+}

@@ -40,8 +40,24 @@ export async function recentClientErrors(limit = 30) {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from('client_errors')
-    .select('id, created_at, place, message, page, user_id')
+    .select('id, created_at, place, message, page, user_agent')
     .order('created_at', { ascending: false })
     .limit(limit);
   return error ? [] : data || [];
+}
+
+/** Remove every stored error report (coach only). */
+export async function clearClientErrors() {
+  if (!isSupabaseConfigured) return false;
+  const { error } = await supabase.from('client_errors').delete().gt('id', 0);
+  return !error;
+}
+
+/** Drop reports older than 90 days (migration 0027). Best effort. */
+export async function pruneClientErrors() {
+  if (!isSupabaseConfigured) return;
+  await supabase.rpc('prune_client_errors').then(
+    () => {},
+    () => {},
+  );
 }

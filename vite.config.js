@@ -9,6 +9,17 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        // Libraries change far less often than the app. In their own files
+        // they stay cached across deploys, so an update downloads only the
+        // app's code, not Supabase and React again.
+        manualChunks: {
+          supabase: ['@supabase/supabase-js'],
+          react: ['react', 'react-dom'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

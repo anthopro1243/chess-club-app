@@ -62,3 +62,5 @@ alter table public.games enable row level security;
 create policy games_read on public.games for select to authenticated using (public.is_approved());
 create policy "Approved members add games" on public.games for insert to authenticated with check (public.is_approved());
 grant select, insert, update, delete on all tables in schema public to authenticated;
+-- Supabase grants new tables to authenticated by default; RLS does the rest.
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;

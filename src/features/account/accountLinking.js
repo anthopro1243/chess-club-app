@@ -13,7 +13,7 @@
  * No network and no React here. accountLinkStore.js does the calls.
  */
 
-import { normaliseStudentId } from '../roster/rosterImport.js';
+import { normaliseStudentId } from '../roster/studentId.js';
 
 const NAME_LIMIT = 60;
 

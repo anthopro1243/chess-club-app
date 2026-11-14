@@ -6,6 +6,8 @@ import { exportWorkbook } from './exportWorkbook.js';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import MemberApproval from './MemberApproval.jsx';
 import AnalysisQueuePanel from '../analysis/AnalysisQueuePanel.jsx';
+import ClientErrorsPanel from './ClientErrorsPanel.jsx';
+import { isCloud } from '../../services/backend.js';
 import ClubWeaknessesPanel from '../analysis/ClubWeaknessesPanel.jsx';
 import ReviewQueuePanel from '../training/ReviewQueuePanel.jsx';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
@@ -160,6 +162,7 @@ export default function CoachPage() {
       <MemberApproval />
 
       <AnalysisQueuePanel queue={queue} />
+      {isCloud && <ClientErrorsPanel />}
 
       <ReviewQueuePanel />
 
