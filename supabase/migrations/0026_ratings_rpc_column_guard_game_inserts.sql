@@ -1,7 +1,7 @@
 -- 0026 — two-player game ratings, coach-only player fields, who may log a
 -- game, and erasing one student on request.
 --
--- NOT APPLIED. Written 2026-11-13 with the fixes from EVALUATION.md
+-- Applied to the live database 2026-11-14. Written 2026-11-13 with the fixes from EVALUATION.md
 -- (§2.4, §3.3, §3.4, §3.11). Apply after 0025, from the Supabase SQL editor
 -- or the connector. Safe to run twice. The app works before it is applied:
 -- the client falls back to the old behaviour when record_club_game_ratings

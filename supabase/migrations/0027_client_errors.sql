@@ -1,6 +1,6 @@
 -- 0027 — errors from members' browsers, for the coach.
 --
--- NOT APPLIED. Written 2026-11-13 (EVALUATION.md §4.7). Apply after 0026.
+-- Applied to the live database 2026-11-14. Written 2026-11-13 (EVALUATION.md §4.7). Apply after 0026.
 -- Safe to run twice. Until it is applied the app's error reports are simply
 -- dropped (src/services/errorLog.js is best effort).
 --

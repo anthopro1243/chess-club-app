@@ -1,6 +1,6 @@
 -- 0025 — link each member's account to the real student ("Who are you?").
 --
--- NOT APPLIED. Written 2026-10-05; the coach applies it (IMPROVEMENT-LOG.md →
+-- Applied to the live database 2026-11-14. Written 2026-10-05; the coach applies it (IMPROVEMENT-LOG.md →
 -- "For the coach"). The app works without it: the "Who are you?" step simply
 -- doesn't show until these functions exist.
 --
