@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { RUBRIC_CATEGORIES } from '../roster/roster.js';
 import { usePlayers, recordAssessment } from '../roster/rosterStore.js';
 import { useGames } from '../games/gamesStore.js';
@@ -19,6 +19,10 @@ import { usePlatformRatings, useRatingOverrides } from '../ratings/ratingStore.j
 import { resolveRating } from '../../analysis/ratings.js';
 import { useCoachNotes } from './coachNotesStore.js';
 import Toast, { useToast } from '../../ui/Toast.jsx';
+import { PageActions } from '../../ui/PageHeader.jsx';
+import JumpNav from '../../ui/JumpNav.jsx';
+import Icon from '../../ui/Icon.jsx';
+import EmptyState from '../../ui/EmptyState.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -157,29 +161,15 @@ export default function CoachPage() {
   };
 
 
+  const pageRef = useRef(null);
+
   return (
-    <div className="dashboard">
-      <MemberApproval />
-
-      <AnalysisQueuePanel queue={queue} />
-      {isCloud && <ClientErrorsPanel />}
-
-      <ReviewQueuePanel />
-
-      <ClubWeaknessesPanel />
-
-      <section className="panel">
-        <div className="panel-header">
-          <div className="heading-row">
-            <h2>Coach tools</h2>
-            <InfoTooltip label="More about Coach tools">
-              One file with a tab each for the club summary, players, assessments, ratings and
-              games.
-            </InfoTooltip>
-          </div>
+    <div className="dashboard" ref={pageRef}>
+      <PageActions>
           <button
             type="button"
-            className="primary"
+            className="btn"
+            title="One file with a tab each for the club summary, players, assessments, ratings and games."
             disabled={exporting}
             aria-busy={exporting}
             onClick={async () => {
@@ -196,10 +186,19 @@ export default function CoachPage() {
               }
             }}
           >
+            <Icon name="download" size={16} />
             {exporting ? 'Building…' : 'Export spreadsheet'}
           </button>
-        </div>
-      </section>
+      </PageActions>
+      <JumpNav containerRef={pageRef} />
+      <MemberApproval />
+
+      <AnalysisQueuePanel queue={queue} />
+      {isCloud && <ClientErrorsPanel />}
+
+      <ReviewQueuePanel />
+
+      <ClubWeaknessesPanel />
 
       <section className="panel">
         <div className="panel-header">
@@ -207,7 +206,9 @@ export default function CoachPage() {
         </div>
 
         {sorted.length === 0 ? (
-          <p className="hint-text">No players yet.</p>
+          <EmptyState icon="roster" title="No players yet">
+            Add players on the Roster page and their progress shows here.
+          </EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="roster-table">
@@ -216,10 +217,10 @@ export default function CoachPage() {
                 <tr>
                   <th scope="col">Name</th>
                   <th scope="col">Rating</th>
-                  <th scope="col">Trend</th>
-                  <th scope="col">Results</th>
-                  <th scope="col">Puzzles</th>
-                  <th scope="col">Last assessed</th>
+                  <th scope="col" className="hide-narrow">Trend</th>
+                  <th scope="col" className="hide-narrow">Results</th>
+                  <th scope="col" className="hide-narrow">Puzzles</th>
+                  <th scope="col" className="hide-narrow">Last assessed</th>
                   <th scope="col" />
                 </tr>
               </thead>
@@ -239,7 +240,7 @@ export default function CoachPage() {
                         {ratingFor(p).rating ?? '—'}
                         <span className="hint-text"> {ratingFor(p).label}</span>
                       </td>
-                      <td>
+                      <td className="hide-narrow">
                         {/*
                           The old trend was computed from players.rating_history,
                           which is the blended Glicko-2 sequence built from mixed
@@ -255,16 +256,16 @@ export default function CoachPage() {
                           <span className="hint-text">—</span>
                         )}
                       </td>
-                      <td className="mono">{p.clubRating?.count ?? 0}</td>
-                      <td className="mono">{p.puzzleStats?.solvedIds?.length ?? 0}</td>
-                      <td className="mono">
+                      <td className="mono hide-narrow">{p.clubRating?.count ?? 0}</td>
+                      <td className="mono hide-narrow">{p.puzzleStats?.solvedIds?.length ?? 0}</td>
+                      <td className="mono hide-narrow">
                         {last ? String(last.at).slice(0, 10) : '—'}
                         {last?.source === 'engine' && (
                           <span className="hint-text"> from games</span>
                         )}
                       </td>
                       <td>
-                        <button type="button" className="link-button" onClick={() => startAssessment(p)}>
+                        <button type="button" className="btn btn-sm" onClick={() => startAssessment(p)}>
                           Assess
                         </button>
                       </td>

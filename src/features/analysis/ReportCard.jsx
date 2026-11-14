@@ -96,9 +96,9 @@ export default function ReportCard({ playerId, onClose }) {
           </p>
         </div>
         <div className="panel-header-actions rc-actions">
-          <button type="button" onClick={() => setPrinting(true)}>Print</button>
+          <button type="button" className="btn btn-sm" onClick={() => setPrinting(true)}>Print</button>
           {onClose && (
-            <button type="button" className="link-button" onClick={onClose}>Close</button>
+            <button type="button" className="btn btn-sm" onClick={onClose}>Close</button>
           )}
         </div>
       </div>

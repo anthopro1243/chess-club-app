@@ -134,7 +134,7 @@ export default function RosterList({
               <th scope="col">Name</th>
               <th scope="col" className="hide-narrow">Board</th>
               <th scope="col">USCF</th>
-              <th scope="col">Rapid</th>
+              <th scope="col" className="hide-narrow">Rapid</th>
               <th scope="col">Track</th>
             </tr>
           </thead>
@@ -165,7 +165,7 @@ export default function RosterList({
                 </td>
                 <td className="hide-narrow">{player.boardRole}</td>
                 <td>{player.ratings.uscf ?? '—'}</td>
-                <td>{player.ratings.chesscomRapid ?? '—'}</td>
+                <td className="hide-narrow">{player.ratings.chesscomRapid ?? '—'}</td>
                 <td>
                   <span className={`track ${(player.commitment || 'Casual').toLowerCase()}`}>
                     {player.commitment}

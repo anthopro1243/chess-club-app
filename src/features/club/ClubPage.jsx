@@ -204,7 +204,7 @@ export default function ClubPage() {
                   <th scope="col">Name</th>
                   <th scope="col">Rating</th>
                   <th scope="col" className="hide-narrow">Puzzles solved</th>
-                  <th scope="col">Track</th>
+                  <th scope="col" className="hide-narrow">Track</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,7 +226,7 @@ export default function ClubPage() {
                         <span className="hint-text"> {entry.resolved.label}</span>
                       </td>
                       <td className="mono hide-narrow">{player.puzzleStats?.solvedIds?.length || 0}</td>
-                      <td>
+                      <td className="hide-narrow">
                         <span className={`track ${player.commitment.toLowerCase()}`}>
                           {player.commitment}
                         </span>
