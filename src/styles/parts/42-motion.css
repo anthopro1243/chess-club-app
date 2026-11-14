@@ -1,0 +1,65 @@
+/* ---------- motion --------------------------------------------------------
+   Short and small: a page settles in, a dialog rises, a loading block
+   shimmers. All of it is inside this one query, so asking the system to
+   reduce motion turns it off. */
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-body,
+  .view-enter {
+    animation: page-in var(--dur) var(--ease-out) both;
+  }
+
+  .modal[open] .modal-panel {
+    animation: dialog-in var(--dur) var(--ease-out) both;
+  }
+
+  .modal[open]::backdrop {
+    animation: fade-in var(--dur) ease-out both;
+  }
+
+  .skeleton {
+    background-image: linear-gradient(100deg, transparent 30%, var(--bg-sunken) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  .sidenav-link,
+  .tab,
+  .btn,
+  .shell-search,
+  .shell-theme,
+  .more-link,
+  .action-card {
+    transition: background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.16s,
+      transform 0.16s var(--ease-out);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

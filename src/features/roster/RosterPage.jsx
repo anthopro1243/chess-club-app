@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useRoute } from '../../app/useRoute.js';
 import { useSkillsForPlayer } from '../analysis/analysisStore.js';
 import { suggestedRubric } from '../../analysis/presentation.js';
 import { usePlayers, useCloudStatus, useMyProfile, addPlayer, updatePlayer, updateRubric, removePlayer } from './rosterStore.js';
@@ -14,6 +15,8 @@ import RosterList from './RosterList.jsx';
 import PlayerEditForm from './PlayerEditForm.jsx';
 import PlayerDetails from './PlayerDetails.jsx';
 import { isCloud } from '../../services/backend.js';
+import Icon from '../../ui/Icon.jsx';
+import Avatar from '../../ui/Avatar.jsx';
 
 const emptyForm = { name: '', grade: '', boardRole: '', commitment: 'Casual', uscf: '', goal: '' };
 
@@ -69,6 +72,26 @@ export default function RosterPage() {
   useEffect(() => {
     if (!selected && players.length) setSelectedId(players[0].playerId);
   }, [players, selected]);
+
+  // #/roster?player=<id> opens that player: names elsewhere in the app, and
+  // quick search, link here. On a phone the record sits below the table, so
+  // bring it into view.
+  const linkedId = useRoute().params.player || null;
+  const linkedKnown = !!linkedId && players.some((p) => p.playerId === linkedId);
+  const detailRef = useRef(null);
+  useEffect(() => {
+    if (!linkedKnown) return undefined;
+    setSelectedId(linkedId);
+    setEditing(false);
+    const frame = requestAnimationFrame(() => {
+      const detail = detailRef.current;
+      // Beside the table on a wide screen it is already in view.
+      if (detail && detail.getBoundingClientRect().top > window.innerHeight * 0.6) {
+        detail.scrollIntoView({ block: 'start' });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [linkedId, linkedKnown]);
 
   // Notes written before they moved off the player row.
   useEffect(() => {
@@ -145,37 +168,48 @@ export default function RosterPage() {
       />
 
       {selected && (
-        <section className="panel player-detail">
-          <div className="panel-header">
-            <h2>{editing ? 'Editing' : selected.name}</h2>
-            <div className="panel-header-actions">
-              <span className="badge mono">{selected.playerId}</span>
-              {!editing && (
-                <>
-                  {account.isCoach && (
-                    <button type="button" className="link-button" onClick={() => setCardFor(selected.playerId)}>
-                      Report card
-                    </button>
-                  )}
-                  {access.canEdit && (
-                    <button type="button" className="link-button" onClick={startEdit}>
-                      Edit
-                    </button>
-                  )}
-                  {account.isCoach && (
-                    <button type="button" className="link-button" onClick={() => setArchiving(true)}>
-                      Archive graduate
-                    </button>
-                  )}
-                  {access.canRemove && (
-                    <button type="button" className="link-button danger" onClick={remove}>
-                      Remove
-                    </button>
-                  )}
-                </>
-              )}
+        <section className="panel player-detail" ref={detailRef}>
+          <div className="player-head">
+            <Avatar name={selected.name} size="lg" />
+            <div className="player-head-text">
+              <h2>{editing ? `Editing ${selected.name}` : selected.name}</h2>
+              <p className="player-head-meta">
+                <span className="badge mono">{selected.playerId}</span>
+                {selected.boardRole && <span>{selected.boardRole}</span>}
+                <span className={`track ${(selected.commitment || 'Casual').toLowerCase()}`}>
+                  {selected.commitment || 'Casual'}
+                </span>
+              </p>
             </div>
           </div>
+          {!editing && (account.isCoach || access.canEdit || access.canRemove) && (
+            <div className="action-row player-actions">
+              {account.isCoach && (
+                <button type="button" className="btn btn-sm" onClick={() => setCardFor(selected.playerId)}>
+                  <Icon name="chart" size={15} />
+                  Report card
+                </button>
+              )}
+              {access.canEdit && (
+                <button type="button" className="btn btn-sm" onClick={startEdit}>
+                  <Icon name="edit" size={15} />
+                  Edit
+                </button>
+              )}
+              {account.isCoach && (
+                <button type="button" className="btn btn-sm" onClick={() => setArchiving(true)}>
+                  <Icon name="archive" size={15} />
+                  Archive graduate
+                </button>
+              )}
+              {access.canRemove && (
+                <button type="button" className="btn btn-sm btn-danger push" onClick={remove}>
+                  <Icon name="trash" size={15} />
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
 
           {editing && draft && access.canEdit ? (
             <PlayerEditForm

@@ -1,4 +1,8 @@
 import { COMMITMENTS } from './roster.js';
+import Icon from '../../ui/Icon.jsx';
+import Avatar from '../../ui/Avatar.jsx';
+import EmptyState from '../../ui/EmptyState.jsx';
+import { PageActions } from '../../ui/PageHeader.jsx';
 
 /** The roster table, its header actions and the "Add player" form. */
 export default function RosterList({
@@ -18,21 +22,31 @@ export default function RosterList({
 }) {
   return (
     <section className="panel">
+      <PageActions>
+        {account.isCoach && (
+          <button type="button" className="btn" onClick={() => setImporting(true)}>
+            <Icon name="upload" size={16} />
+            Import CSV
+          </button>
+        )}
+        {access.canAdd && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            aria-expanded={adding}
+            onClick={() => setAdding((v) => !v)}
+          >
+            <Icon name={adding ? 'x' : 'plus'} size={16} />
+            {adding ? 'Cancel' : 'Add player'}
+          </button>
+        )}
+      </PageActions>
+
       <div className="panel-header">
-        <h2>Roster</h2>
-        <div className="panel-header-actions">
-          <span className="badge">{players.length} players</span>
-          {account.isCoach && (
-            <button type="button" className="link-button" onClick={() => setImporting(true)}>
-              Import CSV
-            </button>
-          )}
-          {access.canAdd && (
-            <button type="button" className="link-button" onClick={() => setAdding((v) => !v)}>
-              {adding ? 'Cancel' : '+ Add player'}
-            </button>
-          )}
-        </div>
+        <h2>Players</h2>
+        <span className="badge">
+          {players.length} {players.length === 1 ? 'player' : 'players'}
+        </span>
       </div>
 
       {adding && access.canAdd && (
@@ -90,21 +104,37 @@ export default function RosterList({
       )}
 
       {players.length === 0 && !adding && (
-        <p className="muted empty-state">
-          No players yet. Add one with &ldquo;+ Add player&rdquo;
+        <EmptyState
+          icon="roster"
+          title="No players yet"
+          actions={
+            <>
+              {access.canAdd && (
+                <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+                  Add a player
+                </button>
+              )}
+              {account.isCoach && (
+                <button type="button" className="btn" onClick={() => setImporting(true)}>
+                  Import CSV
+                </button>
+              )}
+            </>
+          }
+        >
+          The roster is everyone in the club. Add players one at a time
           {account.isCoach ? ', or import the signup form CSV' : ''}.
-        </p>
+        </EmptyState>
       )}
       <div className="table-scroll" hidden={players.length === 0}>
         <table className="roster-table roster-list">
 <caption className="sr-only">Club roster</caption>
           <thead>
             <tr>
-              <th scope="col" className="hide-narrow">ID</th>
               <th scope="col">Name</th>
               <th scope="col" className="hide-narrow">Board</th>
               <th scope="col">USCF</th>
-              <th scope="col">Rapid</th>
+              <th scope="col" className="hide-narrow">Rapid</th>
               <th scope="col">Track</th>
             </tr>
           </thead>
@@ -118,11 +148,10 @@ export default function RosterList({
                   setEditing(false);
                 }}
               >
-                <td className="mono hide-narrow">{player.playerId}</td>
                 <td className="roster-name">
                   <button
                     type="button"
-                    className="row-button"
+                    className="row-button person"
                     aria-pressed={player.playerId === selectedId}
                     onClick={(event) => {
                       event.stopPropagation(); // the row selects too
@@ -130,12 +159,13 @@ export default function RosterList({
                       setEditing(false);
                     }}
                   >
-                    {player.name}
+                    <Avatar name={player.name} size="sm" />
+                    <span className="person-name">{player.name}</span>
                   </button>
                 </td>
                 <td className="hide-narrow">{player.boardRole}</td>
                 <td>{player.ratings.uscf ?? '—'}</td>
-                <td>{player.ratings.chesscomRapid ?? '—'}</td>
+                <td className="hide-narrow">{player.ratings.chesscomRapid ?? '—'}</td>
                 <td>
                   <span className={`track ${(player.commitment || 'Casual').toLowerCase()}`}>
                     {player.commitment}

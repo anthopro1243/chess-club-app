@@ -1,0 +1,416 @@
+/* ---------- surfaces: panels, avatars, empty and loading states ----------- */
+
+.panel,
+.panel-block,
+.stat {
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-panel {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Initials on a tint picked from the name (ui/Avatar.jsx). */
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: hsl(var(--avatar-hue, 350) var(--avatar-bg));
+  color: hsl(var(--avatar-hue, 350) var(--avatar-ink));
+  font-family: var(--font);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 0.68rem;
+}
+
+.avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
+}
+
+/* A name with its avatar, in a table cell or a heading. */
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+a.person,
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.person:hover .person-name,
+.name-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-ink);
+  text-underline-offset: 3px;
+}
+
+/* An empty list: an icon, what is missing, and the way to fill it. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.empty-text {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* A page that is still downloading shows its shape, not the word "Loading". */
+.skeleton-page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.skeleton {
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.skeleton-tile {
+  height: 84px;
+}
+
+.skeleton-panel {
+  height: 320px;
+}
+
+/* ---------- the Club page ------------------------------------------------ */
+
+/* What people come to do, as large targets. */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.action-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.action-card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* The first card is the main thing to do here. */
+.action-card:first-child .action-card-icon {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.action-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.action-card-detail {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.action-card-chevron {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.action-card:hover .action-card-chevron {
+  color: var(--accent-ink);
+}
+
+/* Stat tiles: the icon sits top right, out of the way of the number. */
+.stat {
+  position: relative;
+}
+
+.stat-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+}
+
+/* Leaderboard places: the top three get a medal. */
+.rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rank-1,
+.rank-2,
+.rank-3 {
+  color: #1c1608;
+}
+
+.rank-1 { background: #e6b84a; }
+.rank-2 { background: #c3c8cf; }
+.rank-3 { background: #cf9565; }
+
+/* The coach's "Preview as" picker, in the page header (local mode only). */
+.preview-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.preview-pick select {
+  width: auto;
+  max-width: 180px;
+}
+
+/* ---------- a player's record on the Roster page ------------------------- */
+
+.player-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.player-head-text {
+  min-width: 0;
+}
+
+.player-head h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.player-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.player-actions {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+/* A row's name button keeps the avatar beside it. */
+.row-button.person:hover {
+  text-decoration: none;
+}
+
+.row-button.person:hover .person-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 940px) {
+  .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .action-card {
+    padding: var(--space-3);
+  }
+
+  .action-card-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .action-card-title {
+    font-size: var(--text-md);
+  }
+
+  .action-card-detail,
+  .action-card-chevron {
+    display: none;
+  }
+
+  .player-actions .push {
+    margin-left: 0;
+  }
+}
+
+/* Scrolled to from a link, the record clears the phone's top bar. */
+.player-detail {
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-3));
+}
+
+/* ---------- jump links on a long page ------------------------------------ */
+
+.jump-nav {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.jump-link {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.jump-link:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.dashboard > section.panel {
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-3));
+}
+
+/* Plain links inside a panel take the app's colour, not the browser's blue. */
+.panel a:not([class]) {
+  color: var(--accent-ink);
+  text-underline-offset: 2px;
+}
+
+.panel a:not([class]):hover {
+  color: var(--text);
+}
+
+/* Play: the board gives up width on a short screen so both clocks stay in
+   view under the page header (two clock rows and the header are ~250px). */
+.play-layout > .board-column {
+  max-width: min(620px, max(320px, calc(100dvh - 250px)));
+}
+
+/* The roster list sits beside the record: long names wrap so the table
+   fits its panel without scrolling sideways. */
+.roster-list td:first-child {
+  white-space: normal;
+}
+
+.roster-list th,
+.roster-list td {
+  padding-inline: 10px;
+}
+
+/* On a phone the wide tables keep the columns that matter and let names wrap,
+   so nothing has to scroll sideways inside a panel. */
+@media (max-width: 640px) {
+  .roster-table th,
+  .roster-table td {
+    padding-inline: 8px;
+  }
+
+  .roster-table td:first-child,
+  .roster-table.leaderboard td:nth-child(2) {
+    white-space: normal;
+  }
+}

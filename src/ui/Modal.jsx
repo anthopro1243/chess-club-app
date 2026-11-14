@@ -10,10 +10,13 @@ import { useEffect, useId, useRef } from 'react';
  *
  * `busy` blocks closing (Escape, the backdrop and the close button) while
  * an import or save is running. `closeLabel` = null leaves the header
- * without a close button, for dialogs whose own buttons end them.
+ * without a close button, for dialogs whose own buttons end them. A dialog
+ * with no visible title (the quick search) passes `label` instead, so it
+ * still has a name.
  */
 export default function Modal({
   title,
+  label,
   titleExtra = null,
   onClose,
   busy = false,
@@ -54,6 +57,7 @@ export default function Modal({
       ref={ref}
       className="modal"
       aria-labelledby={title ? titleId : undefined}
+      aria-label={title ? undefined : label}
       onCancel={(event) => {
         // Escape: let React decide, so a busy dialog stays open.
         event.preventDefault();
@@ -74,7 +78,7 @@ export default function Modal({
               {titleExtra}
             </div>
             {closeLabel && onClose && (
-              <button type="button" className="link-button" onClick={requestClose} disabled={busy}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={requestClose} disabled={busy}>
                 {closeLabel}
               </button>
             )}

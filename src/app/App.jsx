@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useRef, useState } from 'react';
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ClubPage from '../features/club/ClubPage.jsx';
 import { lazyPage } from './lazyPage.js';
 import AccountControl from '../features/account/AccountControl.jsx';
@@ -13,9 +13,14 @@ import { useAnalysisQueue } from '../features/analysis/useAnalysisQueue.js';
 import { useAutoSync } from '../features/sync/useAutoSync.js';
 import { useMyProfile } from '../features/roster/rosterStore.js';
 import BackgroundActivity from './BackgroundActivity.jsx';
-import { ROUTES, visibleRoutes, canOpenRoute, documentTitle } from './routes.js';
+import { ROUTES, SITE_NAME, navGroups, tabRoutes, viewKey, canOpenRoute, documentTitle } from './routes.js';
 import { useRoute } from './useRoute.js';
 import Link from '../ui/Link.jsx';
+import Icon from '../ui/Icon.jsx';
+import Modal from '../ui/Modal.jsx';
+import PageHeader, { PageChromeProvider } from '../ui/PageHeader.jsx';
+import PageSkeleton from '../ui/Skeleton.jsx';
+import CommandPalette from './CommandPalette.jsx';
 import WhoAreYou from '../features/account/WhoAreYou.jsx';
 import { useMyAccountLink } from '../features/account/accountLinkStore.js';
 import { shouldAskWhoAreYou } from '../features/account/accountLinking.js';
@@ -33,12 +38,21 @@ const PAGES = {
 
 const clearHash = () => window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+
+/** Whether a key press is headed for a text box, where "/" is just a slash. */
+const isTyping = (target) =>
+  !!target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+
 /**
- * App — the club shell: top bar, banners, the access gate, and the page the
- * URL names (routes.js).
+ * App — the club shell: the menu (a sidebar on a laptop, a top bar and a tab
+ * bar on a phone), quick search, banners, the page header, the access gate,
+ * and the page the URL names (routes.js).
  */
 export default function App() {
-  const { id: route } = useRoute();
+  const currentRoute = useRoute();
+  const route = currentRoute.id;
+  const view = viewKey(currentRoute);
   const [authNotice, setAuthNotice] = useState(null);
   const [passwordResetActive, setPasswordResetActive] = useState(false);
 
@@ -111,6 +125,35 @@ export default function App() {
       /* storage can be unavailable; the theme still applies for this visit */
     }
   }, [theme]);
+  const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), []);
+
+  // Quick search opens from its button, Ctrl/Cmd K anywhere, or "/" when
+  // nothing is being typed and no dialog is up.
+  const [searching, setSearching] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => {
+    if (locked) return undefined;
+    const onKey = (event) => {
+      const combo = (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k';
+      const slash =
+        event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !isTyping(event.target);
+      if (!combo && !slash) return;
+      if (document.querySelector('dialog[open]')) {
+        if (combo) event.preventDefault(); // keep the browser's own Ctrl K out of it
+        return;
+      }
+      event.preventDefault();
+      setSearching(true);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [locked]);
+
+  // The page header belongs to the shell; a page adds its actions and, for a
+  // detail view, its own title and breadcrumb (ui/PageHeader.jsx).
+  const [actionsNode, setActionsNode] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const chrome = useMemo(() => ({ actionsNode, setMeta }), [actionsNode]);
 
   // A page change is announced: the tab title names the page, and focus
   // moves to the page's heading (not on first load, where it would steal
@@ -118,81 +161,87 @@ export default function App() {
   const headingRef = useRef(null);
   const firstRouteRef = useRef(true);
   useEffect(() => {
-    document.title = documentTitle(route);
     if (firstRouteRef.current) {
       firstRouteRef.current = false;
       return;
     }
+    setMoreOpen(false);
     headingRef.current?.focus({ preventScroll: true });
     window.scrollTo?.(0, 0);
-  }, [route]);
-
-  // On a phone the nav scrolls sideways. Keep the current page's link in view
-  // and fade whichever edge has more links past it, so it's clear there are.
-  const navRef = useRef(null);
-  const [navEdges, setNavEdges] = useState({ left: false, right: false });
+  }, [view]);
+  const detailTitle = meta?.crumbs?.length ? meta.title : null;
   useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return undefined;
-    nav.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-    const measure = () =>
-      setNavEdges({
-        left: nav.scrollLeft > 4,
-        right: nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 4,
-      });
-    measure();
-    nav.addEventListener('scroll', measure, { passive: true });
-    window.addEventListener('resize', measure);
-    return () => {
-      nav.removeEventListener('scroll', measure);
-      window.removeEventListener('resize', measure);
-    };
-  }, [route, locked, account.isCoach]);
+    document.title = detailTitle ? `${detailTitle} · ${SITE_NAME}` : documentTitle(route);
+  }, [route, detailTitle]);
 
   const mainRef = useRef(null);
   const Page = PAGES[route] || ClubPage;
   const allowed = canOpenRoute(route, account);
-  const title = ROUTES.find((r) => r.id === route)?.title || 'Club';
+  const routeInfo = ROUTES.find((r) => r.id === route) || ROUTES[0];
+  const showsPage = !(isCloud && account.loading) && !locked && !askWhoAreYou && allowed;
+  const groups = locked ? [] : navGroups(account);
+  const { tabs, more } = tabRoutes(account);
+  const themeLabel = theme === 'dark' ? 'Light theme' : 'Dark theme';
+  const themeIcon = theme === 'dark' ? 'sun' : 'moon';
 
   return (
     <div className="app">
       <button type="button" className="skip-link" onClick={() => mainRef.current?.focus()}>
         Skip to content
       </button>
-      <header className="topbar">
+      <header className="shell">
         <Link to="home" className="brand">
           <img className="brand-mark" src="./sem-logo.png" alt="" width="34" height="34" />
           <span className="brand-name">Chess Club</span>
         </Link>
 
-        <nav
-          ref={navRef}
-          className={`nav ${navEdges.left ? 'fade-left' : ''} ${navEdges.right ? 'fade-right' : ''}`}
-          aria-label="Pages"
-        >
-          {(locked ? [] : visibleRoutes(account)).map((item) => (
-            <Link
-              key={item.id}
-              to={item.id}
-              current={route === item.id}
-              className={`nav-link ${route === item.id ? 'active' : ''}`}
-            >
-              {item.label}
-            </Link>
+        {!locked && (
+          <button type="button" className="shell-search" onClick={() => setSearching(true)}>
+            <Icon name="search" size={16} />
+            <span className="shell-search-label">Search</span>
+            <kbd className="kbd" aria-hidden="true">
+              {IS_MAC ? '⌘K' : 'Ctrl K'}
+            </kbd>
+          </button>
+        )}
+
+        <nav className="sidenav" aria-label="Pages">
+          {groups.map((group) => (
+            <div className="sidenav-group" key={group.id}>
+              <p className="sidenav-label">{group.label}</p>
+              <ul>
+                {group.routes.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      to={item.id}
+                      current={route === item.id}
+                      className={`sidenav-link ${route === item.id ? 'active' : ''}`}
+                    >
+                      <Icon name={item.icon} />
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
         </nav>
 
-        <AccountControl />
-
-        <button
-          type="button"
-          className="theme-toggle"
-          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-        >
-          {theme === 'dark' ? 'Light theme' : 'Dark theme'}
-        </button>
+        <div className="shell-tools">
+          <AccountControl />
+          <button
+            type="button"
+            className="shell-theme"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${themeLabel.toLowerCase()}`}
+          >
+            <Icon name={themeIcon} size={17} />
+            <span className="shell-theme-label">{themeLabel}</span>
+          </button>
+        </div>
       </header>
 
+      <div className="app-main">
       <div role="status" className="banner-slot">
         {authNotice && (
           <div className={`auth-banner ${authNotice.kind}`}>
@@ -219,38 +268,117 @@ export default function App() {
       </div>
 
       <main className="content" id="main" ref={mainRef} tabIndex={-1}>
-        <h1 className="sr-only" ref={headingRef} tabIndex={-1}>
-          {title}
-        </h1>
+        <PageHeader
+          title={showsPage ? meta?.title ?? routeInfo.title : allowed ? SITE_NAME : routeInfo.title}
+          summary={showsPage ? (meta ? meta.summary : routeInfo.summary) : null}
+          crumbs={showsPage ? meta?.crumbs : null}
+          headingRef={headingRef}
+          actionsRef={setActionsNode}
+        />
         {isCloud && account.loading ? (
-          <p className="muted page-loading" role="status">
-            Loading…
-          </p>
+          <PageSkeleton />
         ) : locked ? (
           <AccessGate signedIn={account.signedIn} status={account.status} />
         ) : askWhoAreYou ? (
           <WhoAreYou onDone={(message) => setAuthNotice({ kind: 'success', message })} />
         ) : (
           <PageErrorBoundary key={route}>
-            <Suspense
-              fallback={
-                <p className="muted page-loading" role="status">
-                  Loading…
-                </p>
-              }
-            >
-              {allowed ? <Page /> : <CoachOnly />}
-            </Suspense>
+            <PageChromeProvider value={chrome}>
+              <div className="page-body">
+                <Suspense fallback={<PageSkeleton />}>{allowed ? <Page /> : <CoachOnly />}</Suspense>
+              </div>
+            </PageChromeProvider>
           </PageErrorBoundary>
         )}
       </main>
 
+      <footer className="footer">
+        <span>SEM Chess Club</span>
+        <span>
+          Press <kbd className="kbd">{IS_MAC ? '⌘K' : 'Ctrl K'}</kbd> to search.
+        </span>
+      </footer>
+      </div>
+
       {!locked && <BackgroundActivity />}
 
-      <footer className="footer">
-        <span>Chess Club app, v0.1</span>
-        <span>Made for the SEM Chess Club.</span>
-      </footer>
+      {!locked && (
+        <nav className="tabbar" aria-label="Pages">
+          {tabs.map((item) => (
+            <Link
+              key={item.id}
+              to={item.id}
+              current={route === item.id}
+              className={`tab ${route === item.id ? 'active' : ''}`}
+            >
+              <Icon name={item.icon} size={21} />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          <button
+            type="button"
+            className={`tab ${more.some((item) => item.id === route) ? 'active' : ''}`}
+            aria-haspopup="dialog"
+            onClick={() => setMoreOpen(true)}
+          >
+            <Icon name="more" size={21} />
+            <span>More</span>
+          </button>
+        </nav>
+      )}
+
+      {moreOpen && (
+        <Modal title="More" onClose={() => setMoreOpen(false)} className="more-sheet">
+          <ul className="more-list">
+            {more.map((item) => (
+              <li key={item.id}>
+                <Link
+                  to={item.id}
+                  current={route === item.id}
+                  className={`more-link ${route === item.id ? 'active' : ''}`}
+                  onClick={() => setMoreOpen(false)}
+                >
+                  <span className="more-icon">
+                    <Icon name={item.icon} size={20} />
+                  </span>
+                  <span className="more-text">
+                    <strong>{item.label}</strong>
+                    <span>{item.summary}</span>
+                  </span>
+                  <Icon name="chevron-right" size={16} className="more-chevron" />
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button
+                type="button"
+                className="more-link"
+                onClick={() => {
+                  setMoreOpen(false);
+                  setSearching(true);
+                }}
+              >
+                <span className="more-icon">
+                  <Icon name="search" size={20} />
+                </span>
+                <span className="more-text">
+                  <strong>Search</strong>
+                  <span>Find a page, a player or a game.</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+        </Modal>
+      )}
+
+      {searching && (
+        <CommandPalette
+          account={account}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onClose={() => setSearching(false)}
+        />
+      )}
 
       {passwordResetActive && (
         <ResetPasswordModal
