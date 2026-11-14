@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
+import { coalesce } from '../../services/coalesce.js';
 
 const LOCAL_ADMIN = {
   userId: null,
@@ -137,11 +138,15 @@ export function useMembers() {
   useEffect(() => {
     reload();
     if (!isSupabaseConfigured) return undefined;
+    const refetch = coalesce(reload);
     const channel = supabase
       .channel('profiles-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refetch)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    return () => {
+      refetch.cancel();
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { members, loading, reload };

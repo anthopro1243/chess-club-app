@@ -14,6 +14,7 @@
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
 import { reportSyncError } from '../../services/syncStatus.js';
+import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-games-v1', []);
 
@@ -121,13 +122,15 @@ async function syncFromCloud() {
   store.set(data.map(fromRow));
 }
 
+// Row updates arrive in bursts (the analysis queue touches a game several
+// times); one refetch per burst, not per event.
+const refetchFromCloud = coalesce(syncFromCloud);
+
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('games-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
-      syncFromCloud();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, refetchFromCloud)
     .subscribe();
 }
 
@@ -138,6 +141,7 @@ if (isSupabaseConfigured) {
       subscribeRealtime();
     } else {
       cloudReady = false;
+      refetchFromCloud.cancel();
       if (channel) {
         supabase.removeChannel(channel);
         channel = null;

@@ -17,6 +17,7 @@
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
 import { reportSyncError } from '../../services/syncStatus.js';
+import { coalesce } from '../../services/coalesce.js';
 
 // { [playerId]: { studentId, schoolEmail } }
 const store = createStore('cc-player-private-v1', {});
@@ -59,11 +60,13 @@ export async function refreshPrivate() {
   if (isSupabaseConfigured) await syncFromCloud();
 }
 
+const refetchFromCloud = coalesce(syncFromCloud);
+
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('player-private-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'player_private' }, syncFromCloud)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'player_private' }, refetchFromCloud)
     .subscribe();
 }
 
@@ -74,6 +77,7 @@ if (isSupabaseConfigured) {
       subscribeRealtime();
     } else {
       cloudReady = false;
+      refetchFromCloud.cancel();
       store.set({});
       if (channel) {
         supabase.removeChannel(channel);
