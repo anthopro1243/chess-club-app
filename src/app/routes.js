@@ -39,6 +39,9 @@ const TAB_IDS = ['home', 'play', 'training', 'games'];
 
 export const SITE_NAME = 'Chess Club';
 
+/** What a typed-in address that names no page resolves to (see parseHash). */
+export const NOT_FOUND = 'not-found';
+
 /** The routes this account may see in the nav. */
 export function visibleRoutes({ isCoach = false } = {}) {
   return ROUTES.filter((route) => !route.coachOnly || isCoach);
@@ -77,13 +80,16 @@ export function canOpenRoute(id, { isCoach = false } = {}) {
 }
 
 /**
- * The route a hash names: { id, params }. Unknown pages fall back to home,
- * and parameters come from the query part: #/games?game=abc → { game: 'abc' }.
+ * The route a hash names: { id, params }. A path that names no page is
+ * NOT_FOUND. An empty hash, or one that is not a path at all (Supabase's
+ * #access_token=… sign-in links), is home. Parameters come from the query
+ * part: #/games?game=abc → { game: 'abc' }.
  */
 export function parseHash(hash = '') {
   const raw = String(hash).replace(/^#\/?/, '');
   const [path, query = ''] = raw.split('?');
-  const id = ROUTES.some((r) => r.id === path) ? path : 'home';
+  const isPath = /^#\//.test(hash) && path !== '';
+  const id = ROUTES.some((r) => r.id === path) ? path : isPath ? NOT_FOUND : 'home';
   let params = {};
   try {
     params = Object.fromEntries(new URLSearchParams(query));
@@ -102,6 +108,7 @@ export function href(id, params = null) {
 
 /** The browser tab title for a route. */
 export function documentTitle(id) {
+  if (id === NOT_FOUND) return `Page not found · ${SITE_NAME}`;
   const route = ROUTES.find((r) => r.id === id);
   return route && route.id !== 'home' ? `${route.title} · ${SITE_NAME}` : SITE_NAME;
 }

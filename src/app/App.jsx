@@ -13,9 +13,10 @@ import { useAnalysisQueue } from '../features/analysis/useAnalysisQueue.js';
 import { useAutoSync } from '../features/sync/useAutoSync.js';
 import { useMyProfile } from '../features/roster/rosterStore.js';
 import BackgroundActivity from './BackgroundActivity.jsx';
-import { ROUTES, SITE_NAME, navGroups, tabRoutes, viewKey, canOpenRoute, documentTitle } from './routes.js';
+import { ROUTES, SITE_NAME, NOT_FOUND, navGroups, tabRoutes, viewKey, canOpenRoute, documentTitle } from './routes.js';
 import { useRoute } from './useRoute.js';
 import Link from '../ui/Link.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
 import Icon from '../ui/Icon.jsx';
 import Modal from '../ui/Modal.jsx';
 import PageHeader, { PageChromeProvider } from '../ui/PageHeader.jsx';
@@ -175,9 +176,12 @@ export default function App() {
   }, [route, detailTitle]);
 
   const mainRef = useRef(null);
-  const Page = PAGES[route] || ClubPage;
-  const allowed = canOpenRoute(route, account);
-  const routeInfo = ROUTES.find((r) => r.id === route) || ROUTES[0];
+  const missing = route === NOT_FOUND;
+  const Page = missing ? NotFound : PAGES[route] || ClubPage;
+  const allowed = missing || canOpenRoute(route, account);
+  const routeInfo = missing
+    ? { title: 'Page not found', summary: null }
+    : ROUTES.find((r) => r.id === route) || ROUTES[0];
   const showsPage = !(isCloud && account.loading) && !locked && !askWhoAreYou && allowed;
   const groups = locked ? [] : navGroups(account);
   const { tabs, more } = tabRoutes(account);
@@ -397,6 +401,23 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+/** A typed-in or out-of-date address that names no page. */
+function NotFound() {
+  return (
+    <EmptyState
+      icon="search"
+      title="There’s no page at this address"
+      actions={
+        <Link to="home" className="btn btn-primary">
+          Go to the Club page
+        </Link>
+      }
+    >
+      The link may be old or mistyped. Everything in the club is reachable from the menu.
+    </EmptyState>
   );
 }
 
