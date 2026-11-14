@@ -7,6 +7,7 @@ import { useDuePuzzles, useReviewSummary } from '../training/ownPuzzleStore.js';
 import GameAnalysisPanel from '../analysis/GameAnalysisPanel.jsx';
 import GameReview from '../analysis/GameReview.jsx';
 import { gameFromPlayerSide, shortGameDate } from '../../analysis/playerHome.js';
+import { isCloud } from '../../services/backend.js';
 
 /*
  * MyGamesPage — a player's own game history, and the analyser on demand.
@@ -47,8 +48,9 @@ export default function MyGamesPage() {
             <h2>My games</h2>
           </div>
           <p className="muted">
-            Your account isn&rsquo;t on the club roster yet. Ask the coach to link it from the Roster
-            page.
+            {isCloud
+              ? 'Your account isn’t on the club roster yet. Ask the coach to link it from the Roster page.'
+              : 'My games needs club accounts, and this copy of the app isn’t connected to the club server. Every game is on the Games page.'}
           </p>
         </section>
       </div>

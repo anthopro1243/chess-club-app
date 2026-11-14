@@ -4,6 +4,10 @@ import { recordImportedGames } from './gamesStore.js';
 import { enqueueGameRow } from '../../analysis/queue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
 import Modal from '../../ui/Modal.jsx';
+import { useAccount } from '../account/accountStore.js';
+import { useMyProfile } from '../roster/rosterStore.js';
+import { isCloud } from '../../services/backend.js';
+import { gameEntryProblem } from './gameAccess.js';
 
 /*
  * PgnImportModal — paste or upload PGN, check who played, then archive.
@@ -62,8 +66,27 @@ export default function PgnImportModal({ players, existingIds, onClose }) {
   const toWrite = useMemo(() => (plan ? recordsToImport(plan.rows, roster) : []), [plan, roster]);
   const summary = plan ? summarise(plan.rows, plan.errors) : null;
 
+  const account = useAccount();
+  const me = useMyProfile();
+  const entryProblem =
+    toWrite
+      .map((g) =>
+        gameEntryProblem({
+          cloud: isCloud,
+          isCoach: account.isCoach,
+          myPlayerId: me?.playerId ?? null,
+          whitePlayerId: g.whitePlayerId,
+          blackPlayerId: g.blackPlayerId,
+        }),
+      )
+      .find(Boolean) || null;
+
   const runImport = async () => {
     if (!toWrite.length) return;
+    if (entryProblem) {
+      setReadError(entryProblem);
+      return;
+    }
     setBusy(true);
     setReadError('');
     try {

@@ -22,6 +22,10 @@ import { enqueueGameRow } from '../../analysis/queue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
 import './scoresheet.css';
 import Modal from '../../ui/Modal.jsx';
+import { useAccount } from '../account/accountStore.js';
+import { useMyProfile } from '../roster/rosterStore.js';
+import { isCloud } from '../../services/backend.js';
+import { gameEntryProblem } from './gameAccess.js';
 
 const DRAFT_KEY = 'cc-scoresheet-draft-v1';
 const OTHER_TC = '__other__';
@@ -371,10 +375,23 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
   // -- saving ---------------------------------------------------------------
   const alreadyArchived = built.ok && existingIds.has(built.game.id);
 
+  const account = useAccount();
+  const me = useMyProfile();
   const save = async () => {
     setTried(true);
     setSaveError('');
     if (!built.ok || alreadyArchived) return;
+    const problem = gameEntryProblem({
+      cloud: isCloud,
+      isCoach: account.isCoach,
+      myPlayerId: me?.playerId ?? null,
+      whitePlayerId: built.game.whitePlayerId,
+      blackPlayerId: built.game.blackPlayerId,
+    });
+    if (problem) {
+      setSaveError(problem);
+      return;
+    }
     setBusy(true);
     try {
       const outcome = await withTimeout(recordImportedGames([built.game]), 60 * 1000, { label: 'Saving the game' });

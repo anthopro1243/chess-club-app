@@ -12,7 +12,7 @@ import RosterImportModal from './RosterImportModal.jsx';
 import ReportCard from '../analysis/ReportCard.jsx';
 import ArchiveGraduateModal from './ArchiveGraduateModal.jsx';
 import AccountLinksPanel from './AccountLinksPanel.jsx';
-import { isSupabaseConfigured } from '../../services/supabaseClient.js';
+import { isCloud } from '../../services/backend.js';
 import { gradeSection } from './privacy.js';
 
 const COMMITMENTS = ['Casual', 'Competitive'];
@@ -129,7 +129,7 @@ export default function RosterPage() {
 
   return (
     <div className="roster-layout">
-      {account.isCoach && isSupabaseConfigured && (
+      {account.isCoach && isCloud && (
         <AccountLinksPanel
           onSelectPlayer={(id) => {
             setSelectedId(id);
@@ -209,7 +209,13 @@ export default function RosterPage() {
           </form>
         )}
 
-        <div className="table-scroll">
+        {players.length === 0 && !adding && (
+          <p className="muted empty-state">
+            No players yet. Add one with &ldquo;+ Add player&rdquo;
+            {account.isCoach ? ', or import the signup form CSV' : ''}.
+          </p>
+        )}
+        <div className="table-scroll" hidden={players.length === 0}>
           <table className="roster-table roster-list">
 <caption className="sr-only">Club roster</caption>
             <thead>

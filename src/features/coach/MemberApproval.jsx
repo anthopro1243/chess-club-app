@@ -9,7 +9,7 @@ import {
   createInvite,
   sendResetForMember,
 } from '../account/accountStore.js';
-import { isSupabaseConfigured } from '../../services/supabaseClient.js';
+import { isCloud } from '../../services/backend.js';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 
 const ROLES = ['player', 'coach', 'admin', 'parent'];
@@ -33,7 +33,7 @@ export default function MemberApproval() {
 
   // Nothing to manage when there are no accounts: either no backend at all,
   // or signed out and running on this browser's own storage.
-  if (!isSupabaseConfigured || !account.signedIn || !account.isCoach) return null;
+  if (!isCloud || !account.signedIn || !account.isCoach) return null;
 
   const run = async (key, action) => {
     setError('');

@@ -168,10 +168,9 @@ export async function setMemberRole(userId, role) {
 /** Make an invite code. Short, unambiguous, no letters that look like digits. */
 export async function createInvite({ note = '', maxUses = 1, expiresInDays = 30 } = {}) {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  const code = Array.from(
-    { length: 8 },
-    () => alphabet[Math.floor(Math.random() * alphabet.length)],
-  ).join('');
+  // crypto, not Math.random: a code that gates the club shouldn't be guessable.
+  const bytes = crypto.getRandomValues(new Uint32Array(8));
+  const code = Array.from(bytes, (n) => alphabet[n % alphabet.length]).join('');
 
   const expiresAt = expiresInDays
     ? new Date(Date.now() + expiresInDays * 86400000).toISOString()

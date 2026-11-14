@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { usePlayers, recordGameResult } from '../roster/rosterStore.js';
+import { usePlayers, useMyProfile, recordGameResult } from '../roster/rosterStore.js';
 import { recordGame } from './gamesStore.js';
 import { countPlies } from '../../services/external/externalChess.js';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
+import { useAccount } from '../account/accountStore.js';
+import { isCloud } from '../../services/backend.js';
+import { gameEntryProblem } from './gameAccess.js';
 
 const RESULTS = [
   { value: '1-0', label: 'White won' },
@@ -71,11 +74,22 @@ export default function LogGameForm({ onDone }) {
     });
   };
 
+  const account = useAccount();
+  const me = useMyProfile();
+  const entryProblem = gameEntryProblem({
+    cloud: isCloud,
+    isCoach: account.isCoach,
+    myPlayerId: me?.playerId ?? null,
+    whitePlayerId: form.whitePlayerId,
+    blackPlayerId: form.blackPlayerId,
+  });
+
   const bothRegistered = form.whitePlayerId && form.blackPlayerId
     && form.whitePlayerId !== form.blackPlayerId;
 
   const submit = (event) => {
     event.preventDefault();
+    if (entryProblem) return;
 
     const whiteName = form.whiteName.trim()
       || players.find((p) => p.playerId === form.whitePlayerId)?.name
@@ -205,6 +219,16 @@ export default function LogGameForm({ onDone }) {
           onChange={(e) => onPastePgn(e.target.value)}
         />
       </label>
+
+      {entryProblem && (
+
+        <p className="field-error field-wide" role="alert">
+
+          {entryProblem}
+
+        </p>
+
+      )}
 
       <button type="submit" className="primary form-submit">
         Log this game

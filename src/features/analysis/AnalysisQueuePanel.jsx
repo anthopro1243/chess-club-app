@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { queueCounts, enqueueAll } from '../../analysis/queue.js';
 import { useAnalysisActivity } from './useAnalysisQueue.js';
 import { withTimeout } from '../../services/external/autoPolicy.js';
+import { isCloud } from '../../services/backend.js';
 
 /*
  * The coach's view of the analysis queue — a status board and a backfill
@@ -40,8 +41,9 @@ export default function AnalysisQueuePanel({ queue }) {
       </div>
 
       <p className="muted">
-        New games get analyzed on their own while the app is open. You shouldn&rsquo;t need to
-        touch this.
+        {isCloud
+          ? 'New games get analyzed on their own while the app is open. You shouldn’t need to touch this.'
+          : 'Background analysis needs the club server, and this copy of the app isn’t connected to one. Open a game on the Games page to analyze it there.'}
       </p>
 
       {running && (

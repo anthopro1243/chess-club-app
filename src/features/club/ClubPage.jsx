@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { usePlayers, useCloudStatus, useMyProfile } from '../roster/rosterStore.js';
 import { useAccount } from '../account/accountStore.js';
-import { isSupabaseConfigured } from '../../services/supabaseClient.js';
+import { isCloud } from '../../services/backend.js';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import PlayerHome from './PlayerHome.jsx';
 import { useSkillScores } from '../analysis/analysisStore.js';
@@ -35,7 +35,7 @@ export default function ClubPage() {
    * coach can preview any roster member's page. Local only - with a backend,
    * each member sees their own page when they sign in.
    */
-  const canPreview = !isSupabaseConfigured && account.isCoach;
+  const canPreview = !isCloud && account.isCoach;
   const [previewId, setPreviewId] = useState('');
   const previewViewer = useMemo(() => ({ role: account.role, playerId: null }), [account.role]);
   const previewing = canPreview && players.some((p) => p.playerId === previewId);
@@ -99,7 +99,7 @@ export default function ClubPage() {
   return (
     <div className="dashboard">
 
-      {isSupabaseConfigured && me && account.isApproved && (
+      {isCloud && me && account.isApproved && (
         <PlayerHome playerId={me.playerId} viewer={myViewer} />
       )}
 
@@ -125,7 +125,7 @@ export default function ClubPage() {
       {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
 
       {/* A member with their own page above already has "Play a game" there. */}
-      {!(isSupabaseConfigured && me && account.isApproved) && (
+      {!(isCloud && me && account.isApproved) && (
         <section className="hero">
           <div>
             <h2 className="hero-title">Chess Club</h2>

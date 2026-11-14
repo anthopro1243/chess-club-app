@@ -4,7 +4,7 @@ import { lazyPage } from './lazyPage.js';
 import AccountControl from '../features/account/AccountControl.jsx';
 import ResetPasswordModal from '../features/account/ResetPasswordModal.jsx';
 import AccessGate from '../features/account/AccessGate.jsx';
-import { isSupabaseConfigured } from '../services/supabaseClient.js';
+import { isCloud } from '../services/backend.js';
 import { onAuthEvent } from '../services/auth.js';
 import { useAccount } from '../features/account/accountStore.js';
 import { useSyncError, clearSyncError } from '../services/syncStatus.js';
@@ -65,11 +65,11 @@ export default function App() {
   // account that hasn't synced in a day, politely (clubSync.js).
   useAutoSync({ enabled: !!account?.isApproved, isCoach: !!account?.isCoach });
 
-  const locked = isSupabaseConfigured && !account.loading && !account.isApproved;
+  const locked = isCloud && !account.loading && !account.isApproved;
 
   // Once approved, a member says who they are, once (accountLinking.js).
   const link = useMyAccountLink();
-  const askWhoAreYou = shouldAskWhoAreYou({ configured: isSupabaseConfigured, account, link });
+  const askWhoAreYou = shouldAskWhoAreYou({ configured: isCloud, account, link });
 
   // Supabase redirects auth outcomes back here via the URL hash, the same
   // place our routing looks. A successful sign-in's tokens are handled by the
@@ -90,7 +90,7 @@ export default function App() {
   // hash. A password-reset link has the same shape but type=recovery: that
   // opens the reset dialog instead of the "signed in" banner.
   useEffect(() => {
-    if (!isSupabaseConfigured || !window.location.hash.includes('access_token')) return undefined;
+    if (!isCloud || !window.location.hash.includes('access_token')) return undefined;
     if (window.location.hash.includes('type=recovery')) {
       setPasswordResetActive(true);
       return undefined;
@@ -222,7 +222,7 @@ export default function App() {
         <h1 className="sr-only" ref={headingRef} tabIndex={-1}>
           {title}
         </h1>
-        {isSupabaseConfigured && account.loading ? (
+        {isCloud && account.loading ? (
           <p className="muted page-loading" role="status">
             Loading…
           </p>
