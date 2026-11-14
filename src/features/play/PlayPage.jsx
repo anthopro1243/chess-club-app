@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from '../../engine/chess.js';
-import { createEngine } from '../../engine/stockfishClient.js';
+import { useEngineOpponent, DEFAULT_ELO_RANGE } from './useEngineOpponent.js';
+import { buildGame, replay, materialSummary } from './playGame.js';
+import PlayerBar from './PlayerBar.jsx';
 import { usePlayers, useMyProfile, recordGameResult, recordRatingResult } from '../roster/rosterStore.js';
 import { recordGame } from '../games/gamesStore.js';
 import { useAccount } from '../account/accountStore.js';
 import Board from '../../board/Board.jsx';
 import MoveList from '../../board/MoveList.jsx';
 import PromotionDialog from '../../board/PromotionDialog.jsx';
-import Piece from '../../board/Piece.jsx';
 import { useFlash } from '../../ui/useFlash.js';
 import {
   TIME_CONTROLS,
@@ -17,7 +18,6 @@ import {
   pressClock,
   remainingFor,
   hasFlagged,
-  formatClock,
   annotatePgnWithClocks,
   pgnTimeControlTag,
 } from './chessClock.js';
@@ -26,11 +26,8 @@ import SanInput from '../../board/SanInput.jsx';
 
 const COMPUTER_OPPONENT_RD = 40; // Stockfish at a set Elo is very consistent — low uncertainty
 
-const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const START_COUNTS = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
 const SAVE_KEY = 'cc-play-state-v2';
 const THINK_TIME_MS = { fast: 600, normal: 1200, deep: 3000 };
-const DEFAULT_ELO_RANGE = { min: 1320, max: 3190, default: 1500 };
 
 function loadSavedState() {
   try {
@@ -42,47 +39,6 @@ function loadSavedState() {
 }
 
 const newGameId = () => `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-/** Rebuild a game from a saved move list, stopping early if storage is corrupt. */
-function buildGame(savedMoves) {
-  const game = new Chess();
-  if (!Array.isArray(savedMoves)) return game;
-  for (const m of savedMoves) {
-    if (!game.move({ from: m.from, to: m.to, promotion: m.promotion })) break;
-  }
-  return game;
-}
-
-/** Rebuild the position as it stood after `ply` half-moves. */
-function replay(moves, ply) {
-  const game = new Chess();
-  for (let i = 0; i < ply; i += 1) {
-    const move = moves[i];
-    game.move({ from: move.from, to: move.to, promotion: move.promotion });
-  }
-  return game;
-}
-
-/** What each side has captured, and who is up on material. */
-function materialSummary(game) {
-  const remaining = { w: {}, b: {} };
-  for (const row of game.boardArray()) {
-    for (const cell of row) {
-      if (!cell) continue;
-      remaining[cell.color][cell.type] = (remaining[cell.color][cell.type] || 0) + 1;
-    }
-  }
-  const captured = { w: [], b: [] };
-  let score = 0;
-  for (const color of ['w', 'b']) {
-    for (const [type, start] of Object.entries(START_COUNTS)) {
-      const missing = start - (remaining[color][type] || 0);
-      for (let i = 0; i < missing; i += 1) captured[color === 'w' ? 'b' : 'w'].push(type);
-      score += (color === 'w' ? -1 : 1) * missing * PIECE_VALUES[type];
-    }
-  }
-  return { captured, score };
-}
 
 async function copyText(text) {
   try {
@@ -141,8 +97,6 @@ export default function PlayPage() {
   const [thinkTime, setThinkTime] = useState(
     THINK_TIME_MS[saved?.thinkTime] ? saved.thinkTime : 'normal',
   );
-  const [eloRange, setEloRange] = useState(DEFAULT_ELO_RANGE);
-  const [thinking, setThinking] = useState(false);
 
   /*
    * The clock. Kept in a ref rather than state because it is read on every
@@ -165,27 +119,12 @@ export default function PlayPage() {
    * folded into the status below.
    */
   const [agreedEnd, setAgreedEnd] = useState(saved?.agreedEnd || null);
-  const engineRef = useRef(null);
-  const requestIdRef = useRef(0);
-
-  // Stockfish is a 7 MB download, so it starts only when someone actually
-  // plays the computer, not on every visit to Play.
-  useEffect(() => {
-    if (mode !== 'computer' || engineRef.current) return;
-    const engine = createEngine();
-    engineRef.current = engine;
-    engine.eloRange().then((range) => {
-      setEloRange(range);
-      setElo((current) => Math.min(Math.max(current, range.min), range.max));
-    });
-  }, [mode]);
-  useEffect(
-    () => () => {
-      engineRef.current?.terminate();
-      engineRef.current = null;
-    },
-    [],
-  );
+  // Stockfish starts only when someone actually plays the computer.
+  const engine = useEngineOpponent({
+    enabled: mode === 'computer',
+    onRange: (range) => setElo((current) => Math.min(Math.max(current, range.min), range.max)),
+  });
+  const { eloRange, thinking } = engine;
 
   // How this build can hand the viewer a file. Running from a local folder or
   // any normal web host that is an ordinary blob download. When the page is
@@ -237,21 +176,15 @@ export default function PlayPage() {
   useEffect(() => {
     if (mode !== 'computer' || !atLive || status.over || pendingPromotion) return;
     if (live.turn !== computerColor) return;
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setThinking(true);
-    const fen = live.fen();
-    engineRef.current
-      ?.bestMove(fen, { elo: maxStrength ? null : elo, movetimeMs: THINK_TIME_MS[thinkTime] })
+    engine
+      .request(live.fen(), { elo: maxStrength ? null : elo, movetimeMs: THINK_TIME_MS[thinkTime] })
       .then((move) => {
-        if (requestId !== requestIdRef.current) return; // a new game or undo overtook this reply
-        setThinking(false);
-        if (move) {
-          gameRef.current.move(move);
-          pressAfterMove();
-          setViewPly(null);
-          bump();
-        }
+        // null: a new game or undo overtook this reply.
+        if (!move) return;
+        gameRef.current.move(move);
+        pressAfterMove();
+        setViewPly(null);
+        bump();
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, computerColor, maxStrength, elo, thinkTime, atLive, status.over, pendingPromotion, live.fen()]);
@@ -428,9 +361,7 @@ export default function PlayPage() {
     if (moves.length > 0 && !window.confirm('Start a new game? The current game will be cleared.')) {
       return;
     }
-    requestIdRef.current += 1; // orphan any AI reply still in flight
-    engineRef.current?.abortCurrent();
-    setThinking(false);
+    engine.cancel({ abort: true }); // orphan any reply still in flight
     gameRef.current = new Chess();
     setGameId(newGameId()); // a fresh game is eligible to be recorded again
     resetClock(timeControl);
@@ -445,7 +376,7 @@ export default function PlayPage() {
     // Against the computer, one "Undo" click backs out both its reply and
     // the human move it answered, landing back on the human's turn.
     if (mode === 'computer' && live.turn === computerColor) live.undo();
-    requestIdRef.current += 1; // orphan any AI reply still in flight
+    engine.cancel(); // orphan any reply still in flight
     setViewPly(null);
     bump();
   };
@@ -874,38 +805,6 @@ export default function PlayPage() {
       )}
 
       <Toast message={toast} />
-    </div>
-  );
-}
-
-function PlayerBar({ label, color, name, onName, captured, advantage, toMove, clockMs, clockRunning }) {
-  const order = { q: 0, r: 1, b: 2, n: 3, p: 4 };
-  const sorted = [...captured].sort((a, b) => order[a] - order[b]);
-  const low = clockMs != null && clockMs <= 30000;
-  return (
-    <div className={`player-bar ${toMove ? 'to-move' : ''}`}>
-      <span className={`turn-dot ${color === 'w' ? 'white' : 'black'}`} />
-      <input
-        className="player-name"
-        value={name}
-        placeholder={label}
-        onChange={(event) => onName(event.target.value)}
-        aria-label={`${label} player name`}
-      />
-      <div className="captured">
-        {sorted.map((type, index) => (
-          <Piece key={`${type}-${index}`} type={type} color={color === 'w' ? 'b' : 'w'} />
-        ))}
-        {advantage > 0 && <span className="advantage">+{advantage}</span>}
-      </div>
-      {clockMs != null && (
-        <span
-          className={`clock mono ${clockRunning ? 'running' : ''} ${low ? 'low' : ''}`}
-          aria-label={`${label} time remaining`}
-        >
-          {formatClock(clockMs)}
-        </span>
-      )}
     </div>
   );
 }
