@@ -3,15 +3,15 @@ import { Chess } from '../../engine/chess.js';
 import Board from '../../board/Board.jsx';
 import PromotionDialog from '../../board/PromotionDialog.jsx';
 import PositionEditor from './PositionEditor.jsx';
+import ScoresheetTags from './ScoresheetTags.jsx';
+import ScoresheetMoveList from './ScoresheetMoveList.jsx';
+import ScoresheetGapPanel from './ScoresheetGapPanel.jsx';
+import ScoresheetSaved from './ScoresheetSaved.jsx';
 import { matchMove, suggestMoves, splitMoveText, plyLabel } from './sanMatch.js';
 import {
-  RESULTS,
-  REASONS,
-  TIME_CONTROL_PRESETS,
   blankSheet,
   buildScoresheetGame,
   checkSheet,
-  describePly,
   fenFromPlacement,
   placementFromFen,
   plyToMove,
@@ -28,7 +28,6 @@ import { isCloud } from '../../services/backend.js';
 import { gameEntryProblem } from './gameAccess.js';
 
 const DRAFT_KEY = 'cc-scoresheet-draft-v1';
-const OTHER_TC = '__other__';
 
 const today = () => {
   const d = new Date();
@@ -73,20 +72,6 @@ function clearDraft() {
 
 const cloneSegments = (segments) => segments.map((s) => ({ ...s, tokens: [...s.tokens] }));
 
-/** Scoresheet rows: `[{ moveNumber, cells: [white|null, black|null] }]` from one segment's plies. */
-function rowsFor(items) {
-  const rows = [];
-  for (const item of items) {
-    const { moveNumber, color } = plyToMove(item.ply);
-    let row = rows[rows.length - 1];
-    if (!row || row.moveNumber !== moveNumber) {
-      row = { moveNumber, cells: [null, null] };
-      rows.push(row);
-    }
-    row.cells[color === 'w' ? 0 : 1] = item;
-  }
-  return rows;
-}
 
 /**
  * ScoresheetModal — type (or tap) a paper scoresheet into the archive.
@@ -446,114 +431,16 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
           .join(' ')
       : '';
 
-  const tcIsPreset = !sheet.timeControl || TIME_CONTROL_PRESETS.includes(sheet.timeControl);
-  const [tcOther, setTcOther] = useState(!tcIsPreset);
 
-  const sideField = (label, idKey, nameKey) => (
-    <div className="field ss-side">
-      <span>{label}</span>
-      <select
-        value={sheet[idKey]}
-        aria-label={`${label} player`}
-        onChange={(e) => update({ [idKey]: e.target.value })}
-      >
-        <option value="">Outside player…</option>
-        {roster.map((p) => (
-          <option key={p.playerId} value={p.playerId}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      {!sheet[idKey] && (
-        <input
-          type="text"
-          value={sheet[nameKey]}
-          maxLength={60}
-          placeholder="Name or initials, e.g. J.D."
-          aria-label={`${label} name`}
-          onChange={(e) => update({ [nameKey]: e.target.value })}
-        />
-      )}
-      {fieldError(nameKey) && <em className="ss-error">{fieldError(nameKey)}</em>}
-    </div>
-  );
-
-  // -- rendering the move list ------------------------------------------------
-  const firstError = checked.firstError;
-  const renderSegment = (seg, k) => {
-    const items = sheet.segments[k].tokens.map((token, i) => {
-      const ok = i < seg.replay.moves.length;
-      const isError = firstError && firstError.segment === k && firstError.index === i;
-      return {
-        i,
-        ply: seg.startPly + i,
-        text: ok ? seg.replay.moves[i].san : token || '?',
-        state: ok ? 'ok' : isError ? 'error' : 'pending',
-      };
-    });
-    const showCursor = target.mode === 'append' && target.segment === k && !sheet.endsUnknown && !gap;
-    if (showCursor) items.push({ i: items.length, ply: seg.startPly + items.length, text: '…', state: 'cursor' });
-    const rows = rowsFor(items);
-    const isTarget = (item) => target.mode === 'replace' && target.segment === k && target.index === item.i;
-
-    return (
-      <div className="ss-segment" key={k}>
-        {k > 0 && (
-          <div className="ss-gap-row">
-            <span>
-              Unreadable: {describePly(checked.segments[k - 1].endPly)}
-              {seg.startPly - 1 > checked.segments[k - 1].endPly ? ` to ${describePly(seg.startPly - 1)}` : ''}. Picks up
-              from a set-up position.
-            </span>
-            <button type="button" className="link-button" onClick={() => removeSegment(k)}>
-              Remove gap
-            </button>
-          </div>
-        )}
-        <ol className="ss-moves" aria-label={k ? 'Moves after the gap' : 'Moves'}>
-          {rows.map((row) => (
-            <li key={row.moveNumber} className="ss-row">
-              <span className="ss-num mono">{row.moveNumber}.</span>
-              {row.cells.map((item, c) =>
-                item ? (
-                  item.state === 'cursor' ? (
-                    <span key={c} className="ss-ply ss-cursor" aria-hidden="true">
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`ss-ply ss-ply-${item.state}${isTarget(item) ? ' ss-target' : ''}`}
-                      aria-label={`${plyLabel(row.moveNumber, c ? 'b' : 'w', item.text)}${item.state === 'error' ? ' (needs fixing)' : ''}`}
-                      onClick={() => {
-                        setSelected(isTarget(item) && !target.auto ? null : { segment: k, index: item.i });
-                        setEntryError(null);
-                        setGap(null);
-                        inputRef.current?.focus();
-                      }}
-                    >
-                      {item.text}
-                    </button>
-                  )
-                ) : (
-                  <span key={c} className="ss-ply ss-empty" />
-                ),
-              )}
-            </li>
-          ))}
-        </ol>
-        {k === checked.segments.length - 1 && sheet.endsUnknown && (
-          <div className="ss-gap-row">
-            <span>The rest of the game can’t be read.</span>
-            <button type="button" className="link-button" onClick={() => update({ endsUnknown: false })}>
-              Undo
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  // Tapping a ply in the list: fix that one (tap again to go back to the end).
+  const pickPly = (segment, index, isTarget) => {
+    setSelected(isTarget && !target.auto ? null : { segment, index });
+    setEntryError(null);
+    setGap(null);
+    inputRef.current?.focus();
   };
+
+  const firstError = checked.firstError;
 
   // The sheet's first problem, with its one-tap fixes only while that ply is
   // the one being edited — a fix must never land on a different ply.
@@ -566,31 +453,7 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
     <Modal title="Enter a scoresheet" onClose={onClose} busy={busy} className="ss-modal">
 
         {saved ? (
-          <div className="ss-saved" role="status">
-            <p>
-              Saved <strong>{saved.game.whiteName}</strong> vs <strong>{saved.game.blackName}</strong>
-              {saved.game.event ? ` (${saved.game.event}${saved.game.round ? `, round ${saved.game.round}` : ''})` : ''}.
-            </p>
-            {saved.note && (
-              <p className="muted">
-                Note on the game: {saved.note}. The analysis covers the {saved.analysedPlies} known half-moves
-                from {saved.analysedFrom}.
-              </p>
-            )}
-            <p className="muted">
-              {saved.local
-                ? 'Saved in this browser only. No server is connected, so it won’t be analyzed.'
-                : 'It’ll be analyzed shortly.'}
-            </p>
-            <div className="import-actions">
-              <button type="button" className="primary" onClick={enterAnother}>
-                Enter another from this event
-              </button>
-              <button type="button" onClick={onClose}>
-                Done
-              </button>
-            </div>
-          </div>
+          <ScoresheetSaved saved={saved} onAnother={enterAnother} onClose={onClose} />
         ) : (
           <>
             {restored && (
@@ -602,94 +465,14 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
               </p>
             )}
 
-            <section className="ss-tags" aria-label="Game details">
-              {sideField('White', 'whiteId', 'whiteName')}
-              {sideField('Black', 'blackId', 'blackName')}
-              <label className="field ss-wide">
-                <span>Event</span>
-                <input
-                  type="text"
-                  list="ss-events"
-                  maxLength={100}
-                  value={sheet.event}
-                  placeholder="e.g. DISD District Championship"
-                  onChange={(e) => update({ event: e.target.value })}
-                />
-                <datalist id="ss-events">
-                  {knownEvents.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-                {fieldError('event') && <em className="ss-error">{fieldError('event')}</em>}
-              </label>
-              <label className="field">
-                <span>Round</span>
-                <input type="text" inputMode="decimal" maxLength={12} value={sheet.round} onChange={(e) => update({ round: e.target.value })} />
-                {fieldError('round') && <em className="ss-error">{fieldError('round')}</em>}
-              </label>
-              <label className="field">
-                <span>Board</span>
-                <input type="text" inputMode="numeric" maxLength={3} value={sheet.board} onChange={(e) => update({ board: e.target.value })} />
-                {fieldError('board') && <em className="ss-error">{fieldError('board')}</em>}
-              </label>
-              <label className="field">
-                <span>Time control</span>
-                <select
-                  value={tcOther ? OTHER_TC : sheet.timeControl}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setTcOther(v === OTHER_TC);
-                    if (v !== OTHER_TC) update({ timeControl: v });
-                  }}
-                >
-                  {TIME_CONTROL_PRESETS.map((tc) => (
-                    <option key={tc} value={tc}>
-                      {tc}
-                    </option>
-                  ))}
-                  <option value="">Not recorded</option>
-                  <option value={OTHER_TC}>Other…</option>
-                </select>
-                {tcOther && (
-                  <input
-                    type="text"
-                    value={sheet.timeControl}
-                    placeholder="e.g. G/40;d5"
-                    aria-label="Other time control"
-                    onChange={(e) => update({ timeControl: e.target.value })}
-                  />
-                )}
-                {fieldError('timeControl') && <em className="ss-error">{fieldError('timeControl')}</em>}
-              </label>
-              <label className="field">
-                <span>Date</span>
-                <input type="date" value={sheet.date} max={today()} onChange={(e) => update({ date: e.target.value })} />
-                {fieldError('date') && <em className="ss-error">{fieldError('date')}</em>}
-              </label>
-              <label className="field">
-                <span>Result</span>
-                <select value={sheet.result} onChange={(e) => update({ result: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {RESULTS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-                {fieldError('result') && <em className="ss-error">{fieldError('result')}</em>}
-              </label>
-              <label className="field">
-                <span>How it ended</span>
-                <select value={sheet.reason} onChange={(e) => update({ reason: e.target.value })}>
-                  <option value="">Not recorded</option>
-                  {REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
+            <ScoresheetTags
+              sheet={sheet}
+              update={update}
+              roster={roster}
+              knownEvents={knownEvents}
+              fieldError={fieldError}
+              maxDate={today()}
+            />
 
             <section className="ss-entry" aria-label="Moves">
               <div className="ss-board">
@@ -715,86 +498,26 @@ export default function ScoresheetModal({ players, games = [], onClose }) {
               </div>
 
               <div className="ss-side-panel">
-                <div className="ss-list" ref={listRef}>
-                  {checked.segments.map(renderSegment)}
-                </div>
+                <ScoresheetMoveList
+                  sheet={sheet}
+                  checked={checked}
+                  target={target}
+                  gap={gap}
+                  listRef={listRef}
+                  onPick={pickPly}
+                  onRemoveGap={removeSegment}
+                  onReopenEnd={() => update({ endsUnknown: false })}
+                />
 
                 {gap ? (
-                  <div className="ss-gap-panel">
-                    <h4>Moves that can’t be read, from {describePly(gap.startPly)}</h4>
-                    <label className="ss-radio">
-                      <input
-                        type="radio"
-                        name="ss-gap-mode"
-                        checked={gap.mode === 'continue'}
-                        onChange={() => setGap((g) => ({ ...g, mode: 'continue' }))}
-                      />
-                      The game goes on. Set up the position after the gap
-                    </label>
-                    <label className="ss-radio">
-                      <input
-                        type="radio"
-                        name="ss-gap-mode"
-                        checked={gap.mode === 'end'}
-                        disabled={!gapIsLast}
-                        onChange={() => setGap((g) => ({ ...g, mode: 'end' }))}
-                      />
-                      Nothing after this is readable
-                    </label>
-                    {gap.mode === 'continue' ? (
-                      <>
-                        <label className="field ss-unknown">
-                          <span>How many half-moves are missing?</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min="1"
-                            max="60"
-                            value={gap.unknown}
-                            onChange={(e) => setGap((g) => ({ ...g, unknown: e.target.value === '' ? '' : Number(e.target.value) }))}
-                          />
-                        </label>
-                        <p className="muted small">
-                          Missing: {describePly(gap.startPly)}
-                          {Math.max(1, gap.unknown || 1) > 1 ? ` to ${describePly(gapResumePly - 1)}` : ''}. The board shows the
-                          last known position. Move the pieces that moved in the gap so it shows the position
-                          before {describePly(gapResumePly)}.
-                        </p>
-                        {gap.held.length > Math.max(1, gap.unknown || 1) && (
-                          <p className="muted small">
-                            Moves after the gap: {gap.held.slice(Math.max(1, gap.unknown || 1)).join(' ')}
-                          </p>
-                        )}
-                        {gapProblems.length > 0 && (
-                          <ul className="ss-problems">
-                            {gapProblems.map((p) => (
-                              <li key={p} className="ss-error">
-                                {p}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </>
-                    ) : (
-                      <p className="muted small">
-                        The game is saved up to {describePly(gap.startPly)} with a note that the rest can’t be read.
-                        {gap.held.length > 0 && ` The ${gap.held.length} move(s) typed after it will be dropped.`}
-                      </p>
-                    )}
-                    <div className="import-actions">
-                      <button type="button" onClick={() => setGap(null)}>
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="primary"
-                        disabled={gap.mode === 'continue' && gapProblems.length > 0}
-                        onClick={applyGap}
-                      >
-                        {gap.mode === 'continue' ? 'Continue from this position' : 'Mark the rest unreadable'}
-                      </button>
-                    </div>
-                  </div>
+                  <ScoresheetGapPanel
+                    gap={gap}
+                    setGap={setGap}
+                    gapIsLast={gapIsLast}
+                    gapResumePly={gapResumePly}
+                    gapProblems={gapProblems}
+                    onApply={applyGap}
+                  />
                 ) : (
                   <div className="ss-input-block">
                     {shownError && (
