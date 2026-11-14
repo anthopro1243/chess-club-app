@@ -73,6 +73,11 @@ boundary that tells a failed download (new deploy) apart from a crash.
 It also handles two Supabase auth redirects in the hash: an error becomes a
 banner, a recovery token opens `ResetPasswordModal`.
 
+A hash path that names no page (`#/nonsense`) parses to `NOT_FOUND`, and
+`App.jsx` shows a not-found `EmptyState` with a link home and a matching
+document title. An empty hash, or one that is not a path at all (Supabase's
+`#access_token=…` links), is still the home page.
+
 Two routes carry a record in the query string, so Back works and the view can
 be linked: `#/games?game=<id>` is one game (the list is replaced by the board
 review, with a Games › White vs Black breadcrumb) and `#/roster?player=<id>`
@@ -104,7 +109,7 @@ Shared pieces to reach for before writing new markup:
 
 | Piece | Use |
 |---|---|
-| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm` | Every action. One primary per page. `.link-button` is for inline text actions only |
+| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm` | Every action. One primary per page. `.link-button` is for inline text actions only ("Forgot password?", a name that opens a player). `.btn-block` makes a button full width in a narrow card |
 | `ui/Icon.jsx` | Inline SVG icons by name, `aria-hidden`; the label is always text |
 | `ui/Avatar.jsx` | Initials on a colour picked from the name |
 | `ui/EmptyState.jsx` | An icon, a title, a sentence and the action that fills the list |
@@ -130,14 +135,26 @@ Every domain store follows the same shape:
 
 1. `createStore(...)` for the local value
 2. `fromRow` / `toRow` to translate between camelCase JS and snake_case SQL
-3. `syncFromCloud()` on sign-in, plus a Realtime subscription that applies
-   the changed row rather than refetching the table
+3. `syncFromCloud()` on sign-in, plus a Realtime subscription. A table that
+   changes in bursts (games, puzzle attempts, notes) wraps its refetch in
+   `coalesce()` (`services/coalesce.js`): one fetch per burst, 1.5 s after
+   the last event, never two at once. The roster applies the changed row
+   instead of refetching
 4. A push after every local write that sends only the changed columns
 5. Exported `useX()` hooks and mutation functions the pages call
 
 `rosterStore.js` (with the pure row helpers in `playerRows.js`) and
 `gamesStore.js` are the reference examples. **Any new table should follow the
 same five parts.**
+
+### Sync errors
+
+A failed cloud write or read calls `reportSyncError(what, message)` (or
+`reportLoadError` for a read) in `services/syncStatus.js`, which puts a banner
+on screen. The next success for the same `what` calls `reportSyncOk(what)`,
+which clears the banner. It clears only that thing's own error, so a store must
+use the same `what` string on its failure and its success. A new store that
+reports errors needs both calls.
 
 ### Where ratings happen
 

@@ -148,5 +148,13 @@ Each finding above, and what answers it. After screenshots are in
 | 10. Coach | Jump links to each section, export in the page header, links in the accent colour |
 | 11. Small things | Icon theme switch, report card buttons, the Play board sized so both clocks stay on screen |
 
-Left as it was: the account menu (it needs a backend to exercise), the board,
-and the long forms inside dialogs, which only took the new buttons.
+The signed-in screens (account menu and its forms, connected accounts, member
+approval, account links, the scoresheet and import dialogs) were restyled in a
+later pass: real actions use `.btn`, destructive ones `.btn-danger`, and
+`.link-button` is left only on inline text links. A hash that names no page now
+shows a not-found page instead of the home page.
+
+Left as it was: the board, and the long forms inside dialogs, which only took
+the new buttons. The signed-in screens could only be checked as isolated
+components (no sign-in on a shared database), so they want a look by a person
+who is signed in.

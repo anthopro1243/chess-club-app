@@ -41,9 +41,23 @@ npm run test:engine  # the slow suites that drive real Stockfish
 npm run lint         # ESLint, including accessibility rules
 ```
 
-With no `.env.local` the app runs entirely on browser storage, which is the
-quickest way to try it. GitHub Actions runs lint, tests and build on every
-push and pull request.
+### Local mode and environment variables
+
+With no `.env.local` the app runs in **local mode**: no accounts, no sign-in,
+and everything (games, roster, ratings) is kept in that browser's storage. It
+is the quickest way to try the app, and there is nobody to approve or lock
+out. Two variables switch on the shared database:
+
+| Variable | What it is |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | The project's public anon key |
+
+Set both in `.env.local` (copy `.env.example`) and restart `npm run dev`. To
+force local mode while a `.env.local` exists, start the server with both set to
+nothing: `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite`.
+
+GitHub Actions runs lint, tests and build on every push and pull request.
 
 ## The rules engine
 
@@ -213,8 +227,8 @@ Preview deploys use the same database as production. Anything done on a
 preview link while signed in changes real club data.
 
 **Apply database migrations before deploying code that needs them.** As of
-November 2026, migrations `0025`–`0027` are not yet applied to the live
-database.
+14 November 2026 every migration through `0028` is applied to the live
+database (`docs/RUNBOOK.md` keeps the list).
 
 ## History
 
