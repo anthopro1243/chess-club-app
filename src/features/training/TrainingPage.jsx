@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Chess } from '../../engine/chess.js';
 import Board from '../../board/Board.jsx';
 import PromotionDialog from '../../board/PromotionDialog.jsx';
 import EndgameTrainer from './EndgameTrainer.jsx';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import { PUZZLES, PUZZLE_THEMES, MENU_THEMES, themeLabel } from './puzzles.js';
-import { useDuePuzzles, useReviewSummary, reviewOwnPuzzle } from './ownPuzzleStore.js';
-import { usePlayers, useMyProfile, recordPuzzleResult } from '../roster/rosterStore.js';
+import { useDuePuzzles, useReviewSummary } from './ownPuzzleStore.js';
+import { usePlayers, useMyProfile } from '../roster/rosterStore.js';
 import { useAccount } from '../account/accountStore.js';
 import {
-  recordAttempt,
   useAttempts,
   useThemeAccuracy,
   attemptSummary,
@@ -17,8 +15,8 @@ import {
 import { parseTrainingLink, traineeIdFor } from './trainingLink.js';
 import { targetRating, matchPuzzles } from './puzzleMatch.js';
 import { useRoute } from '../../app/useRoute.js';
-import { puzzleRatingScore } from './puzzleRating.js';
 import SanInput from '../../board/SanInput.jsx';
+import { usePuzzleSession } from './usePuzzleSession.js';
 
 const TRAINEE_KEY = 'cc-trainee';
 const NEAR = 'near';
@@ -36,7 +34,6 @@ const linkFromHash = () => {
     return { theme: '', difficulty: '', puzzleIds: [], mode: '' };
   }
 };
-const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
 
 const ALL_DIFFICULTIES = [
   { key: '', label: 'All difficulties', test: () => true },
@@ -56,8 +53,6 @@ const prettyTheme = themeLabel;
 /** Which difficulty band a puzzle rating falls in, for the attempt record. */
 const bandFor = (rating) => ALL_DIFFICULTIES.find((d) => d.key && d.test(rating))?.key || '';
 
-const sameMove = (a, b) =>
-  !!a && !!b && a.from === b.from && a.to === b.to && (a.promotion || undefined) === (b.promotion || undefined);
 
 /**
  * TrainingPage — a puzzle trainer over real tactics from Lichess's open
@@ -190,62 +185,22 @@ export default function TrainingPage() {
   const pool = source === 'mistakes' ? roundPuzzles : filtered;
   const puzzle = pool.length ? pool[Math.min(index, pool.length - 1)] : PUZZLES[0];
 
-  const gameRef = useRef(new Chess(puzzle.fen));
-  const [, setVersion] = useState(0);
-  const bump = useCallback(() => setVersion((v) => v + 1), []);
-
-  const [solutionIndex, setSolutionIndex] = useState(0);
-  const [result, setResult] = useState(null); // 'solved' | 'wrong' | null
-  const [showHint, setShowHint] = useState(false);
-  const [pendingPromotion, setPendingPromotion] = useState(null);
-  const [sessionSolved, setSessionSolved] = useState(() => new Set());
-  // The move that was just wrong, kept on screen until the next move so a
-  // quick glance (or a screen reader) catches it, not only a 0.7 s flash.
-  const [lastWrong, setLastWrong] = useState('');
-
-  // Puzzles whose first outcome this visit was already rated (or, for an
-  // own-game position, already rescheduled). Later tries don't count.
-  const ratedRef = useRef(new Set());
-  // Pending timers (undo a wrong move, play the opponent's reply). Cleared
-  // whenever the board is reset, so a reply can't land on the next puzzle.
-  const timersRef = useRef([]);
-  const later = (fn, ms) => {
-    const id = setTimeout(() => {
-      timersRef.current = timersRef.current.filter((t) => t !== id);
-      fn();
-    }, ms);
-    timersRef.current.push(id);
-  };
-  useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
-
-  // When the current attempt began. A wrong move ends one attempt and starts
-  // another, so this is reset there too, not only when the puzzle changes.
-  const attemptStartRef = useRef(Date.now());
-
-  const resetBoard = useCallback(
-    (p) => {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-      gameRef.current = new Chess(p.fen);
-      setLastWrong('');
-      setSolutionIndex(0);
-      setResult(null);
-      setShowHint(false);
-      setPendingPromotion(null);
-      attemptStartRef.current = Date.now();
-      bump();
-    },
-    [bump],
-  );
-
-  // Whenever the active puzzle actually changes — theme filter, next/prev,
-  // random — reset the board. Keyed on id rather than index so a filter
-  // change (which can leave `index` at 0 while pointing at a new puzzle)
-  // still resets correctly.
-  useEffect(() => {
-    resetBoard(puzzle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puzzle.id]);
+  const {
+    game,
+    orientation,
+    result,
+    showHint,
+    setShowHint,
+    pendingPromotion,
+    setPendingPromotion,
+    lastWrong,
+    sessionSolved,
+    waitingOnOpponent,
+    resetBoard,
+    handleMove,
+    completePromotion,
+    reveal,
+  } = usePuzzleSession({ puzzle, trainee, bandFor });
 
   const solvedIds = useMemo(
     () => (trainee ? new Set(trainee.puzzleStats?.solvedIds || []) : sessionSolved),
@@ -266,60 +221,6 @@ export default function TrainingPage() {
   const summary = attemptSummary(attempts, traineeId);
   const weakestThemes = useThemeAccuracy(traineeId).slice(0, 3);
 
-  /*
-   * Write down what just happened. Called for every outcome, including the
-   * wrong ones — a failed attempt is the more useful record of the two, and
-   * the old code threw it away.
-   *
-   * Nothing is logged in practice mode, because an attempt with no player
-   * attached cannot tell anyone anything later.
-   */
-  const logAttempt = ({ correct, usedSolution = false }) => {
-    if (!trainee) return;
-    recordAttempt({
-      playerId: trainee.playerId,
-      puzzleId: puzzle.id,
-      themes: puzzle.themes || [],
-      difficulty: bandFor(puzzle.rating),
-      puzzleRating: puzzle.rating,
-      correct,
-      usedHint: showHint,
-      usedSolution,
-      secondsTaken: Math.max(0, Math.round((Date.now() - attemptStartRef.current) / 1000)),
-    });
-    attemptStartRef.current = Date.now();
-  };
-
-  /*
-   * The first outcome of a visit is the one that counts: it moves the puzzle
-   * rating (puzzleRating.js says when) and reschedules an own-game position.
-   * Later tries are logged as attempts but change neither.
-   */
-  const settleFirstOutcome = (outcome) => {
-    const first = !ratedRef.current.has(puzzle.id);
-    ratedRef.current.add(puzzle.id);
-    if (puzzle.own && first) {
-      // Solved moves it further out; missed or revealed brings it back tomorrow.
-      reviewOwnPuzzle(puzzle.own, outcome === 'solved' ? 'good' : 'again');
-    }
-    if (!trainee) {
-      if (outcome === 'solved') setSessionSolved((prev) => new Set(prev).add(puzzle.id));
-      return;
-    }
-    const score = puzzleRatingScore({
-      puzzle,
-      outcome,
-      alreadyRated: !first,
-      alreadySolved: (trainee.puzzleStats?.solvedIds || []).includes(puzzle.id),
-    });
-    // A wrong move that isn't the first outcome writes nothing to the row.
-    if (outcome === 'wrong' && score == null) return;
-    recordPuzzleResult(trainee.playerId, {
-      puzzleId: puzzle.id,
-      solved: outcome === 'solved',
-      rated: score == null ? null : { opponentRating: puzzle.rating, opponentRd: PUZZLE_OPPONENT_RD, score },
-    });
-  };
 
   const loadPuzzle = useCallback(
     (nextIndex) => {
@@ -331,81 +232,6 @@ export default function TrainingPage() {
 
   const randomPuzzle = () => loadPuzzle(Math.floor(Math.random() * pool.length));
 
-  const game = gameRef.current;
-  const orientation = useMemo(() => new Chess(puzzle.fen).turn, [puzzle.fen]);
-
-  const attemptMove = ({ from, to, promotion }) => {
-    const played = game.move({ from, to, promotion });
-    if (!played) return;
-
-    const expected = puzzle.solution[solutionIndex];
-    if (!sameMove(played, expected)) {
-      logAttempt({ correct: false });
-      settleFirstOutcome('wrong');
-      setResult('wrong');
-      setLastWrong(played.san);
-      bump();
-      later(() => {
-        game.undo();
-        setResult(null);
-        bump();
-      }, 700);
-      return;
-    }
-
-    setLastWrong('');
-    const nextIndex = solutionIndex + 1;
-    if (nextIndex >= puzzle.solution.length) {
-      setSolutionIndex(nextIndex);
-      setResult('solved');
-      logAttempt({ correct: true });
-      settleFirstOutcome('solved');
-      bump();
-      return;
-    }
-
-    setSolutionIndex(nextIndex);
-    bump();
-
-    // Auto-play the opponent's forced reply.
-    later(() => {
-      game.move(puzzle.solution[nextIndex]);
-      setSolutionIndex(nextIndex + 1);
-      bump();
-    }, 500);
-  };
-
-  const handleMove = ({ from, to, promotion }) => {
-    if (result === 'solved') return;
-    const options = game.moves({ square: from, verbose: true }).filter((m) => m.to === to);
-    if (options.length === 0) return;
-    // A typed move ("e8=Q") already names its piece; a board move asks.
-    if (options[0].promotion && !promotion) {
-      setPendingPromotion({ from, to, color: options[0].color });
-      return;
-    }
-    attemptMove(promotion ? { from, to, promotion } : { from, to });
-  };
-
-  const completePromotion = (type) => {
-    const move = { ...pendingPromotion, promotion: type };
-    setPendingPromotion(null);
-    attemptMove(move);
-  };
-
-  const reveal = () => {
-    for (let i = solutionIndex; i < puzzle.solution.length; i += 1) {
-      game.move(puzzle.solution[i]);
-    }
-    setSolutionIndex(puzzle.solution.length);
-    setResult('solved');
-    setLastWrong('');
-    logAttempt({ correct: false, usedSolution: true });
-    settleFirstOutcome('revealed');
-    bump();
-  };
-
-  const waitingOnOpponent = result === null && solutionIndex > 0 && game.turn !== orientation && solutionIndex < puzzle.solution.length;
 
   return (
     <div className="training-layout">
