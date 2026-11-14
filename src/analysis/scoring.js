@@ -386,7 +386,6 @@ export function analyseGameForSide(plies, side, meta = {}) {
 
   // tilt: errors in the plies right after the player's own blunder
   let tiltErrors = 0, tiltMoves = 0;
-  const myIndexes = judged.map((j, i) => i);
   for (let i = 0; i < judged.length; i++) {
     if (judged[i].cls.label !== 'blunder') continue;
     for (let k = i + 1; k <= Math.min(judged.length - 1, i + Math.ceil(TILT_WINDOW_PLIES / 2)); k++) {

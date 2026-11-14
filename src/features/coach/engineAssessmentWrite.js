@@ -24,7 +24,7 @@ export function utcDay(iso) {
 }
 
 async function updateToday(client, row) {
-  const { player_id: playerId, source, ...fields } = row;
+  const { player_id: playerId, source: _source, ...fields } = row;
   return client
     .from('assessments')
     .update(fields)

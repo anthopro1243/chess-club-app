@@ -9,7 +9,7 @@ import { activePlayerIdSet, onlyActiveRows } from '../roster/retiredPlayers.js';
 import { clubProfile, weakestCategories } from '../../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../ratings/ratingStore.js';
-import { resolveRating, rankForLeaderboard } from '../../analysis/ratings.js';
+import { rankForLeaderboard } from '../../analysis/ratings.js';
 import Link from '../../ui/Link.jsx';
 
 /** DashboardPage — the club at a glance: who's here, and how they rank. */

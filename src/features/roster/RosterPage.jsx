@@ -1,10 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { RUBRIC_CATEGORIES } from './roster.js';
 import { useSkillsForPlayer } from '../analysis/analysisStore.js';
 import { suggestedRubric } from '../../analysis/presentation.js';
 import { usePlayers, useCloudStatus, useMyProfile, addPlayer, updatePlayer, updateRubric, removePlayer } from './rosterStore.js';
 import { rosterAccess } from './rosterAccess.js';
-import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import { useAccount } from '../account/accountStore.js';
 import { useCoachNotes, setCoachNote, seedCoachNotesFromPlayers } from '../coach/coachNotesStore.js';
 import { usePlayerPrivate } from './playerPrivateStore.js';
@@ -12,17 +10,10 @@ import RosterImportModal from './RosterImportModal.jsx';
 import ReportCard from '../analysis/ReportCard.jsx';
 import ArchiveGraduateModal from './ArchiveGraduateModal.jsx';
 import AccountLinksPanel from './AccountLinksPanel.jsx';
+import RosterList from './RosterList.jsx';
+import PlayerEditForm from './PlayerEditForm.jsx';
+import PlayerDetails from './PlayerDetails.jsx';
 import { isCloud } from '../../services/backend.js';
-import { gradeSection } from './privacy.js';
-
-const COMMITMENTS = ['Casual', 'Competitive'];
-
-const ONLINE_RATINGS = [
-  ['rapid', 'Rapid'],
-  ['blitz', 'Blitz'],
-  ['bullet', 'Bullet'],
-  ['puzzles', 'Puzzles'],
-];
 
 const emptyForm = { name: '', grade: '', boardRole: '', commitment: 'Casual', uscf: '', goal: '' };
 
@@ -137,140 +128,21 @@ export default function RosterPage() {
           }}
         />
       )}
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Roster</h2>
-          <div className="panel-header-actions">
-            <span className="badge">{players.length} players</span>
-            {account.isCoach && (
-              <button type="button" className="link-button" onClick={() => setImporting(true)}>
-                Import CSV
-              </button>
-            )}
-            {access.canAdd && (
-              <button type="button" className="link-button" onClick={() => setAdding((v) => !v)}>
-                {adding ? 'Cancel' : '+ Add player'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {adding && access.canAdd && (
-          <form className="roster-form" onSubmit={submitAdd}>
-            <label className="field">
-              <span>Name</span>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                autoFocus
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Grade</span>
-              <input value={form.grade} onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Board role</span>
-              <input
-                value={form.boardRole}
-                onChange={(e) => setForm((f) => ({ ...f, boardRole: e.target.value }))}
-                placeholder="Board 4"
-              />
-            </label>
-            <label className="field">
-              <span>Track</span>
-              <select
-                value={form.commitment}
-                onChange={(e) => setForm((f) => ({ ...f, commitment: e.target.value }))}
-              >
-                {COMMITMENTS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>USCF rating</span>
-              <input
-                type="number"
-                value={form.uscf}
-                onChange={(e) => setForm((f) => ({ ...f, uscf: e.target.value }))}
-              />
-            </label>
-            <label className="field field-wide">
-              <span>Goal</span>
-              <input value={form.goal} onChange={(e) => setForm((f) => ({ ...f, goal: e.target.value }))} />
-            </label>
-            <button type="submit" className="primary form-submit">
-              Add to roster
-            </button>
-          </form>
-        )}
-
-        {players.length === 0 && !adding && (
-          <p className="muted empty-state">
-            No players yet. Add one with &ldquo;+ Add player&rdquo;
-            {account.isCoach ? ', or import the signup form CSV' : ''}.
-          </p>
-        )}
-        <div className="table-scroll" hidden={players.length === 0}>
-          <table className="roster-table roster-list">
-<caption className="sr-only">Club roster</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="hide-narrow">ID</th>
-                <th scope="col">Name</th>
-                <th scope="col" className="hide-narrow">Board</th>
-                <th scope="col">USCF</th>
-                <th scope="col">Rapid</th>
-                <th scope="col">Track</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player) => (
-                <tr
-                  key={player.playerId}
-                  className={`clickable ${player.playerId === selectedId ? 'selected' : ''}`}
-                  onClick={() => {
-                    setSelectedId(player.playerId);
-                    setEditing(false);
-                  }}
-                >
-                  <td className="mono hide-narrow">{player.playerId}</td>
-                  <td className="roster-name">
-                    <button
-                      type="button"
-                      className="row-button"
-                      aria-pressed={player.playerId === selectedId}
-                      onClick={(event) => {
-                        event.stopPropagation(); // the row selects too
-                        setSelectedId(player.playerId);
-                        setEditing(false);
-                      }}
-                    >
-                      {player.name}
-                    </button>
-                  </td>
-                  <td className="hide-narrow">{player.boardRole}</td>
-                  <td>{player.ratings.uscf ?? '—'}</td>
-                  <td>{player.ratings.chesscomRapid ?? '—'}</td>
-                  <td>
-                    <span className={`track ${(player.commitment || 'Casual').toLowerCase()}`}>
-                      {player.commitment}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <p className="hint-text">
-          {cloud.signedIn ? 'Shared with everyone signed in.' : 'Saved to this browser.'}
-        </p>
-      </section>
+      <RosterList
+        players={players}
+        selectedId={selectedId}
+        account={account}
+        access={access}
+        cloud={cloud}
+        adding={adding}
+        setAdding={setAdding}
+        form={form}
+        setForm={setForm}
+        submitAdd={submitAdd}
+        setSelectedId={setSelectedId}
+        setEditing={setEditing}
+        setImporting={setImporting}
+      />
 
       {selected && (
         <section className="panel player-detail">
@@ -306,281 +178,23 @@ export default function RosterPage() {
           </div>
 
           {editing && draft && access.canEdit ? (
-            <>
-              <div className="facts facts-edit">
-                <label className="field">
-                  <span>Name</span>
-                  <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
-                </label>
-                <label className="field">
-                  <span>Grade</span>
-                  <input value={draft.grade} onChange={(e) => setDraft((d) => ({ ...d, grade: e.target.value }))} />
-                </label>
-                <label className="field">
-                  <span>Board role</span>
-                  <input
-                    value={draft.boardRole}
-                    onChange={(e) => setDraft((d) => ({ ...d, boardRole: e.target.value }))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Track</span>
-                  <select
-                    value={draft.commitment}
-                    onChange={(e) => setDraft((d) => ({ ...d, commitment: e.target.value }))}
-                  >
-                    {COMMITMENTS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field field-wide">
-                  <span>Style</span>
-                  <input value={draft.style} onChange={(e) => setDraft((d) => ({ ...d, style: e.target.value }))} />
-                </label>
-              </div>
-
-              <h3>Skill assessment</h3>
-              <div className="rubric rubric-edit">
-                {RUBRIC_CATEGORIES.map((category) => {
-                  const hint = suggestions[category.key];
-                  return (
-                    <div className="rubric-row" key={category.key}>
-                      <span className="rubric-label">
-                        {category.label}
-                        {hint ? (
-                          <button
-                            type="button"
-                            className="rubric-suggestion link-button"
-                            title={`Engine's score, from ${hint.observations} data points. Tap to use it.`}
-                            onClick={() =>
-                              setDraft((d) => ({
-                                ...d,
-                                rubric: { ...d.rubric, [category.key]: hint.suggestion },
-                              }))
-                            }
-                          >
-                            suggested {hint.suggestion}
-                          </button>
-                        ) : null}
-                      </span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        value={draft.rubric[category.key] ?? 0}
-                        onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            rubric: { ...d.rubric, [category.key]: Number(e.target.value) },
-                          }))
-                        }
-                      />
-                      {/*
-                        The engine's opinion sits BESIDE the coach's, never in
-                        place of it. Clicking copies it into the slider, which
-                        is a deliberate act by the coach - nothing here ever
-                        writes a score on its own.
-                      */}
-                      <span className="rubric-score mono">{draft.rubric[category.key] ?? 0}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="muted small">
-                &ldquo;Suggested&rdquo; is the engine&rsquo;s score from analyzed games. Tap it to use
-                it.
-              </p>
-
-              <h3>Current goal</h3>
-              <textarea
-                className="text-area"
-                value={draft.goal}
-                onChange={(e) => setDraft((d) => ({ ...d, goal: e.target.value }))}
-              />
-
-              <h3>Training focus</h3>
-              <textarea
-                className="text-area"
-                value={draft.trainingFocus}
-                onChange={(e) => setDraft((d) => ({ ...d, trainingFocus: e.target.value }))}
-              />
-
-              {account.isCoach && (
-                <>
-                  <div className="heading-row">
-                    <h3>Coach notes</h3>
-                    <InfoTooltip label="More about Coach notes">
-                      Only coaches can see these.
-                    </InfoTooltip>
-                  </div>
-                  <textarea
-                    className="text-area"
-                    value={draft.coachNotes}
-                    onChange={(e) => setDraft((d) => ({ ...d, coachNotes: e.target.value }))}
-                  />
-                </>
-              )}
-
-              <div className="button-grid">
-                <button type="button" className="primary" onClick={saveEdit}>
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditing(false);
-                    setDraft(null);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
+            <PlayerEditForm
+              draft={draft}
+              setDraft={setDraft}
+              account={account}
+              suggestions={suggestions}
+              saveEdit={saveEdit}
+              setEditing={setEditing}
+            />
           ) : (
-            <>
-              <dl className="facts">
-                <div>
-                  <dt>Joined</dt>
-                  <dd>{selected.joined}</dd>
-                </div>
-                <div>
-                  <dt>Grade</dt>
-                  <dd>{selected.grade || '—'}</dd>
-                </div>
-                <div>
-                  <dt>Experience</dt>
-                  <dd>{selected.experience || '—'}</dd>
-                </div>
-                <div>
-                  <dt>Style</dt>
-                  <dd>{selected.style || '—'}</dd>
-                </div>
-                <div>
-                  <dt>Openings</dt>
-                  <dd>{selected.preferredOpenings.join(', ') || '—'}</dd>
-                </div>
-                {/* Coach-only. player_private refuses a player account outright,
-                    so for them this block has nothing to render - it is not
-                    merely hidden. */}
-                {account.isCoach && privateFields[selected.playerId] && (
-                  <>
-                    <div>
-                      <dt>Student ID</dt>
-                      <dd>{privateFields[selected.playerId].studentId || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt>School email</dt>
-                      <dd>{privateFields[selected.playerId].schoolEmail || '—'}</dd>
-                    </div>
-                  </>
-                )}
-                {account.isCoach && selected.guardianEmail && (
-                  <div>
-                    <dt>Guardian email</dt>
-                    <dd>{selected.guardianEmail}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>Section</dt>
-                  <dd>{gradeSection(selected.grade) ? `Grades ${gradeSection(selected.grade)}` : '—'}</dd>
-                </div>
-              </dl>
-
-              {access.showCoachingRecord ? (
-                <>
-                  <h3>Skill assessment</h3>
-                  <div className="rubric">
-                    {RUBRIC_CATEGORIES.map((category) => {
-                      const score = selected.rubric[category.key] ?? 0;
-                      return (
-                        <div className="rubric-row" key={category.key}>
-                          <span className="rubric-label">
-                            {category.label}
-                            {suggestions[category.key] ? (
-                              <em
-                                className="rubric-suggestion"
-                                title={`Engine's score, from ${suggestions[category.key].observations} data points`}
-                              >
-                                suggested {suggestions[category.key].suggestion}
-                              </em>
-                            ) : null}
-                          </span>
-                          <span className="rubric-bar">
-                            <span
-                              className={`rubric-fill ${score <= 3 ? 'low' : score <= 6 ? 'mid' : 'high'}`}
-                              style={{ width: `${score * 10}%` }}
-                            />
-                          </span>
-                          <span className="rubric-score mono">{score}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <h3>Current goal</h3>
-                  <p>{selected.goal || '—'}</p>
-
-                  <h3>Training focus</h3>
-                  <p>{selected.trainingFocus || '—'}</p>
-                </>
-              ) : (
-                <p className="muted small">
-                  Skill scores and goals are private to each member and the coach.
-                </p>
-              )}
-
-              {account.isCoach && (
-                <>
-                  <div className="heading-row">
-                    <h3>Coach notes</h3>
-                    <InfoTooltip label="More about Coach notes">
-                      Only coaches can see these.
-                    </InfoTooltip>
-                  </div>
-                  <p className="notes">{coachNotes[selected.playerId] || '—'}</p>
-                </>
-              )}
-
-              <h3>Puzzle training</h3>
-              <p>
-                {selected.puzzleStats?.solvedIds?.length || 0} puzzle
-                {selected.puzzleStats?.solvedIds?.length === 1 ? '' : 's'} solved
-                {selected.puzzleStats?.lastPlayed
-                  ? ` · last practiced ${new Date(selected.puzzleStats.lastPlayed).toLocaleDateString()}`
-                  : ''}
-              </p>
-
-              {Object.keys(selected.connections || {}).length > 0 && (
-                <>
-                  <div className="heading-row">
-                    <h3>Online play</h3>
-                    <InfoTooltip label="More about Online play">
-                      Rated games on these accounts count toward the club rating.
-                    </InfoTooltip>
-                  </div>
-                  {Object.entries(selected.connections).map(([platform, connection]) => (
-                    <p key={platform}>
-                      <strong>{platform === 'chesscom' ? 'Chess.com' : 'Lichess'}</strong>{' '}
-                      <a href={connection.url} target="_blank" rel="noreferrer">
-                        {connection.username}
-                      </a>
-                      {ONLINE_RATINGS.map(([key, label]) => {
-                        const value = connection.ratings?.[key];
-                        return value == null ? null : (
-                          <span key={key} className="hint-text">
-                            {' · '}
-                            {label} <span className="mono">{value}</span>
-                          </span>
-                        );
-                      })}
-                    </p>
-                  ))}
-                </>
-              )}
-            </>
+            <PlayerDetails
+              selected={selected}
+              account={account}
+              access={access}
+              coachNotes={coachNotes}
+              privateFields={privateFields}
+              suggestions={suggestions}
+            />
           )}
         </section>
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Chess, START_FEN } from '../../engine/chess.js';
 import { parsePgn } from '../../analysis/pgn.js';
 import Board from '../../board/Board.jsx';
@@ -100,7 +100,7 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
   );
 
   const total = replay.moves.length;
-  const clamp = (n) => Math.max(0, Math.min(total, n));
+  const clamp = useCallback((n) => Math.max(0, Math.min(total, n)), [total]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -111,11 +111,11 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [total]);
+  }, [clamp, total]);
 
   const position = useMemo(
     () => new Chess(replay.positions[clamp(viewPly)] ?? START_FEN),
-    [replay.positions, viewPly],
+    [clamp, replay.positions, viewPly],
   );
 
   // The move that LED to the position on screen, and what the engine made of it.

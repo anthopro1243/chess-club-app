@@ -41,7 +41,7 @@ export function parseCsv(text) {
 
   // A BOM survives an Excel round-trip and would otherwise hide inside the
   // first header, so "Timestamp" would never match.
-  const source = String(text ?? '').replace(/^﻿/, '');
+  const source = String(text ?? '').replace(/^\uFEFF/, '');
 
   const endCell = () => {
     row.push(cell);

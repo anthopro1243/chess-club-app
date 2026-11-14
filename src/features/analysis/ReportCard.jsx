@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount } from '../account/accountStore.js';
 import { usePlayers } from '../roster/rosterStore.js';
 import { usePlatformRatings, useRatingOverrides } from '../ratings/ratingStore.js';
@@ -34,6 +34,7 @@ export default function ReportCard({ playerId, onClose }) {
   const coachNotes = useCoachNotes();
   const [now] = useState(() => Date.now());
   const [printing, setPrinting] = useState(false);
+  const sectionRef = useRef(null);
 
   const player = players.find((p) => p.playerId === playerId) ?? null;
   const card = useMemo(
@@ -70,11 +71,20 @@ export default function ReportCard({ playerId, onClose }) {
     };
   }, [printing]);
 
+  // It opens below the roster, often off-screen: bring it into view and
+  // move focus to it so keyboard users land on what they asked for.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: 'start' });
+  }, [playerId]);
+
   if (!card.available) return null;
   const { activity } = card;
 
   return (
-    <section className="panel report-card" aria-label={`Report card for ${card.name}`}>
+    <section ref={sectionRef} tabIndex={-1} className="panel report-card" aria-label={`Report card for ${card.name}`}>
       <div className="panel-header">
         <div>
           <h2>{card.name}: report card</h2>

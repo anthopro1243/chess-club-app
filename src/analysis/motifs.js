@@ -25,7 +25,7 @@ import {
   WHITE,
   BLACK,
 } from '../engine/chess.js';
-import { see, seeCapture, PIECE_VALUES } from './see.js';
+import { see, PIECE_VALUES } from './see.js';
 
 /** SEE at which a capture counts as winning real material. */
 export const MATERIAL_THRESHOLD = 200;
@@ -76,18 +76,6 @@ function firstAlong(board, from, delta) {
     sq += delta;
   }
   return null;
-}
-
-/** Every square of the board that holds a piece, as { index, piece }. */
-function* occupied(board) {
-  for (let sq = 0; sq <= 119; sq++) {
-    if (sq & 0x88) {
-      sq += 7;
-      continue;
-    }
-    const piece = board.get(sq);
-    if (piece) yield { index: sq, piece };
-  }
 }
 
 /**

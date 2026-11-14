@@ -18,6 +18,9 @@ export const RUBRIC_CATEGORIES = [
   { key: 'notation', label: 'Notation' },
 ];
 
+/** The two tracks a player can be on. */
+export const COMMITMENTS = ['Casual', 'Competitive'];
+
 export const PLAYERS = [];
 
 /** Averages across the club, used by the dashboard. */
