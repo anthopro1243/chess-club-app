@@ -3,15 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Chess club website — playable board plus the club app shell.",
+  "description": "Chess club website \u2014 playable board plus the club app shell.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/engine/chess.test.mjs && node src/data/glicko2.test.mjs && node src/data/externalChess.test.mjs && node src/data/chessClock.test.mjs && node --test 'src/**/*.test.js' && node supabase/rls-test.mjs",
+    "test": "node --test 'src/**/*.test.js' && node scripts/sql-tests.mjs && node supabase/rls-test.mjs",
     "test:rls": "node supabase/rls-test.mjs",
-    "test:engine": "node --test src/engine/stockfishClient.test.mjs src/analysis/analyzeGame.test.mjs",
-    "test:all": "npm test && npm run test:engine"
+    "test:engine": "node --test src/engine/stockfishClient.engine-test.js src/analysis/analyzeGame.engine-test.js",
+    "test:all": "npm test && npm run test:engine",
+    "test:sql": "node scripts/sql-tests.mjs"
   },
   "dependencies": {
     "@fontsource/oswald": "^5.2.5",

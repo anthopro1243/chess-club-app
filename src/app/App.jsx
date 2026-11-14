@@ -1,34 +1,34 @@
 import { Component, Suspense, useEffect, useRef, useState } from 'react';
-import DashboardPage from '../pages/DashboardPage.jsx';
+import ClubPage from '../features/club/ClubPage.jsx';
 import { lazyPage } from './lazyPage.js';
-import AccountControl from '../components/AccountControl.jsx';
-import ResetPasswordModal from '../components/ResetPasswordModal.jsx';
-import AccessGate from '../components/AccessGate.jsx';
-import { isSupabaseConfigured } from '../data/supabaseClient.js';
-import { onAuthEvent } from '../data/auth.js';
-import { useAccount } from '../data/accountStore.js';
-import { useSyncError, clearSyncError } from '../data/syncStatus.js';
-import { reportClientError } from '../data/errorLog.js';
-import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
-import { useAutoSync } from '../data/useAutoSync.js';
-import { useMyProfile } from '../data/rosterStore.js';
-import BackgroundActivity from '../components/BackgroundActivity.jsx';
+import AccountControl from '../features/account/AccountControl.jsx';
+import ResetPasswordModal from '../features/account/ResetPasswordModal.jsx';
+import AccessGate from '../features/account/AccessGate.jsx';
+import { isSupabaseConfigured } from '../services/supabaseClient.js';
+import { onAuthEvent } from '../services/auth.js';
+import { useAccount } from '../features/account/accountStore.js';
+import { useSyncError, clearSyncError } from '../services/syncStatus.js';
+import { reportClientError } from '../services/errorLog.js';
+import { useAnalysisQueue } from '../features/analysis/useAnalysisQueue.js';
+import { useAutoSync } from '../services/external/useAutoSync.js';
+import { useMyProfile } from '../features/roster/rosterStore.js';
+import BackgroundActivity from './BackgroundActivity.jsx';
 import { ROUTES, visibleRoutes, canOpenRoute, documentTitle } from './routes.js';
 import { useRoute } from './useRoute.js';
 import Link from '../ui/Link.jsx';
-import WhoAreYou from '../components/WhoAreYou.jsx';
-import { useMyAccountLink } from '../data/accountLinkStore.js';
-import { shouldAskWhoAreYou } from '../data/accountLinking.js';
+import WhoAreYou from '../features/account/WhoAreYou.jsx';
+import { useMyAccountLink } from '../features/account/accountLinkStore.js';
+import { shouldAskWhoAreYou } from '../features/account/accountLinking.js';
 
 // Everything but the Club page loads when first opened (lazyPage.js).
 const PAGES = {
-  home: DashboardPage,
-  play: lazyPage(() => import('../pages/PlayPage.jsx')),
-  training: lazyPage(() => import('../pages/TrainingPage.jsx')),
-  games: lazyPage(() => import('../pages/GamesPage.jsx')),
-  'my-games': lazyPage(() => import('../pages/MyGamesPage.jsx')),
-  roster: lazyPage(() => import('../pages/RosterPage.jsx')),
-  coach: lazyPage(() => import('../pages/CoachPage.jsx')),
+  home: ClubPage,
+  play: lazyPage(() => import('../features/play/PlayPage.jsx')),
+  training: lazyPage(() => import('../features/training/TrainingPage.jsx')),
+  games: lazyPage(() => import('../features/games/GamesPage.jsx')),
+  'my-games': lazyPage(() => import('../features/games/MyGamesPage.jsx')),
+  roster: lazyPage(() => import('../features/roster/RosterPage.jsx')),
+  coach: lazyPage(() => import('../features/coach/CoachPage.jsx')),
 };
 
 const clearHash = () => window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -150,7 +150,7 @@ export default function App() {
   }, [route, locked, account.isCoach]);
 
   const mainRef = useRef(null);
-  const Page = PAGES[route] || DashboardPage;
+  const Page = PAGES[route] || ClubPage;
   const allowed = canOpenRoute(route, account);
   const title = ROUTES.find((r) => r.id === route)?.title || 'Club';
 

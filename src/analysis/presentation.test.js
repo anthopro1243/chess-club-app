@@ -179,7 +179,7 @@ test('every training theme maps onto a theme the shipped puzzles actually use', 
   // fails if the puzzle set is ever re-imported with different tags.
   const { readFileSync } = await import('node:fs');
   const { PUZZLE_THEME_BY_TRAINING_THEME } = await import('./presentation.js');
-  const puzzles = JSON.parse(readFileSync(new URL('../data/puzzles.json', import.meta.url)));
+  const puzzles = JSON.parse(readFileSync(new URL('../features/training/puzzles.json', import.meta.url)));
   const available = new Set(puzzles.flatMap((p) => p.themes));
 
   for (const [label, key] of Object.entries(PUZZLE_THEME_BY_TRAINING_THEME)) {

@@ -14,9 +14,9 @@ import { createEngine } from '../engine/stockfishClient.js';
 import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from './analyzeGame.js';
 import {
   saveAnalysis, saveSkillScores, getAnalyses, getSkillsForPlayer,
-} from '../data/analysisStore.js';
-import { addOwnGamePuzzles } from '../data/ownPuzzleStore.js';
-import { recordEngineAssessment } from '../data/assessmentStore.js';
+} from '../features/analysis/analysisStore.js';
+import { addOwnGamePuzzles } from '../features/training/ownPuzzleStore.js';
+import { recordEngineAssessment } from '../features/coach/assessmentStore.js';
 import { aggregateRaw, rubricScores, updatePlayerScores } from './scoring.js';
 
 let engine = null;

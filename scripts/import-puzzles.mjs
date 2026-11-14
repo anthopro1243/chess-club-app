@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * import-puzzles.mjs — build src/data/puzzles.json from Lichess's official
+ * import-puzzles.mjs — build src/features/training/puzzles.json from Lichess's official
  * open puzzle database (database.lichess.org/lichess_db_puzzle.csv.zst,
  * CC0-licensed). We only need a slice of it, not the full multi-GB dump, so
  * this fetches the first CHUNK_BYTES compressed bytes via an HTTP Range
@@ -13,7 +13,7 @@
  * verifies our own move parsing didn't mangle it.
  *
  * Usage: node scripts/import-puzzles.mjs
- * Writes: src/data/puzzles.json
+ * Writes: src/features/training/puzzles.json
  */
 
 import { writeFile } from 'node:fs/promises';
@@ -24,7 +24,7 @@ import zlib from 'node:zlib';
 import { Chess } from '../src/engine/chess.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT_FILE = path.join(__dirname, '../src/data/puzzles.json');
+const OUT_FILE = path.join(__dirname, '../src/features/training/puzzles.json');
 
 const DUMP_URL = 'https://database.lichess.org/lichess_db_puzzle.csv.zst';
 const CHUNK_BYTES = 12 * 1024 * 1024;

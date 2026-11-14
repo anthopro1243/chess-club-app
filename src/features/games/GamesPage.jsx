@@ -1,0 +1,293 @@
+import { useEffect, useState } from 'react';
+import { useRoute } from '../../app/useRoute.js';
+import GameAnalysisPanel from '../analysis/GameAnalysisPanel.jsx';
+import GameReview from '../analysis/GameReview.jsx';
+import { useAnalysisForGame } from '../analysis/analysisStore.js';
+import { useAccount } from '../account/accountStore.js';
+import { useGames, removeGame, GAME_MODE_LABEL } from './gamesStore.js';
+import { usePlayers, useMyProfile } from '../roster/rosterStore.js';
+import LogGameForm from './LogGameForm.jsx';
+import PgnImportModal from './PgnImportModal.jsx';
+import ScoresheetModal from './ScoresheetModal.jsx';
+import { scoresheetGapOf } from './scoresheet.js';
+import { useFlash } from '../../ui/useFlash.js';
+import { shortGameDate } from '../../analysis/playerHome.js';
+import './scoresheet.css';
+import Toast, { useToast } from '../../ui/Toast.jsx';
+
+const RESULT_LABEL = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'Draw' };
+
+/*
+ * #/games?game=<id> opens one game directly. The review queue links each
+ * game this way, so a player goes from "review this" to the moves in one tap.
+ */
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadPgn(game) {
+  const blob = new Blob([game.pgn], { type: 'application/x-chess-pgn' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${game.whiteName}-vs-${game.blackName}-${String(game.playedAt).slice(0, 10)}.pgn`.replace(
+    /\s+/g,
+    '-',
+  );
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/** GamesPage — every finished game the club has played, newest first. */
+export default function GamesPage() {
+  const account = useAccount();
+  // The account row carries the role; the player id lives on the roster row
+  // the account has claimed. Reading it off the account (which has no such
+  // field) made every player a stranger to their own games on this page.
+  const me = useMyProfile();
+  const viewer = { role: account?.role, playerId: me?.playerId ?? null };
+  const games = useGames();
+  const players = usePlayers();
+  const [playerFilter, setPlayerFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const route = useRoute();
+  const linkedId = route.id === 'games' ? route.params.game || null : null;
+  const [openId, setOpenId] = useState(linkedId);
+  const [logging, setLogging] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [toast, showToast] = useToast(2000);
+
+  // Follow a link that arrives while the page is already open, and bring the
+  // linked game into view (it sits below the whole archive table).
+  useEffect(() => {
+    if (!linkedId) return;
+    setPlayerFilter('');
+    setTypeFilter('');
+    setOpenId(linkedId);
+    requestAnimationFrame(() => document.getElementById('game-detail')?.scrollIntoView?.({ block: 'start' }));
+  }, [linkedId]);
+
+  const flash = showToast;
+  const [copied, showCopied] = useFlash();
+
+  const filtered = games.filter((g) => {
+    if (typeFilter && g.mode !== typeFilter) return false;
+    if (playerFilter && g.whitePlayerId !== playerFilter && g.blackPlayerId !== playerFilter) return false;
+    return true;
+  });
+
+  return (
+    <div className="games-layout">
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Game archive</h2>
+          <div className="panel-header-actions">
+            <span className="badge">{filtered.length} games</span>
+            <button type="button" className="link-button" onClick={() => setLogging((v) => !v)}>
+              {logging ? 'Cancel' : '+ Log a game'}
+            </button>
+            <button type="button" className="link-button" onClick={() => setImporting(true)}>
+              Import PGN
+            </button>
+            <button type="button" className="link-button" onClick={() => setEntering(true)}>
+              Enter a scoresheet
+            </button>
+          </div>
+        </div>
+
+        {logging && <LogGameForm />}
+        {entering && <ScoresheetModal players={players} games={games} onClose={() => setEntering(false)} />}
+        {importing && (
+          <PgnImportModal
+            players={players}
+            existingIds={games.map((g) => g.id)}
+            onClose={() => setImporting(false)}
+          />
+        )}
+
+        <div className="opponent-controls games-filters">
+          <label className="field">
+            <span>Player</span>
+            <select value={playerFilter} onChange={(e) => setPlayerFilter(e.target.value)}>
+              <option value="">Everyone</option>
+              {players.map((p) => (
+                <option key={p.playerId} value={p.playerId}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Type</span>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <option value="">All games</option>
+              <option value="human">Club games</option>
+              <option value="computer">vs Computer</option>
+              <option value="chesscom">Chess.com</option>
+              <option value="lichess">Lichess</option>
+            </select>
+          </label>
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="hint-text">
+            No games yet. Games you finish on the Play page show up here.
+          </p>
+        ) : (
+          <div className="table-scroll">
+            <table className="roster-table games-table">
+<caption className="sr-only">Game archive</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">White</th>
+                  <th scope="col">Black</th>
+                  <th scope="col">Result</th>
+                  <th scope="col" className="hide-narrow">Moves</th>
+                  <th scope="col" className="hide-narrow">Type</th>
+                  <th scope="col" className="hide-narrow" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((g) => (
+                  <tr
+                    key={g.id}
+                    className={`clickable ${openId === g.id ? 'selected' : ''}`}
+                    onClick={() => setOpenId(openId === g.id ? null : g.id)}
+                  >
+                    <td className="nowrap" title={String(g.playedAt).slice(0, 10)}>
+                      {shortGameDate(g.playedAt)}
+                    </td>
+                    <td className="games-name">
+                      <button
+                        type="button"
+                        className="row-button"
+                        aria-expanded={openId === g.id}
+                        aria-controls="game-detail"
+                        onClick={(event) => {
+                          event.stopPropagation(); // the row toggles too
+                          setOpenId(openId === g.id ? null : g.id);
+                        }}
+                      >
+                        {g.whiteName}
+                      </button>
+                    </td>
+                    <td className="games-name">{g.blackName}</td>
+                    <td>
+                      <span className="hide-narrow">{RESULT_LABEL[g.result] || g.result}</span>
+                      <span className="show-narrow mono">{g.result === '1/2-1/2' ? '½-½' : g.result}</span>
+                      {g.reason && <span className="hint-text hide-narrow"> · {g.reason}</span>}
+                    </td>
+                    <td className="mono hide-narrow">{g.moveCount}</td>
+                    <td className="hide-narrow">
+                      <span className={`track ${g.mode === 'human' ? 'competitive' : ''}`}>
+                        {GAME_MODE_LABEL[g.mode] || g.mode}
+                      </span>
+                    </td>
+                    <td className="hide-narrow">
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenId(openId === g.id ? null : g.id);
+                        }}
+                      >
+                        {openId === g.id ? 'Hide' : 'PGN'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {openId && (() => {
+        const game = filtered.find((g) => g.id === openId);
+        if (!game) {
+          // A link to a game this device has not loaded (the archive keeps the
+          // newest 500) should say so rather than show nothing.
+          return games.some((g) => g.id === openId) ? null : (
+            <section className="panel" id="game-detail">
+              <p className="hint-text">Can&rsquo;t find that game on this device.</p>
+            </section>
+          );
+        }
+        return (
+          <section className="panel" id="game-detail">
+            <div className="panel-header">
+              <h2>
+                {game.whiteName} vs {game.blackName}
+              </h2>
+              <span className="badge mono">{game.result}</span>
+            </div>
+            {(game.event || game.round || game.board || game.timeControl) && (
+              <p className="game-otb-tags">
+                {game.event && <span className="badge">{game.event}</span>}
+                {game.round && <span className="badge">Round {game.round}</span>}
+                {game.board && <span className="badge">Board {game.board}</span>}
+                {game.timeControl && <span className="badge mono">{game.timeControl}</span>}
+              </p>
+            )}
+            {scoresheetGapOf(game.pgn) && (
+              <p className="game-gap-note">
+                Entered from a scoresheet: {scoresheetGapOf(game.pgn)}.
+                {/\[SetUp "1"\]/.test(game.pgn)
+                  ? ' The board starts after the gap. The moves before it are in the PGN comment.'
+                  : ' Only the moves that could be read are analyzed.'}
+              </p>
+            )}
+            <GameReviewFor game={game} />
+            <details className="pgn-details">
+              <summary>Raw PGN</summary>
+              <pre className="pgn-block">{game.pgn}</pre>
+            </details>
+            <div className="button-grid game-actions">
+              <button
+                type="button"
+                onClick={async () => ((await copyText(game.pgn)) ? showCopied(game.id) : flash('Copy failed'))}
+              >
+                {copied === game.id ? 'Copied ✓' : 'Copy PGN'}
+              </button>
+              <button type="button" onClick={() => downloadPgn(game)}>
+                Download PGN
+              </button>
+              <button
+                type="button"
+                className="link-button danger"
+                onClick={() => {
+                  if (window.confirm('Delete this game from the archive?')) {
+                    removeGame(game.id);
+                    setOpenId(null);
+                  }
+                }}
+              >
+                Delete game
+              </button>
+            </div>
+            <GameAnalysisPanel game={game} viewer={viewer} />
+          </section>
+        );
+      })()}
+
+      <Toast message={toast} />
+    </div>
+  );
+}
+
+/** Small wrapper so the review can subscribe to this game's analyses. */
+function GameReviewFor({ game }) {
+  const analyses = useAnalysisForGame(game.id);
+  return <GameReview game={game} analyses={analyses} />;
+}

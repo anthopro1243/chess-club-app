@@ -13,10 +13,10 @@
  * closed laptop lid wedges a game forever.
  */
 
-import { supabase, isSupabaseConfigured } from '../data/supabaseClient.js';
-import { reportSyncError } from '../data/syncStatus.js';
-import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../data/retiredPlayers.js';
-import { readyForRetry, viewerFirst } from '../data/autoPolicy.js';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient.js';
+import { reportSyncError } from '../services/syncStatus.js';
+import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../features/roster/retiredPlayers.js';
+import { readyForRetry, viewerFirst } from '../services/external/autoPolicy.js';
 
 export const STALE_MINUTES = 15;
 export const MAX_ATTEMPTS = 3;
