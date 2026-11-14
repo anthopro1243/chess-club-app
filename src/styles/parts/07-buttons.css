@@ -1,0 +1,56 @@
+/* ---------- buttons ----------------------------------------------------- */
+
+button {
+  font-family: inherit;
+}
+
+.button-grid button,
+.stepper button,
+.puzzle-controls button,
+a.button {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.button-grid button:hover:not(:disabled),
+.stepper button:hover:not(:disabled),
+.puzzle-controls button:hover:not(:disabled),
+a.button:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+a.button {
+  display: inline-block;
+  text-decoration: none;
+}
+
+button.primary,
+a.button.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}

@@ -1,0 +1,33 @@
+/* ---------- roster: add / edit forms -------------------------------------- */
+
+.roster-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.form-submit {
+  grid-column: 1 / -1;
+  border: none;
+}
+
+.facts-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0 0 10px;
+}
+
+.rubric-edit .rubric-row {
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 42%) 26px;
+}
+
+.rubric-edit input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}

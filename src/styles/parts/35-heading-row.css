@@ -1,0 +1,15 @@
+/* A heading with its info button beside it (not inside it). */
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.heading-row > h3 {
+  margin-top: 0;
+}
+
+.heading-row:has(> h3) {
+  margin-top: 20px;
+}

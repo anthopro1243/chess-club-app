@@ -7,7 +7,6 @@ import {
   resolveRating,
   rankForLeaderboard,
   usableAsScoringAnchor,
-  DEFAULT_CLUB_BASIS,
 } from './ratings.js';
 
 /* ── storage keeps platforms and speeds apart ────────────────────────────── */

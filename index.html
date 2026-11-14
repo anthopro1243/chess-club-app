@@ -3,20 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="./sem-logo.png" />
-    <link rel="apple-touch-icon" href="./sem-logo.png" />
     <title>Chess Club</title>
-    <!-- SEM branding: Oswald for headings, Public Sans for text. display=swap so text shows at once in
-         the system font and switches when the fonts arrive (slow school wifi never blanks the page). -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Public+Sans:wght@400;600;700&display=swap"
-    />
+    <link rel="icon" type="image/png" href="./sem-logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
     <!-- Members-only club app used by minors: keep every page out of search engines (research F121). -->
     <meta name="robots" content="noindex, nofollow" />
     <meta name="description" content="Chess club — play, roster, and training." />
+    <!-- Apply the saved theme before the first paint, so light-theme users don't see a dark flash.
+         The fonts (Oswald, Public Sans) are bundled from npm, not loaded from Google. -->
+    <script>
+      (function () {
+        var theme;
+        try {
+          theme = localStorage.getItem('cc-theme');
+        } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          var hosted = document.documentElement.getAttribute('data-theme');
+          theme =
+            hosted === 'light' || hosted === 'dark'
+              ? hosted
+              : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

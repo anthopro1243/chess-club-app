@@ -1,0 +1,88 @@
+/* The set-up board (PositionEditor.jsx). Used by the scoresheet entry and
+   anywhere else a position is set up by hand. */
+
+.pe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pe-tools {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.pe-tool {
+  padding: 2px;
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pe-tool .piece {
+  width: 28px;
+  height: 28px;
+}
+
+.pe-tool-move {
+  font-size: 0.78rem;
+  grid-column: span 1;
+}
+
+.pe-tool.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pe-board .square {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.pe-help {
+  margin: 0;
+}
+
+.pe-fen summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: var(--accent-ink);
+}
+
+.pe-fen-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.pe-fen-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+
+.pe-fen-row button {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.pe-fen-row button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}

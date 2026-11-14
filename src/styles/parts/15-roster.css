@@ -1,0 +1,137 @@
+/* ---------- roster ------------------------------------------------------ */
+
+.roster-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.roster-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: 9px 12px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.roster-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.roster-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.roster-table tbody tr.clickable:hover {
+  background: var(--bg-sunken);
+}
+
+.roster-table tbody tr.selected {
+  background: var(--accent-soft);
+}
+
+.track {
+  font-size: 0.74rem;
+  border-radius: 999px;
+  padding: 2px 9px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.track.competitive {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.facts dd {
+  margin: 2px 0 0;
+}
+
+.notes {
+  color: var(--text-muted);
+}
+
+/* rubric bars ------------------------------------------------------------ */
+
+.rubric {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.rubric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 42%) 26px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.rubric-label {
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.rubric-bar {
+  height: 7px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rubric-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.rubric-fill.low {
+  background: var(--bad);
+}
+.rubric-fill.mid {
+  background: var(--warn);
+}
+.rubric-fill.high {
+  background: var(--good);
+}
+
+.rubric-score {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: right;
+}

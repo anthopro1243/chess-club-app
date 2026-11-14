@@ -1,0 +1,125 @@
+/* ---------- games archive ------------------------------------------------ */
+
+.games-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.games-layout .opponent-controls {
+  margin-bottom: 14px;
+}
+
+/* Player and type filters sit side by side (the Play page's first field spans
+   the row; here neither needs to). */
+.opponent-controls.games-filters .field:first-child { grid-column: auto; }
+
+/* The chevron at the end of a row that opens something. */
+.row-chevron {
+  width: 1%;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+tr.clickable:hover .row-chevron {
+  color: var(--accent-ink);
+}
+
+/* One game: the two players either side of the score. */
+.game-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.game-side {
+  gap: var(--space-3);
+}
+
+.game-side:last-of-type {
+  flex-direction: row-reverse;
+  justify-self: end;
+  text-align: right;
+}
+
+.game-side-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.game-side .person-name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.game-side-colour {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.game-side-won {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.game-score {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.game-summary .game-otb-tags {
+  grid-column: 1 / -1;
+  justify-content: center;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .game-summary {
+    gap: var(--space-2);
+  }
+
+  .game-side,
+  .game-side:last-of-type {
+    flex-direction: column;
+    justify-self: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .game-side .person-name {
+    font-size: var(--text-md);
+  }
+
+  .game-score {
+    padding: 4px 10px;
+    font-size: var(--text-md);
+  }
+}
+
+.pgn-block {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0 0 12px;
+}

@@ -58,7 +58,6 @@ const PIECE_NAMES = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen'
 
 const sideName = (color) => (color === 'w' ? 'White' : color === 'b' ? 'Black' : null);
 const otherColor = (color) => (color === 'w' ? 'b' : color === 'b' ? 'w' : null);
-const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const round = (x) => Math.round(x);
 const pieceOn = ({ type, square }) =>
   type === KING ? 'the king' : `the ${PIECE_NAMES[type]} on ${square}`;

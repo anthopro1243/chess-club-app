@@ -1,0 +1,198 @@
+import { withTimeout, TimeoutError } from '../../services/external/autoPolicy.js';
+import { GAME_TIMEOUT_MS } from './useAnalysisQueue.js';
+import { useMemo, useState } from 'react';
+import Link from '../../ui/Link.jsx';
+import { useAnalysisForGame } from './analysisStore.js';
+import { analyzeArchivedGame, isBusy, resetAfterTimeout } from './runner.js';
+import {
+  playerSummary, coachSummary, isStaff, canViewAnalysis, puzzleThemeFor, memberCategoryLines,
+} from '../../analysis/presentation.js';
+import { improvementPlan } from '../../analysis/scoring.js';
+import TimeUseChart from './TimeUseChart.jsx';
+import { CATEGORY_LABELS } from '../../analysis/scoring.js';
+import { describeMotifs } from '../../analysis/clubWeaknesses.js';
+
+/*
+ * The engine's read on one archived game.
+ *
+ * Who sees what is decided by presentation.js, which is unit-tested, not by
+ * the JSX below — a rule enforced only in React is not enforced at all. The
+ * database policies in 0009_game_analysis.sql are the real boundary; this is
+ * the second line.
+ */
+export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = false }) {
+  const stored = useAnalysisForGame(game.id);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [error, setError] = useState(null);
+
+  const staff = isStaff(viewer);
+  // A player may run the engine on a game that is theirs. The database decides
+  // what may actually be written; this only decides whether to offer a button.
+  const ownsThisGame =
+    !!viewer?.playerId &&
+    (game.whitePlayerId === viewer.playerId || game.blackPlayerId === viewer.playerId);
+  const mayAnalyse = staff || (allowSelfAnalysis && ownsThisGame);
+
+  // Which sides may this viewer look at?
+  const visible = useMemo(
+    () =>
+      stored.filter((row) =>
+        canViewAnalysis(viewer, row.playerId ?? (row.side === 'w' ? game.whitePlayerId : game.blackPlayerId)),
+      ),
+    [stored, viewer, game],
+  );
+
+  const run = async () => {
+    // One engine serves the page. If the background queue is mid-game,
+    // starting a second analysis would interleave two conversations on it.
+    if (isBusy()) {
+      setError('the engine is busy with another game. Try again in a minute.');
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    setProgress({ done: 0, total: 0 });
+    const controller = new AbortController();
+    let result;
+    try {
+      result = await withTimeout(
+        analyzeArchivedGame(game, { onProgress: (p) => setProgress(p), signal: controller.signal }),
+        GAME_TIMEOUT_MS,
+        { label: 'Analyzing this game', onTimeout: () => controller.abort() },
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) resetAfterTimeout();
+      result = { ok: false, error: `${err.message} Try again.` };
+    }
+    setRunning(false);
+    setProgress(null);
+    if (!result.ok) setError(result.error);
+  };
+
+  if (!viewer?.role) return null;
+
+  return (
+    <div className="analysis-panel">
+      <div className="panel-header">
+        <h3>Game analysis</h3>
+        {mayAnalyse && (
+          <button type="button" onClick={run} disabled={running} aria-busy={running}>
+            {running ? 'Analyzing…' : visible.length ? 'Re-analyze' : 'Analyze this game'}
+          </button>
+        )}
+      </div>
+
+      {running && (
+        <p className="muted">
+          {progress?.total
+            ? `Position ${progress.done} of ${progress.total}…`
+            : 'Starting the engine…'}
+        </p>
+      )}
+      {error && <p className="error">Analysis failed: {error}</p>}
+
+      {!visible.length && !running && (
+        <p className="muted">
+          {mayAnalyse
+            ? 'Not analyzed yet.'
+            : 'Your coach hasn’t shared an analysis of this game yet.'}
+        </p>
+      )}
+
+      {visible.map((row) => (
+        <SideReport key={row.side} row={row} game={game} staff={staff} />
+      ))}
+    </div>
+  );
+}
+
+function SideReport({ row, game, staff }) {
+  const name = row.side === 'w' ? game.whiteName : game.blackName;
+  const plan = useMemo(
+    () => improvementPlan(row.scores || {}, row.motifCounts || {}),
+    [row.scores, row.motifCounts],
+  );
+  const summary = useMemo(() => playerSummary(row.scores, plan), [row.scores, plan]);
+  const coachRows = useMemo(() => (staff ? coachSummary(row.scores) : null), [row.scores, staff]);
+  const patterns = describeMotifs(row.motifCounts);
+  const memberLines = memberCategoryLines(summary.categories);
+
+  return (
+    <div className="analysis-side">
+      <div className="analysis-headline">
+        <strong>{name}</strong>
+        <span className="badge mono">{row.accuracy != null ? `${row.accuracy}% accuracy` : '—'}</span>
+        {/* Engine detail for the coach; a member gets the accuracy only. */}
+        {staff && row.acpl != null && (
+          <span className="muted small" title="Average centipawn loss: how much worse each move was than the engine's pick, on average. Lower is better.">
+            Avg. loss {row.acpl}
+          </span>
+        )}
+        {staff && <span className="muted small">Engine depth {row.depth}</span>}
+      </div>
+
+      {!staff && !memberLines.length && (
+        <p className="muted small">Skill scores show up once a few of your games are analyzed.</p>
+      )}
+      <ul className="score-list">
+        {(staff ? coachRows : memberLines).map((entry) => {
+          const key = entry.key ?? entry.label;
+          if (staff) {
+            return (
+              <li key={key}>
+                <span>{entry.label}</span>
+                <span className="mono">
+                  {entry.score ?? '—'}
+                  {entry.caveat ? <span className="score-caveat">{entry.caveat}</span> : null}
+                </span>
+              </li>
+            );
+          }
+          return (
+            <li key={key}>
+              <span>{entry.label}</span>
+              <span className="mono">{entry.text}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <TimeUseChart row={row} game={game} />
+
+      {/*
+        One priority, not a ranked list of every failure. A teenager handed
+        eight numbers and told six are bad stops opening the app. The button
+        lands them on the drill itself rather than leaving them advice to act
+        on later.
+      */}
+      {summary.priority && (
+        <div className="analysis-priority">
+          <strong>Work on: {summary.priority.label}</strong>
+          {summary.priority.advice && <p className="muted">{summary.priority.advice}</p>}
+          {puzzleThemeFor(summary.priority.trainingTheme) && (
+            <Link
+              to="training"
+              params={{ theme: puzzleThemeFor(summary.priority.trainingTheme) }}
+              className="button primary"
+            >
+              Practice {summary.priority.trainingTheme.toLowerCase()} puzzles
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/*
+        The game's turning points are listed beside the board (GameReview),
+        explained in words, with the better move in normal notation and a tap
+        to see the position. This panel used to repeat them in engine notation
+        ("Better was f6d7") with raw labels, so it no longer does.
+      */}
+      {patterns && <p className="muted">Patterns in this game: {patterns}.</p>}
+
+      {row.coachNote && <blockquote className="coach-note">{row.coachNote}</blockquote>}
+    </div>
+  );
+}
+
+export { CATEGORY_LABELS };

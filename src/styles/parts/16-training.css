@@ -1,0 +1,131 @@
+/* ---------- training ---------------------------------------------------- */
+
+.puzzle-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-faint);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.puzzle-banner.solved {
+  border-left-color: var(--good);
+}
+.puzzle-banner.wrong {
+  border-left-color: var(--bad);
+}
+
+.puzzle-feedback {
+  margin: 8px 0 0;
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.puzzle-counter {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  margin-right: 8px;
+}
+
+.puzzle-rating {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  margin-left: 8px;
+}
+
+.puzzle-prompt {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.puzzle-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.hint-box {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+
+.big-number {
+  font-size: 1.9rem;
+  font-weight: 650;
+  margin: 4px 0 10px;
+}
+
+.big-number span {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.puzzle-index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.puzzle-index li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.puzzle-chip {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.puzzle-chip.current {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.puzzle-chip.solved {
+  background: var(--good);
+  border-color: var(--good);
+  color: #0d1a10;
+  font-weight: 700;
+}
+
+.puzzle-theme {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+}
+
+.loop-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.loop-list strong {
+  color: var(--text);
+}

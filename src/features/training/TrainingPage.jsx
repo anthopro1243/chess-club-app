@@ -1,0 +1,484 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Board from '../../board/Board.jsx';
+import PromotionDialog from '../../board/PromotionDialog.jsx';
+import EndgameTrainer from './EndgameTrainer.jsx';
+import InfoTooltip from '../../ui/InfoTooltip.jsx';
+import { PUZZLES, PUZZLE_THEMES, MENU_THEMES, themeLabel } from './puzzles.js';
+import { useDuePuzzles, useReviewSummary } from './ownPuzzleStore.js';
+import { usePlayers, useMyProfile } from '../roster/rosterStore.js';
+import { useAccount } from '../account/accountStore.js';
+import {
+  useAttempts,
+  useThemeAccuracy,
+  attemptSummary,
+} from './puzzleAttemptsStore.js';
+import { parseTrainingLink, traineeIdFor } from './trainingLink.js';
+import { targetRating, matchPuzzles } from './puzzleMatch.js';
+import { useRoute } from '../../app/useRoute.js';
+import SanInput from '../../board/SanInput.jsx';
+import { usePuzzleSession } from './usePuzzleSession.js';
+
+const TRAINEE_KEY = 'cc-trainee';
+const NEAR = 'near';
+const PUZZLE_IDS = PUZZLES.map((p) => p.id);
+
+/*
+ * What the URL asks for: #/training?theme=fork&difficulty=easy, or a
+ * puzzle set as #/training?puzzles=id1,id2. Anything not in the library is
+ * dropped (trainingLink.js), so a stale link still lands on a working page.
+ */
+const linkFromHash = () => {
+  try {
+    return parseTrainingLink(window.location.hash, { themes: PUZZLE_THEMES, puzzleIds: PUZZLE_IDS });
+  } catch {
+    return { theme: '', difficulty: '', puzzleIds: [], mode: '' };
+  }
+};
+
+const ALL_DIFFICULTIES = [
+  { key: '', label: 'All difficulties', test: () => true },
+  { key: 'beginner', label: 'Beginner (< 1000)', test: (r) => r < 1000 },
+  { key: 'easy', label: 'Easy (1000–1400)', test: (r) => r >= 1000 && r < 1400 },
+  { key: 'intermediate', label: 'Intermediate (1400–1800)', test: (r) => r >= 1400 && r < 1800 },
+  { key: 'hard', label: 'Hard (1800–2200)', test: (r) => r >= 1800 && r < 2200 },
+  { key: 'expert', label: 'Expert (2200+)', test: (r) => r >= 2200 },
+];
+
+// Only offer bands the library actually has puzzles in; "Hard" and "Expert"
+// used to be offered and always came back "No puzzles match".
+const DIFFICULTIES = ALL_DIFFICULTIES.filter((d) => !d.key || PUZZLES.some((p) => d.test(p.rating)));
+
+const prettyTheme = themeLabel;
+
+/** Which difficulty band a puzzle rating falls in, for the attempt record. */
+const bandFor = (rating) => ALL_DIFFICULTIES.find((d) => d.key && d.test(rating))?.key || '';
+
+
+/**
+ * TrainingPage — a puzzle trainer over real tactics from Lichess's open
+ * puzzle database (puzzles.js in this folder). Each puzzle is a forced line, not
+ * just a single mating move: the trainee's move is checked against the
+ * recorded solution, the opponent's reply is played automatically, and the
+ * puzzle is solved once the whole line has been played out.
+ */
+export default function TrainingPage() {
+  // A player arriving from their improvement plan lands
+  // pre-filtered to the theme (or the exact set) it named, rather than on all
+  // 402 puzzles with advice to remember.
+  const players = usePlayers();
+  const account = useAccount();
+  const me = useMyProfile();
+  const canPickTrainee = account.isCoach;
+  const [pickedId, setPickedId] = useState(() => {
+    try {
+      // null = never picked; traineeIdFor then starts the coach as themselves.
+      return localStorage.getItem(TRAINEE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (canPickTrainee && pickedId != null) localStorage.setItem(TRAINEE_KEY, pickedId);
+    } catch {
+      /* storage can be unavailable; the selection still holds for this visit */
+    }
+  }, [pickedId, canPickTrainee]);
+  const traineeId = traineeIdFor({ isCoach: canPickTrainee, myPlayerId: me?.playerId ?? null, pickedId });
+
+  const trainee = players.find((p) => p.playerId === traineeId) || null;
+
+  const [themeFilter, setThemeFilter] = useState(() => linkFromHash().theme);
+  // Default: puzzles near the trainee's own rating (puzzleMatch.js). A link
+  // naming a difficulty, or the coach picking one, overrides it.
+  const [difficultyFilter, setDifficultyFilter] = useState(() => linkFromHash().difficulty || NEAR);
+  const target = targetRating(trainee);
+  const [setIds, setSetIds] = useState(() => linkFromHash().puzzleIds);
+  const setKey = setIds.join(',');
+  const difficultyTest = ALL_DIFFICULTIES.find((d) => d.key === difficultyFilter)?.test ?? (() => true);
+  const filtered = useMemo(
+    () => {
+      // A linked set is exactly those puzzles, in the coach's order.
+      if (setIds.length) return setIds.map((id) => PUZZLES.find((p) => p.id === id)).filter(Boolean);
+      if (difficultyFilter === NEAR) {
+        return matchPuzzles(PUZZLES, target.rating, {
+          solvedIds: trainee?.puzzleStats?.solvedIds || [],
+          theme: themeFilter,
+        }).puzzles;
+      }
+      return PUZZLES.filter(
+        (p) => (themeFilter ? p.themes.includes(themeFilter) : true) && difficultyTest(p.rating),
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [themeFilter, difficultyFilter, setKey, target.rating, trainee?.playerId],
+  );
+
+  /*
+   * "Your mistakes" mode.
+   *
+   * Every critical moment the analyzer finds is a position the player actually
+   * got wrong, plus the move they should have played - which is a puzzle, and
+   * a far better one than a random tactic, because it is THEIR blunder. The
+   * spaced-repetition schedule decides which come back today.
+   */
+  const [source, setSource] = useState(() => linkFromHash().mode || 'library');
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [themeFilter, difficultyFilter, source, setKey]);
+
+  // A training link followed while already on this page changes only the
+  // hash; the page stays mounted, so the new filter is applied here.
+  const { id: routeId, hash } = useRoute();
+  const firstHashRef = useRef(hash);
+  useEffect(() => {
+    if (routeId !== 'training' || hash === firstHashRef.current) return;
+    firstHashRef.current = hash;
+    const link = linkFromHash();
+    setThemeFilter(link.theme);
+    setDifficultyFilter(link.difficulty || NEAR);
+    setSetIds(link.puzzleIds);
+    setSource(link.mode || 'library');
+  }, [routeId, hash]);
+  // Some theme + difficulty combinations have no puzzles at all — fall back
+  // to a harmless placeholder so every hook below still has a real puzzle
+  // to work with; the empty case is handled in the render instead.
+
+  const duePuzzles = useDuePuzzles(traineeId);
+  const reviewState = useReviewSummary(traineeId);
+  /* Own-game puzzles wear the same shape as the library ones, so the whole
+     solving machinery below works unchanged. */
+  const ownPuzzles = useMemo(
+    () =>
+      duePuzzles.map((p) => ({
+        id: `own:${p.id ?? p.fen}`,
+        fen: p.fen,
+        rating: 0,
+        themes: p.themes?.length ? p.themes : ['ownGame'],
+        name: p.san ? `From your game (you played ${p.san})` : 'From your game',
+        hint: 'You got this one wrong in a real game. Find the better move.',
+        solution: [
+          {
+            from: p.solution.slice(0, 2),
+            to: p.solution.slice(2, 4),
+            ...(p.solution.length > 4 ? { promotion: p.solution[4] } : {}),
+          },
+        ],
+        own: p,
+      })),
+    [duePuzzles],
+  );
+
+  /*
+   * The round's positions are fixed when "Your mistakes" opens. Solving one
+   * reschedules it, which takes it out of the due list straight away; without
+   * this the last position vanished the moment it was solved and the player
+   * got "No puzzles match" instead of "Solved".
+   */
+  const roundKey = `${source}:${traineeId}`;
+  const [round, setRound] = useState({ key: '', puzzles: [] });
+  useEffect(() => {
+    if (source !== 'mistakes') return;
+    setRound((r) => (r.key === roundKey && r.puzzles.length ? r : { key: roundKey, puzzles: ownPuzzles }));
+  }, [source, roundKey, ownPuzzles]);
+  const roundPuzzles = round.key === roundKey && round.puzzles.length ? round.puzzles : ownPuzzles;
+
+  const pool = source === 'mistakes' ? roundPuzzles : filtered;
+  const puzzle = pool.length ? pool[Math.min(index, pool.length - 1)] : PUZZLES[0];
+
+  const {
+    game,
+    orientation,
+    result,
+    showHint,
+    setShowHint,
+    pendingPromotion,
+    setPendingPromotion,
+    lastWrong,
+    sessionSolved,
+    waitingOnOpponent,
+    resetBoard,
+    handleMove,
+    completePromotion,
+    reveal,
+  } = usePuzzleSession({ puzzle, trainee, bandFor });
+
+  const solvedIds = useMemo(
+    () => (trainee ? new Set(trainee.puzzleStats?.solvedIds || []) : sessionSolved),
+    [trainee, sessionSolved],
+  );
+  const mistakesNote =
+    source === 'mistakes'
+      ? duePuzzles.length
+        ? `${duePuzzles.length} position${duePuzzles.length === 1 ? '' : 's'} from your games to review. Get one right and it comes back later. Miss it and you'll see it again tomorrow.`
+        : reviewState.active
+          ? `Nothing due today. ${reviewState.active} more will come back later.`
+          : 'No mistakes saved yet. They show up once your games are analyzed.'
+      : null;
+
+  const solvedInFilter = filtered.filter((p) => solvedIds.has(p.id)).length;
+
+  const attempts = useAttempts();
+  const summary = attemptSummary(attempts, traineeId);
+  const weakestThemes = useThemeAccuracy(traineeId).slice(0, 3);
+
+
+  const loadPuzzle = useCallback(
+    (nextIndex) => {
+      if (!pool.length) return;
+      setIndex((nextIndex + pool.length) % pool.length);
+    },
+    [pool.length],
+  );
+
+  const randomPuzzle = () => loadPuzzle(Math.floor(Math.random() * pool.length));
+
+
+  return (
+    <div className="training-layout">
+      {mistakesNote && <p className="muted mistakes-note">{mistakesNote}</p>}
+      <section className="board-column">
+        {source === 'endgames' ? (
+          <EndgameTrainer trainee={trainee} rating={trainee?.ratings?.uscf ?? null} />
+        ) : pool.length === 0 && source === 'mistakes' ? (
+          <div className="panel-block">
+            <h2>Nothing to review right now</h2>
+            <p className="hint-text">
+              Positions you get wrong in your games show up here once the games are analyzed. Try
+              the tactics library meanwhile.
+            </p>
+          </div>
+        ) : pool.length === 0 ? (
+          <div className="panel-block">
+            <h2>No puzzles match</h2>
+            <p className="hint-text">
+              No puzzles with that theme at that level. Try another theme or difficulty.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className={`puzzle-banner ${result || ''}`} role="status">
+              <div>
+                <span className="puzzle-counter mono">
+                  {index + 1} / {pool.length}
+                </span>
+                <strong>{puzzle.name}</strong>
+                {!puzzle.own && <span className="puzzle-rating mono">{puzzle.rating}</span>}
+              </div>
+              <span className="puzzle-prompt">
+                {result === 'solved'
+                  ? 'Solved'
+                  : result === 'wrong'
+                    ? 'Not the move. Try again.'
+                    : waitingOnOpponent
+                      ? 'Opponent is replying…'
+                      : `${orientation === 'w' ? 'White' : 'Black'} to play`}
+              </span>
+            </div>
+
+            <Board
+              game={game}
+              orientation={orientation}
+              onMove={handleMove}
+              interactive={result !== 'solved' && !waitingOnOpponent}
+            />
+            <SanInput
+              game={game}
+              onMove={handleMove}
+              lockedMessage={
+                result === 'solved'
+                  ? 'This one is done. Press Next for another.'
+                  : waitingOnOpponent
+                    ? 'Wait for the reply.'
+                    : null
+              }
+            />
+
+            <div className="puzzle-controls">
+              <button type="button" onClick={() => loadPuzzle(index - 1)}>
+                &lsaquo; Previous
+              </button>
+              <button type="button" onClick={() => resetBoard(puzzle)}>
+                Reset
+              </button>
+              <button type="button" onClick={randomPuzzle}>
+                Random
+              </button>
+              <button type="button" onClick={() => setShowHint(true)} disabled={showHint}>
+                Hint
+              </button>
+              <button type="button" onClick={reveal} disabled={result === 'solved'}>
+                Show answer
+              </button>
+              <button type="button" className="primary" onClick={() => loadPuzzle(index + 1)}>
+                Next &rsaquo;
+              </button>
+            </div>
+
+            {lastWrong && result !== 'solved' && (
+              <p className="puzzle-feedback" role="status">
+                Not {lastWrong}. Try again.
+              </p>
+            )}
+            {showHint && <p className="hint-box">{puzzle.hint}</p>}
+          </>
+        )}
+      </section>
+
+      <aside className="side-panel">
+        <div className="panel-block">
+          <div className="heading-row">
+            <h2 id="trainee-heading">Trainee</h2>
+            <InfoTooltip label="More about Trainee">
+              {canPickTrainee
+                ? 'Pick a player and their solved puzzles count toward their rating.'
+                : 'Puzzles you solve here count toward your progress.'}
+            </InfoTooltip>
+          </div>
+          {canPickTrainee ? (
+            <select
+              className="trainee-select"
+              aria-labelledby="trainee-heading"
+              value={traineeId}
+              onChange={(event) => setPickedId(event.target.value)}
+            >
+              <option value="">Practice only</option>
+              {players.map((p) => (
+                <option key={p.playerId} value={p.playerId}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="hint-text">
+              {trainee ? `Training as ${trainee.name}.` : 'Practice only. You aren’t on the club roster yet.'}
+            </p>
+          )}
+        </div>
+
+        <div className="panel-block">
+          <h2>Puzzles</h2>
+          <label className="field">
+            <span>Practice from</span>
+            <select value={source} onChange={(event) => setSource(event.target.value)}>
+              <option value="library">Tactics library ({PUZZLES.length})</option>
+              <option value="mistakes" disabled={!traineeId}>
+                {traineeId
+                  ? `Your mistakes (${duePuzzles.length} due)`
+                  : 'Your mistakes (pick a trainee first)'}
+              </option>
+              <option value="endgames">Endgames: play them out vs the engine</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Theme</span>
+            <select
+              value={themeFilter}
+              disabled={source !== 'library'}
+              onChange={(event) => {
+                setSetIds([]);
+                setThemeFilter(event.target.value);
+              }}
+            >
+              <option value="">All themes</option>
+              {(themeFilter && !MENU_THEMES.includes(themeFilter) ? [themeFilter, ...MENU_THEMES] : MENU_THEMES).map((theme) => (
+                <option key={theme} value={theme}>
+                  {prettyTheme(theme)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Difficulty</span>
+            <select
+              value={difficultyFilter}
+              onChange={(event) => {
+                setSetIds([]);
+                setDifficultyFilter(event.target.value);
+              }}
+            >
+              <option value={NEAR}>
+                {trainee ? `Near ${trainee.name.split(' ')[0]}'s rating (~${target.rating})` : `Near ${target.rating} (pick a trainee first)`}
+              </option>
+              {DIFFICULTIES.map((d) => (
+                <option key={d.key} value={d.key}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {setIds.length > 0 && source !== 'mistakes' && (
+            <div className="hw-set-chip">
+              <span>Puzzle set: {filtered.length} puzzles</span>
+              <button type="button" className="link-button" onClick={() => setSetIds([])}>
+                Show all puzzles
+              </button>
+            </div>
+          )}
+          <p className="hint-text">
+            {source === 'mistakes'
+              ? `${pool.length} of your own positions due.`
+              : `${filtered.length} puzzles match.`}
+          </p>
+        </div>
+
+        <div className="panel-block">
+          <h2>{trainee ? `${trainee.name}'s progress` : 'Progress this session'}</h2>
+          <p className="big-number">
+            {solvedInFilter}
+            <span> / {pool.length} solved{themeFilter && source !== 'mistakes' ? ` (${prettyTheme(themeFilter)})` : ''}</span>
+          </p>
+
+          {trainee && summary.attempts > 0 && (
+            <p className="hint-text">
+              {summary.attempts} attempt{summary.attempts === 1 ? '' : 's'} ·{' '}
+              {Math.round(summary.accuracy * 100)}% right
+              {summary.medianSeconds != null ? ` · ${summary.medianSeconds}s typical` : ''}
+            </p>
+          )}
+        </div>
+
+        {trainee && weakestThemes.length > 0 && (
+          <div className="panel-block">
+            <div className="heading-row">
+              <h2>Weakest themes</h2>
+              <InfoTooltip label="More about Weakest themes">
+                From puzzles tried, worst first. Needs at least three tries per theme.
+              </InfoTooltip>
+            </div>
+            <ol className="priority-list">
+              {weakestThemes.map((row, index) => (
+                <li key={row.theme}>
+                  <span className="priority-rank">{index + 1}</span>
+                  <span className="priority-label">
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        setSetIds([]);
+                        setThemeFilter(row.theme);
+                      }}
+                    >
+                      {prettyTheme(row.theme)}
+                    </button>
+                  </span>
+                  <span className="mono">
+                    {Math.round(row.accuracy * 100)}% of {row.attempts}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+      </aside>
+
+      {pendingPromotion && (
+        <PromotionDialog
+          color={pendingPromotion.color}
+          onChoose={completePromotion}
+          onCancel={() => setPendingPromotion(null)}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,176 @@
+/* ---------- responsive -------------------------------------------------- */
+
+@media (max-width: 940px) {
+  .play-layout,
+  .training-layout,
+  .roster-layout,
+  .two-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .board-column {
+    max-width: none;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .roster-form,
+  .facts-edit,
+  .opponent-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-list li {
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 16px 12px;
+  }
+
+  /* Use the bar's free width (the clock, if any, keeps its place on the right). */
+  .player-name {
+    width: auto;
+    flex: 1 1 0;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* iPhones zoom the whole page in when a text box under 16px gets focus,
+     and don't zoom back out. The id beats every component rule. */
+  #root input:not([type='range']):not([type='checkbox']):not([type='radio']),
+  #root select,
+  #root textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Columns that can go on a phone so a table fits without sideways scrolling. */
+  .hide-narrow {
+    display: none;
+  }
+
+  .my-games-table th,
+  .my-games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .my-games-opponent {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  .games-table th,
+  .games-table td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .games-table td.games-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .roster-list th,
+  .roster-list td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .roster-list .roster-name {
+    white-space: normal;
+  }
+}
+
+/* Engine-suggested rubric scores, shown beside the coach's own number.
+   Deliberately quiet: a suggestion is an argument, not a verdict. */
+.rubric-suggestion {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.72rem;
+  font-style: normal;
+  color: var(--accent-ink);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+button.rubric-suggestion {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+button.rubric-suggestion:hover { opacity: 1; }
+.small { font-size: 0.78rem; }
+
+/* The player's single priority, with the drill one click away. */
+.analysis-priority {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+.analysis-priority p { margin: 4px 0 8px; }
+.analysis-priority button { display: block; margin-top: 8px; }
+
+/* One side's report: name and accuracy on one line, then the skill scores as
+   label / number rows so the eye can run straight down the numbers. */
+.analysis-side + .analysis-side { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.analysis-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 10px; }
+.analysis-headline strong { font-size: 1rem; }
+.score-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 2px; }
+.score-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.88rem;
+}
+.score-list li > span:first-child { color: var(--text-muted); }
+.score-list li > span:last-child { text-align: right; font-weight: 600; }
+.score-list .score-caveat { display: block; font-family: var(--font); font-weight: 400; font-style: normal; font-size: 0.76rem; color: var(--text-muted); }
+
+/* Game review: board on the left, moves and turning points on the right. */
+.game-review { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .game-review { grid-template-columns: 1fr; } }
+.game-review-board { min-width: 0; }
+.game-review-side { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.review-controls { margin-top: 10px; }
+/* Start / Back / Next / End stay on one row, phones included (the phone rule
+   below turns other button grids into one column). */
+.button-grid.review-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.button-grid.review-controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.show-narrow { display: none; }
+/* Must come after the rule above, or phones never see these (the games list's
+   Result column was blank on a phone). */
+@media (max-width: 640px) { .show-narrow { display: inline; } }
+.review-eval { margin-top: 8px; font-size: 0.9rem; }
+.review-eval.blunder { color: var(--grade-blunder); }
+.review-eval.mistake { color: var(--grade-mistake); }
+.review-eval.inaccuracy { color: var(--grade-inaccuracy); }
+.critical-panel { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.critical-list { margin: 6px 0 0; padding-left: 18px; font-size: 0.85rem; }
+.critical-list li { margin-bottom: 4px; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--bg-sunken); }
+.pgn-details { margin-top: 14px; }
+.pgn-details summary { cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.unranked-note { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.unranked-note ul { margin: 6px 0 0; padding-left: 18px; }
+.mistakes-note { margin: 0 0 10px; }
