@@ -22,6 +22,7 @@ import {
   pgnTimeControlTag,
 } from './chessClock.js';
 import Toast, { useToast } from '../../ui/Toast.jsx';
+import SanInput from '../../board/SanInput.jsx';
 
 const COMPUTER_OPPONENT_RD = 40; // Stockfish at a set Elo is very consistent — low uncertainty
 
@@ -398,15 +399,16 @@ export default function PlayPage() {
   );
 
   const handleMove = useCallback(
-    ({ from, to }) => {
+    ({ from, to, promotion }) => {
       if (!atLive) return;
       const options = live.moves({ square: from, verbose: true }).filter((m) => m.to === to);
       if (options.length === 0) return;
-      if (options[0].promotion) {
+      // A typed move ("e8=Q") already names its piece; a board move asks.
+      if (options[0].promotion && !promotion) {
         setPendingPromotion({ from, to, color: options[0].color });
         return;
       }
-      live.move({ from, to });
+      live.move(promotion ? { from, to, promotion } : { from, to });
       pressAfterMove();
       setViewPly(null);
       bump();
@@ -583,6 +585,20 @@ export default function PlayPage() {
           toMove={displayGame.turn === orientation}
           clockMs={timeControl.baseMs ? remainingFor(clockRef.current, orientation) : null}
           clockRunning={clockRef.current.running && clockRef.current.turn === orientation}
+        />
+
+        <SanInput
+          game={live}
+          onMove={handleMove}
+          lockedMessage={
+            !atLive
+              ? 'You are looking back at an earlier move. Go to the live position to play.'
+              : status.over
+                ? 'The game is over.'
+                : mode === 'computer' && live.turn === computerColor
+                  ? 'Wait for the computer to move.'
+                  : null
+          }
         />
       </section>
 

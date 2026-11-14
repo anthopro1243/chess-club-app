@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { updatePassword } from '../../services/auth.js';
 import Modal from '../../ui/Modal.jsx';
-
-const MIN_LENGTH = 8;
+import PasswordField from './PasswordField.jsx';
+import { MIN_PASSWORD_LENGTH as MIN_LENGTH } from './passwordRules.js';
 
 /**
  * ResetPasswordModal — shown when a password-reset email link lands back
@@ -40,30 +40,28 @@ export default function ResetPasswordModal({ onDone, onCancel }) {
 
   return (
     <Modal title="Set a new password" onClose={onCancel} closeLabel={null} className="auth-modal">
-        <form className="signin-form" onSubmit={submit}>
-          <input
-            type="password"
-            required
-            autoFocus
-            placeholder="New password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <input
-            type="password"
-            required
-            placeholder="Confirm new password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          {error && <span className="hint-text auth-error">{error}</span>}
-          <button type="submit" className="primary" disabled={busy}>
-            Set password
-          </button>
-          <button type="button" className="link-button" onClick={onCancel}>
-            Cancel
-          </button>
-        </form>
+      <form className="signin-form" onSubmit={submit}>
+        <PasswordField
+          label="New password"
+          hint={`At least ${MIN_LENGTH} characters`}
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          autoFocus
+        />
+        <PasswordField label="Confirm new password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+        {error && (
+          <span className="hint-text auth-error" role="alert">
+            {error}
+          </span>
+        )}
+        <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+          Set password
+        </button>
+        <button type="button" className="link-button" onClick={onCancel}>
+          Cancel
+        </button>
+      </form>
     </Modal>
   );
 }

@@ -22,29 +22,38 @@ export default function MoveList({ moves, viewPly, onSelectPly }) {
   return (
     <div className="movelist" ref={scrollRef}>
       {moves.length === 0 && <p className="movelist-empty">No moves yet. White to start.</p>}
-      {pairs.map((pair) => (
-        <div className="move-row" key={pair.number}>
-          <span className="move-number">{pair.number}.</span>
-          <button
-            type="button"
-            className={`move ${viewPly === pair.index + 1 ? 'active' : ''}`}
-            onClick={() => onSelectPly(pair.index + 1)}
-          >
-            {pair.white}
-          </button>
-          {pair.black ? (
+      {/* A numbered list in practice, so it is one: "list, 12 items". */}
+      <ol className="move-rows" aria-label="Moves">
+        {pairs.map((pair) => (
+          <li className="move-row" key={pair.number}>
+            <span className="move-number" aria-hidden="true">
+              {pair.number}.
+            </span>
             <button
               type="button"
-              className={`move ${viewPly === pair.index + 2 ? 'active' : ''}`}
-              onClick={() => onSelectPly(pair.index + 2)}
+              className={`move ${viewPly === pair.index + 1 ? 'active' : ''}`}
+              aria-current={viewPly === pair.index + 1 ? 'step' : undefined}
+              aria-label={`${pair.number}. ${pair.white}`}
+              onClick={() => onSelectPly(pair.index + 1)}
             >
-              {pair.black}
+              {pair.white}
             </button>
-          ) : (
-            <span className="move-empty" />
-          )}
-        </div>
-      ))}
+            {pair.black ? (
+              <button
+                type="button"
+                className={`move ${viewPly === pair.index + 2 ? 'active' : ''}`}
+                aria-current={viewPly === pair.index + 2 ? 'step' : undefined}
+                aria-label={`${pair.number}... ${pair.black}`}
+                onClick={() => onSelectPly(pair.index + 2)}
+              >
+                {pair.black}
+              </button>
+            ) : (
+              <span className="move-empty" />
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

@@ -157,13 +157,13 @@ export default function ClubPage() {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>
-            Club leaderboard
-            <InfoTooltip>
+          <div className="heading-row">
+            <h2>Club leaderboard</h2>
+            <InfoTooltip label="More about Club leaderboard">
               Ranked by the coach&rsquo;s rating if there is one, then USCF, then Chess.com or
               Lichess. The small label says where each number comes from.
             </InfoTooltip>
-          </h2>
+          </div>
         </div>
 
         {leaderboard.length === 0 ? (
@@ -269,10 +269,10 @@ export default function ClubPage() {
         {account.isCoach && (
           <section className="panel">
             <div className="panel-header">
-              <h2>
-                Teach to the whole group
-                <InfoTooltip>The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
-              </h2>
+              <div className="heading-row">
+                <h2>Teach to the whole group</h2>
+                <InfoTooltip label="More about Teach to the whole group">The club&rsquo;s three weakest areas. Good topics for a group lesson.</InfoTooltip>
+              </div>
             </div>
             {weakest.length ? (
               <ol className="priority-list">

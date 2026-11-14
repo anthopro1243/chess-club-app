@@ -27,13 +27,13 @@ export default function ClubWeaknessesPanel() {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>
-          Club weaknesses, last {report.windowDays} days
+        <div className="heading-row">
+          <h2>Club weaknesses, last {report.windowDays} days</h2>
           <InfoTooltip>
             What keeps going wrong in members&rsquo; analyzed games. Use it to plan the next
             lesson.
           </InfoTooltip>
-        </h2>
+        </div>
         <span className="badge mono">{report.analysedGames} games</span>
       </div>
 

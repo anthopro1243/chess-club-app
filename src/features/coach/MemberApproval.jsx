@@ -56,13 +56,13 @@ export default function MemberApproval() {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>
-          Members
-          <InfoTooltip>
+        <div className="heading-row">
+          <h2>Members</h2>
+          <InfoTooltip label="More about Members">
             New accounts can&rsquo;t see anything until you approve them or they use an invite
             code.
           </InfoTooltip>
-        </h2>
+        </div>
         {pending.length > 0 && <span className="badge warn">{pending.length} waiting</span>}
       </div>
 
@@ -170,12 +170,12 @@ export default function MemberApproval() {
         </div>
       )}
 
-      <h3>
-        Invite codes
-        <InfoTooltip>
+      <div className="heading-row">
+        <h3>Invite codes</h3>
+        <InfoTooltip label="More about Invite codes">
           Anyone who enters a code gets in right away. Codes expire after 30 days.
         </InfoTooltip>
-      </h3>
+      </div>
 
       <div className="button-grid">
         <button
@@ -220,13 +220,13 @@ export default function MemberApproval() {
         </p>
       )}
 
-      <h3>
-        Password help
-        <InfoTooltip>
+      <div className="heading-row">
+        <h3>Password help</h3>
+        <InfoTooltip label="More about Password help">
           If a member can&rsquo;t get into their email, send the link to their guardian&rsquo;s
           email instead.
         </InfoTooltip>
-      </h3>
+      </div>
       <ResetForMember onRun={run} busy={busy} />
     </section>
   );

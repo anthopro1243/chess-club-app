@@ -106,13 +106,13 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
   return (
     <section className="panel review-queue">
       <div className="panel-header">
-        <h2>
-          Review queue
-          <InfoTooltip>
+        <div className="heading-row">
+          <h2>Review queue</h2>
+          <InfoTooltip label="More about Review queue">
             In-person games first, then games with the most big mistakes. Press Mark reviewed after
             you go over one with the player.
           </InfoTooltip>
-        </h2>
+        </div>
         <span className="badge">{total} waiting</span>
       </div>
       {body}

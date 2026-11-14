@@ -167,13 +167,13 @@ export default function CoachPage() {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>
-            Coach tools
-            <InfoTooltip>
+          <div className="heading-row">
+            <h2>Coach tools</h2>
+            <InfoTooltip label="More about Coach tools">
               One file with a tab each for the club summary, players, assessments, ratings and
               games.
             </InfoTooltip>
-          </h2>
+          </div>
           <button
             type="button"
             className="primary"
@@ -277,13 +277,13 @@ export default function CoachPage() {
       {assessingId && (
         <section className="panel">
           <div className="panel-header">
-            <h2>
-              {players.find((p) => p.playerId === assessingId)?.name}'s assessment
+            <div className="heading-row">
+              <h2>{players.find((p) => p.playerId === assessingId)?.name}'s assessment</h2>
               <InfoTooltip>
                 Sliders marked &ldquo;from games&rdquo; start where the engine put them. Move
                 anything you disagree with. Your scores count over the engine&rsquo;s.
               </InfoTooltip>
-            </h2>
+            </div>
             <span className="badge mono">{today()}</span>
           </div>
           <div className="rubric rubric-edit">

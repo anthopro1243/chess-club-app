@@ -170,7 +170,12 @@ export default function EndgameTrainer({ trainee, rating = null }) {
         <ul className="endgame-list">
           {drills.map((d) => (
             <li key={d.id}>
-              <button type="button" className={`link-button ${d.id === drill.id ? 'active' : ''}`} onClick={() => setDrillId(d.id)}>
+              <button
+                type="button"
+                className={`link-button ${d.id === drill.id ? 'active' : ''}`}
+                aria-pressed={d.id === drill.id}
+                onClick={() => setDrillId(d.id)}
+              >
                 {passed.has(d.id) ? '✓ ' : ''}{d.title}
               </button>
             </li>

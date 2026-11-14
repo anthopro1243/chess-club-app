@@ -404,12 +404,12 @@ export default function RosterPage() {
 
               {account.isCoach && (
                 <>
-                  <h3>
-                    Coach notes
-                    <InfoTooltip>
+                  <div className="heading-row">
+                    <h3>Coach notes</h3>
+                    <InfoTooltip label="More about Coach notes">
                       Only coaches can see these.
                     </InfoTooltip>
-                  </h3>
+                  </div>
                   <textarea
                     className="text-area"
                     value={draft.coachNotes}
@@ -528,12 +528,12 @@ export default function RosterPage() {
 
               {account.isCoach && (
                 <>
-                  <h3>
-                    Coach notes
-                    <InfoTooltip>
+                  <div className="heading-row">
+                    <h3>Coach notes</h3>
+                    <InfoTooltip label="More about Coach notes">
                       Only coaches can see these.
                     </InfoTooltip>
-                  </h3>
+                  </div>
                   <p className="notes">{coachNotes[selected.playerId] || '—'}</p>
                 </>
               )}
@@ -549,12 +549,12 @@ export default function RosterPage() {
 
               {Object.keys(selected.connections || {}).length > 0 && (
                 <>
-                  <h3>
-                    Online play
-                    <InfoTooltip>
+                  <div className="heading-row">
+                    <h3>Online play</h3>
+                    <InfoTooltip label="More about Online play">
                       Rated games on these accounts count toward the club rating.
                     </InfoTooltip>
-                  </h3>
+                  </div>
                   {Object.entries(selected.connections).map(([platform, connection]) => (
                     <p key={platform}>
                       <strong>{platform === 'chesscom' ? 'Chess.com' : 'Lichess'}</strong>{' '}

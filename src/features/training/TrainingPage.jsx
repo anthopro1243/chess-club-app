@@ -18,6 +18,7 @@ import { parseTrainingLink, traineeIdFor } from './trainingLink.js';
 import { targetRating, matchPuzzles } from './puzzleMatch.js';
 import { useRoute } from '../../app/useRoute.js';
 import { puzzleRatingScore } from './puzzleRating.js';
+import SanInput from '../../board/SanInput.jsx';
 
 const TRAINEE_KEY = 'cc-trainee';
 const NEAR = 'near';
@@ -374,15 +375,16 @@ export default function TrainingPage() {
     }, 500);
   };
 
-  const handleMove = ({ from, to }) => {
+  const handleMove = ({ from, to, promotion }) => {
     if (result === 'solved') return;
     const options = game.moves({ square: from, verbose: true }).filter((m) => m.to === to);
     if (options.length === 0) return;
-    if (options[0].promotion) {
+    // A typed move ("e8=Q") already names its piece; a board move asks.
+    if (options[0].promotion && !promotion) {
       setPendingPromotion({ from, to, color: options[0].color });
       return;
     }
-    attemptMove({ from, to });
+    attemptMove(promotion ? { from, to, promotion } : { from, to });
   };
 
   const completePromotion = (type) => {
@@ -453,6 +455,17 @@ export default function TrainingPage() {
               onMove={handleMove}
               interactive={result !== 'solved' && !waitingOnOpponent}
             />
+            <SanInput
+              game={game}
+              onMove={handleMove}
+              lockedMessage={
+                result === 'solved'
+                  ? 'This one is done. Press Next for another.'
+                  : waitingOnOpponent
+                    ? 'Wait for the reply.'
+                    : null
+              }
+            />
 
             <div className="puzzle-controls">
               <button type="button" onClick={() => loadPuzzle(index - 1)}>
@@ -487,14 +500,14 @@ export default function TrainingPage() {
 
       <aside className="side-panel">
         <div className="panel-block">
-          <h2 id="trainee-heading">
-            Trainee
-            <InfoTooltip>
+          <div className="heading-row">
+            <h2 id="trainee-heading">Trainee</h2>
+            <InfoTooltip label="More about Trainee">
               {canPickTrainee
                 ? 'Pick a player and their solved puzzles count toward their rating.'
                 : 'Puzzles you solve here count toward your progress.'}
             </InfoTooltip>
-          </h2>
+          </div>
           {canPickTrainee ? (
             <select
               className="trainee-select"
@@ -600,12 +613,12 @@ export default function TrainingPage() {
 
         {trainee && weakestThemes.length > 0 && (
           <div className="panel-block">
-            <h2>
-              Weakest themes
-              <InfoTooltip>
+            <div className="heading-row">
+              <h2>Weakest themes</h2>
+              <InfoTooltip label="More about Weakest themes">
                 From puzzles tried, worst first. Needs at least three tries per theme.
               </InfoTooltip>
-            </h2>
+            </div>
             <ol className="priority-list">
               {weakestThemes.map((row, index) => (
                 <li key={row.theme}>

@@ -12,7 +12,8 @@
   --border-strong: #3a4250;
   --text: #e7e9ee;
   --text-muted: #99a1af;
-  --text-faint: #6b7280;
+  /* Faint text still has to be readable: at least 4.5:1 on every surface. */
+  --text-faint: #8a919d;
   /* The red from the SEM seal (public/sem-logo.png). Fills, borders and board
      highlights use it exactly; --accent-ink is for red TEXT, lightened in the
      dark theme so it stays readable. */
@@ -23,6 +24,12 @@
   --good: #6fbf73;
   --warn: #e0a458;
   --bad: #d9695f;
+  /* Keyboard focus: at least 3:1 against every surface. */
+  --focus-ring: #ca7280;
+  /* Move grades in game review. */
+  --grade-blunder: #e06c6c;
+  --grade-mistake: #e0a76c;
+  --grade-inaccuracy: #e0d06c;
 
   --square-light: #e9dcbf;
   --square-dark: #9d7f57;
@@ -50,7 +57,7 @@
   --border-strong: #c6c1b6;
   --text: #1d1f24;
   --text-muted: #5f6672;
-  --text-faint: #8a919d;
+  --text-faint: #636975;
   --accent: #8b2233;
   --accent-ink: #8b2233;
   --accent-soft: rgba(139, 34, 51, 0.12);
@@ -58,6 +65,10 @@
   --good: #3f8f52;
   --warn: #b57a24;
   --bad: #b8443a;
+  --focus-ring: #8b2233;
+  --grade-blunder: #a3352b;
+  --grade-mistake: #9a5a12;
+  --grade-inaccuracy: #7a6a00;
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.07);
 
@@ -296,6 +307,11 @@ code {
   background: none;
   flex: 1;
   min-width: 0;
+}
+
+.password-field:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .password-field input:focus {
@@ -653,8 +669,8 @@ button.primary:hover:not(:disabled) {
 }
 
 .info-icon {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   flex: none;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
@@ -940,6 +956,11 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-sunken);
 }
 
+.player-name:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
 .captured {
   display: flex;
   align-items: center;
@@ -1005,6 +1026,12 @@ button.primary:hover:not(:disabled) {
   color: var(--text-faint);
   font-size: 0.85rem;
   margin: 6px;
+}
+
+.move-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .move-row {
@@ -1654,7 +1681,8 @@ textarea {
 select:focus,
 .field input:focus,
 textarea:focus {
-  outline: none;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
   border-color: var(--accent);
 }
 
@@ -1674,7 +1702,8 @@ textarea:focus {
 
 :where(input:not([type]), input[type='text'], input[type='email'], input[type='password'],
   input[type='number'], input[type='search'], input[type='date']):focus {
-  outline: none;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
   border-color: var(--accent);
 }
 
@@ -1737,8 +1766,20 @@ textarea:focus {
   color: var(--accent-ink);
   font-size: 0.82rem;
   cursor: pointer;
-  padding: 0;
+  /* Tall enough to hit: 24px minimum (WCAG 2.5.8), 44px on touch screens. */
+  min-height: 24px;
+  padding: 3px 0;
   white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .link-button {
+    min-height: 36px;
+  }
+  .info-icon {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 .link-button:hover {
@@ -2022,16 +2063,16 @@ button.rubric-suggestion:hover { opacity: 1; }
    Result column was blank on a phone). */
 @media (max-width: 640px) { .show-narrow { display: inline; } }
 .review-eval { margin-top: 8px; font-size: 0.9rem; }
-.review-eval.blunder { color: var(--danger, #e06c6c); }
-.review-eval.mistake { color: #e0a76c; }
-.review-eval.inaccuracy { color: #e0d06c; }
+.review-eval.blunder { color: var(--grade-blunder); }
+.review-eval.mistake { color: var(--grade-mistake); }
+.review-eval.inaccuracy { color: var(--grade-inaccuracy); }
 .critical-panel { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
 .critical-list { margin: 6px 0 0; padding-left: 18px; font-size: 0.85rem; }
 .critical-list li { margin-bottom: 4px; }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover { background: var(--bg-sunken); }
 .pgn-details { margin-top: 14px; }
-.pgn-details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted, #888); }
+.pgn-details summary { cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
 .unranked-note { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
 .unranked-note ul { margin: 6px 0 0; padding-left: 18px; }
 .mistakes-note { margin: 0 0 10px; }
@@ -2265,7 +2306,7 @@ button:focus-visible,
 a:focus-visible,
 [role='button']:focus-visible,
 .nav-link:focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -2548,4 +2589,68 @@ button[aria-busy='true']::before {
 
 .row-button:hover {
   text-decoration: underline;
+}
+
+.popover-title {
+  font-size: 0.95rem;
+  margin: 0 0 4px;
+}
+
+/* A heading with its info button beside it (not inside it). */
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.heading-row > h3 {
+  margin-top: 0;
+}
+
+.heading-row:has(> h3) {
+  margin-top: 20px;
+}
+
+/* Board rows exist for screen readers only; the squares stay in the 8x8 grid. */
+.board-row {
+  display: contents;
+}
+
+.square:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+.san-input {
+  margin-top: 10px;
+}
+
+.san-input-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.san-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.san-input-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+}
+
+.san-input-error {
+  color: var(--bad);
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+}
+
+.san-input-hint {
+  margin: 4px 0 0;
 }
