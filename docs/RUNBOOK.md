@@ -27,8 +27,17 @@ written to be safe against a database with real rows and safe to run twice.
 | `0006_puzzle_attempts.sql` | puzzle attempt logging |
 | `0007_split_player_row.sql` | assessments, attendance, ratings, goals |
 | `0008_consent_and_soft_delete.sql` | consent records, soft deletes |
+| `0009`–`0024` | game analysis, the analysis queue, own-game puzzles, platform ratings, security hardening, roster import, tournaments, homework, official events, OTB tags, media release and announcements, game review (one file each, in number order) |
+| `0025_link_account_to_student.sql` | linking a signed-up account to its student row by student ID and name |
+| `0026_ratings_rpc_column_guard_game_inserts.sql` | `record_club_game_ratings`, a guard so members can't edit coach-only columns, tighter game inserts, `erase_student()` |
+| `0027_client_errors.sql` | the `client_errors` table the Coach page's error list reads |
 
-`0005` must run before `0006`–`0008`: they all call its helper functions.
+`0005` must run before every later file: they call its helper functions.
+
+**As of November 2026, `0025`, `0026` and `0027` are new and not yet applied
+to the live database.** Apply them in that order, then deploy. Until 0026 is
+applied, two-player game ratings fall back to two separate updates, which
+still works.
 
 ## Backups
 

@@ -32,9 +32,8 @@
  *     and on a scoresheet the piece is the part most worth checking.
  *   - Kg1 meaning castling, a "P" in front of a pawn move, capital squares.
  *
- * (The unmerged board-accessibility patch in docs/wip-2026-09-26 has a
- * sanInput.js with the same rules for live play. They were written apart;
- * one should absorb the other when both are merged.)
+ * (src/board/sanInput.js reads typed moves during live play with similar
+ * rules. They were written apart; one should absorb the other.)
  *
  * Pure: no React, no store, no network.
  */

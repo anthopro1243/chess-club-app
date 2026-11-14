@@ -4,7 +4,7 @@ import { matchSanInput } from './sanInput.js';
 /**
  * SanInput — type a move instead of clicking it ("Nf3", "O-O", "e8=Q").
  *
- * The parsing and every explanation live in src/data/sanInput.js; this is
+ * The parsing and every explanation live in src/board/sanInput.js; this is
  * only the box. It never plays anything itself: a legal match is handed to
  * `onMove` exactly as a board click would be, so the page's own rules (the
  * puzzle's expected line, the clock, the computer's turn) still apply.

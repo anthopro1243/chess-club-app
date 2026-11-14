@@ -61,7 +61,7 @@ const sameMove = (a, b) =>
 
 /**
  * TrainingPage — a puzzle trainer over real tactics from Lichess's open
- * puzzle database (src/data/puzzles.js). Each puzzle is a forced line, not
+ * puzzle database (puzzles.js in this folder). Each puzzle is a forced line, not
  * just a single mating move: the trainee's move is checked against the
  * recorded solution, the opponent's reply is played automatically, and the
  * puzzle is solved once the whole line has been played out.

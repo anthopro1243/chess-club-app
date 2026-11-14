@@ -1,100 +1,64 @@
 # Chess Club app
 
-The club website: a full-rules chessboard you can play on — against another
-person or the real Stockfish engine at a chosen Elo — a tactics trainer over
-hundreds of real, rated puzzles filterable by theme and difficulty, player
-accounts with a club rating computed by actual Glicko-2 (the system
-Chess.com's ratings are built on) fed by every game and puzzle, a live
-leaderboard, and a roster you can edit from the browser and optionally share
-live across devices.
+The club website. Members can:
 
-React + Vite. The chess rules, the board, the routing, and the piece artwork
-are all in this repository. The two things that aren't ours: the actual
-Stockfish 18 engine (vendored, see `public/stockfish/README.md`) and a
-curated slice of Lichess's open puzzle database (`src/data/puzzles.json`,
-see `scripts/import-puzzles.mjs`).
+- play on a full-rules chessboard, against each other or the real Stockfish
+  engine at a chosen strength;
+- train on 402 real Lichess puzzles, filtered by theme and difficulty;
+- review their own games once the engine has analyzed them;
+- climb a club leaderboard built on a real Glicko-2 rating.
+
+Coaches get a roster, dated skill assessments, report cards and a
+spreadsheet export.
+
+The stack is React + Vite. The chess rules, the board, the routing and the
+piece artwork all live in this repository. Two things come from outside:
+
+- the Stockfish 18 engine, vendored in `public/stockfish/`;
+- a curated slice of Lichess's open puzzle database, in
+  `src/features/training/puzzles.json` (see `scripts/import-puzzles.mjs`).
+
+How the code is laid out, and the patterns to follow when changing it, are
+in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Running the live club
+(migrations, backups, approving members) is covered in
+[`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 ---
 
 ## Running it
 
-You need Node.js 18 or newer. On Windows, follow `WINDOWS_SETUP.md` instead of
-this section — it walks through every step with a checkpoint at each one.
+You need Node.js 22 or newer (`.nvmrc` says 24). On Windows, follow
+[`docs/WINDOWS_SETUP.md`](docs/WINDOWS_SETUP.md); it walks through every step
+with a check at each one.
 
 ```bash
-npm install     # once
-npm run dev     # development server, opens http://localhost:5173
-npm run build   # production build into dist/
-npm run preview # serve the production build
-npm test        # chess engine test suite
+npm install          # once
+npm run dev          # development server on http://localhost:5173
+npm run build        # production build into dist/
+npm run preview      # serve the production build
+npm test             # unit tests, SQL migration tests, RLS check
+npm run test:engine  # the slow suites that drive real Stockfish
+npm run lint         # ESLint, including accessibility rules
 ```
 
-## What is in here
+With no `.env.local` the app runs entirely on browser storage, which is the
+quickest way to try it. GitHub Actions runs lint, tests and build on every
+push and pull request.
 
-```
-index.html                  page shell
-vite.config.js              build config
-public/
-  stockfish/                 the real Stockfish 18 engine (WASM, vendored)
-src/
-  main.jsx                  entry point
-  App.jsx                   nav, routing, light/dark theme
-  engine/
-    chess.js                the chess rules engine (no dependencies)
-    chess.test.mjs          engine test suite
-    stockfishClient.js       promise wrapper around the Stockfish worker
-  components/
-    Board.jsx               interactive board — click or drag
-    Piece.jsx               the SVG piece set
-    MoveList.jsx            game score, click a move to rewind
-    PromotionDialog.jsx     queen / rook / bishop / knight picker
-    AccountControl.jsx      sign-in / account button in the top bar
-  pages/
-    DashboardPage.jsx       club overview and leaderboard
-    PlayPage.jsx            the game screen, human or vs. Stockfish
-    TrainingPage.jsx        puzzle trainer, saves to a trainee's record
-    GamesPage.jsx           the game archive, with PGN per game
-    RosterPage.jsx          player list, detail, add / edit / remove, cloud sync
-    CoachPage.jsx           oversight: attendance, assessments, progress, export
-  data/
-    roster.js               rubric definition and the (empty) roster seed
-    rosterStore.js           the roster — local by default, cloud when configured
-    store.js                 tiny localStorage-backed store used by rosterStore
-    supabaseClient.js         reads VITE_SUPABASE_* env vars, or stays null
-    auth.js                  email/password accounts (Supabase Auth) + magic link
-    gamesStore.js            the game archive — local, or the shared table
-    exportWorkbook.js        builds the .xlsx export (loaded on demand)
-    glicko2.js / glicko2.test.mjs  the actual Glicko-2 algorithm, verified
-    puzzles.js / puzzles.json  402 real puzzles from Lichess's open database
-  styles/
-    app.css                 all styling, light and dark themes
-scripts/
-  import-puzzles.mjs        rebuilds puzzles.json from Lichess's puzzle dump
-supabase/
-  schema.sql                 run once in a new Supabase project for cloud sync
-  migration-2-accounts-and-ratings.sql  run once in a project from before accounts existed
-```
+## The rules engine
 
-## The engine
+`src/engine/chess.js` implements every rule:
 
-`src/engine/chess.js` is a complete implementation of the rules: legal move
-generation, castling (including the rules about castling out of, through, and
-into check), en passant, promotion and underpromotion, check, checkmate,
-stalemate, the fifty-move rule, threefold repetition, and insufficient
-material. It reads and writes FEN, produces SAN with correct disambiguation,
-and exports PGN.
+- legal move generation;
+- castling, including the rules about castling out of, through and into check;
+- en passant, promotion and underpromotion;
+- check, checkmate and stalemate;
+- the fifty-move rule, threefold repetition and insufficient material.
 
-It is verified with **perft** — the standard test where you count every legal
-move sequence to a given depth and compare against published totals. The suite
-runs six positions chosen to exercise the awkward cases (pinned pieces,
-en-passant discoveries, promotion while in check). Any bug in move generation
-changes the counts, so a passing run is strong evidence the rules are right.
-
-```bash
-npm test
-```
-
-### Using the engine on its own
+It reads and writes FEN, produces SAN with correct disambiguation, and
+exports PGN. It is verified with **perft**: count every legal move sequence
+to a given depth and compare against the published totals. Any bug in move
+generation changes the counts.
 
 ```js
 import { Chess } from './src/engine/chess.js';
@@ -102,223 +66,159 @@ import { Chess } from './src/engine/chess.js';
 const game = new Chess();
 game.move('e4');
 game.move({ from: 'e7', to: 'e5' });
-
 game.moves();            // legal moves as SAN
-game.moves({ square: 'g1', verbose: true });
 game.fen();
 game.status();           // { over, result, reason, text }
 game.pgn({ White: 'CC-001', Black: 'CC-002' });
-game.undo();
 ```
 
 ## Playing
 
-- **Click** a piece then click a destination, or **drag** it. Legal
-  destinations appear as soon as a piece is picked up.
-- The move list is clickable — click any move to rewind the board to that
-  point, then **Live** to come back.
-- **Copy PGN** / **Download PGN** produce a file that `coach_report.py` reads
-  directly, which is how a club game becomes an engine-backed review.
-- The game in progress and its opponent settings are saved to the browser
-  automatically — see **Persistence** below.
+There are three ways to move:
 
-## Playing the computer
+- **Click or drag:** click a piece then its destination, or drag it.
+- **Keyboard:** Tab onto the board, move with the arrow keys, and press Enter
+  or Space to pick up and drop. Every move is announced to screen readers.
+- **Type it:** enter a move such as `Nf3` in the move box under the board.
 
-This is real Stockfish, not an approximation — every move it plays and every
-strength setting comes from the actual engine, nothing is hand-tuned or
-guessed. The **Opponent** panel on the Play page switches from human-vs-human
-to human-vs-computer and lets you pick:
+The move list is clickable: rewind to any move, then come back to the live
+position. A game in progress is saved to the browser, so refreshing resumes
+it.
 
-- **Elo** — a slider bounded to whatever range the loaded engine build
-  reports for `UCI_Elo` (read live from the engine at startup, not
-  hard-coded), so it's always accurate to the exact build in
-  `public/stockfish/`.
-- **Maximum strength** — turns off the Elo limiter entirely; the engine plays
-  its true best move.
-- **Thinking time** — Fast / Normal / Deep, i.e. how long it searches per move.
+**Against the computer**, every move is real Stockfish. You can pick:
 
-`src/engine/stockfishClient.js` talks UCI to the engine over a Web Worker
-(`public/stockfish/stockfish-18-lite-single.js`, the single-threaded build —
-no special server headers required, so it runs on any static host) and
-serializes requests so a "New Game" or "Undo" mid-search can't race a stale
-reply. While the computer is thinking, the board stops accepting moves for
-its side — the status banner says so — and **Undo** takes back both its
-reply and the move it answered, landing you back on your own turn.
+- the Elo, bounded by whatever range the loaded engine build reports;
+- full strength;
+- how long it thinks per move.
+
+While it thinks, the board stops accepting moves for its side. **Undo** takes
+back its reply and the move it answered.
+
+**Against another person**, pick both players from the roster to have the
+game rated. A signed-in member is always one of the two players. Clocks and
+time controls are optional.
 
 ## Training
 
-402 real tactics puzzles pulled from
-[Lichess's open, CC0-licensed puzzle database](https://database.lichess.org/#puzzles),
-spanning 23 themes (forks, pins, back-rank mates, sacrifices, endgames, and
-more) and the full Lichess rating range. Every puzzle is a forced line, not
-just a single mating move: play the trainee's move, the opponent's reply is
-played automatically, and the puzzle is solved once the whole line is played
-out. Underpromotion is handled properly where a puzzle calls for it.
+The trainer has 402 tactics puzzles from
+[Lichess's CC0 puzzle database](https://database.lichess.org/#puzzles),
+rated about 400 to 1700 and tagged with 59 themes. The theme menu shows the
+ones with enough puzzles to practise. Every puzzle is a forced line: play
+your move, the reply comes automatically, and the puzzle is solved when the
+line is complete.
 
-Pick a **Theme** and a **Difficulty** band to filter, or a **Trainee** to save
-results to their roster record and their club rating — with no trainee
-picked, progress only lasts the session.
+Puzzles have their **own puzzle rating**, separate from the club rating:
 
-**Refreshing the puzzle set:** `node scripts/import-puzzles.mjs` re-fetches a
-fresh slice of the Lichess dump and rebuilds `src/data/puzzles.json`. Every
-candidate is replayed end-to-end through `src/engine/chess.js` before being
-accepted — anything that doesn't parse as a legal line is dropped rather than
-guessed at.
+- only your first try at a puzzle counts;
+- solving it again later doesn't count;
+- positions taken from your own games are practice only.
 
-## Persistence
+Once you have five rated results, new puzzles are picked near your puzzle
+rating. There are also endgame drills, and a review queue that brings back
+the mistakes from your analyzed games.
 
-- **The live game** (Play page) and **puzzle theme/trainee choice** always
-  save to `localStorage`, per browser — refreshing resumes where you left off.
-- **The roster** is local by default too (`src/data/rosterStore.js`), seeded
-  once from the sample data in `src/data/roster.js`. Adding, editing, or
-  removing a player sticks after a refresh.
-- **Puzzle results** write onto the selected trainee's roster row (visible on
-  the Roster page as puzzles solved and last-practiced date).
-
-That covers "refreshing starts over" for a single browser. For a roster
-shared live across every coach's device, see the next section.
-
-## Shared roster and accounts (optional backend)
-
-By default the roster is local to each browser — fine for one coach, but two
-coaches on two computers see two different rosters, and there's no such
-thing as "your own account." Connecting a free
-[Supabase](https://supabase.com) project turns on both, with no code changes:
-
-1. Create a Supabase project (free tier is enough).
-2. In the Supabase dashboard's **SQL Editor**, run `supabase/schema.sql` once
-   for a fresh project. For a project set up against an earlier version of
-   this app, run the migrations it hasn't had yet instead, in order:
-   `migration-2-accounts-and-ratings.sql`, then
-   `migration-3-games-and-history.sql`.
-3. In **Project Settings → API**, copy the Project URL and the `anon` public
-   key.
-4. Copy `.env.example` to `.env.local` and fill in
-   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`. Restart `npm run dev` (or
-   rebuild) after adding them.
-5. In **Authentication → Providers**, make sure **Email** is enabled (it is
-   by default) — that's what powers sign-in.
-
-Once configured, a **Sign in** button appears in the top bar. Accounts are
-real email + password accounts — Supabase Auth owns the user table and does
-the password hashing and storage; nothing here ever stores or sees a
-password outside a call straight into `supabase.auth.*`:
-
-- **Create an account** — email + password (8-character minimum enforced in
-  the UI). If the project's "Confirm email" setting is on (the default),
-  they confirm via an emailed link before they can sign in.
-- **Sign in** — email + password.
-- **Forgot password?** — emails a reset link; clicking it opens a "set a new
-  password" prompt right in the app.
-- **Change password** — available once signed in, same flow without leaving
-  the app.
-- **Magic link** — still there as a no-password fallback, one click away
-  from the sign-in form. Same underlying account either way.
-
-The first time someone signs in, they're asked to name their player profile,
-which joins the roster and starts at the default Glicko-2 rating. From then
-on the roster reads and writes through the shared `players` table and
-updates live on every signed-in device via Supabase Realtime. Signed out, or
-with no project configured at all, it transparently falls back to the local
-behavior above — the app never requires an account to be usable, and a coach
-can still add players by hand on the Roster page without one.
-
-The anon key is meant to be public in a client bundle; access control is
-entirely Row Level Security (`supabase/schema.sql`), which requires a signed-
-in session for every read and write.
+To refresh the puzzle set, run `node scripts/import-puzzles.mjs`. Every
+candidate line is replayed through the rules engine, and anything illegal is
+dropped.
 
 ## Club ratings
 
-Every player has a club rating computed by **Glicko-2** — implemented from
-[Mark Glickman's own published paper](http://www.glicko.net/glicko/glicko2.pdf)
-in `src/data/glicko2.js`, and checked against the worked example in that
-paper (`src/data/glicko2.test.mjs`, part of `npm test`). This is the same
-rating system Chess.com's ratings are built on. New players start at the
-paper's own defaults — rating 1500, RD 350, volatility 0.06 — shown as
-"provisional" until they've played enough to bring the deviation down.
+Every player has a club rating computed by **Glicko-2**. It is implemented
+from [Mark Glickman's paper](http://www.glicko.net/glicko/glicko2.pdf) in
+`src/features/ratings/glicko2.js` and checked against the paper's worked
+example. New players start at 1500 and are marked provisional until enough
+games have been played.
 
-Three things feed it, each applied as its own single-game rating period
-(the standard way Lichess and Chess.com apply Glicko-2 to "live" ratings,
-rather than batching a full rating period):
+Games feed it, each as its own rating period:
 
-- **Puzzles** (Training page) — solving one is a win against an opponent
-  rated at that puzzle's own Lichess rating; clicking "Show answer" is a
-  loss. Retrying after a wrong guess doesn't affect the rating either way.
-- **Games vs. the computer** (Play page) — a win, loss, or draw against an
-  opponent rated at the Elo Stockfish was set to (or 3200 at maximum
-  strength).
-- **Games vs. another person** (Play page, human-vs-human mode) — pick both
-  sides from the roster in the Opponent panel (not required — games between
-  guests just aren't rated) and a finished game updates both players against
-  each other's actual pre-game rating.
+- **Against the computer:** rated against the Elo Stockfish was set to.
+- **Between two club members:** both players update at once, each against
+  the other's pre-game rating.
+- **Online games** from linked Chess.com and Lichess accounts, converted onto
+  the club scale.
 
-The Dashboard's **Club leaderboard** ranks everyone by this rating.
+Every change is logged with its date, source, opponent and size. That shows
+up as a trend on the Coach page and as the ratings log in the export.
 
-Every rating change is logged with its date, source, opponent and delta, so
-progress is a history rather than a single number — visible as a trend line
-on the Coach page and as a full log in the spreadsheet export.
+## Games and analysis
 
-## Game archive
+Every finished game is archived with its full PGN. The **Games** page lists
+them all; **My games** lists yours. Games played on a real board can come in
+three ways:
 
-Every finished game is saved automatically: who played, the result, how it
-ended, move count, and the full PGN. The **Games** page lists them newest
-first, filterable by player and by club-game vs. computer, and any game's
-PGN can be copied or downloaded straight into `coach_report.py` for an
-engine-backed review.
+- logged by hand;
+- pasted or uploaded as PGN;
+- typed up from a paper scoresheet.
+
+New games are queued for engine analysis. This runs in the browser of
+whoever is signed in, and each game is claimed by one browser at a time.
+Analyzed games get a move-by-move review, mistakes explained in words, and
+the time-use chart. They also feed each player's skill profile and the
+club's weakest areas.
 
 ## Coach tools
 
-The **Coach** page is the oversight screen — everything needed to run a
-session in one place:
+The **Coach** page has:
 
-- **Attendance** — pick a session date, mark each player present or absent.
-- **Player progress** — every player's rating, a trend line across all their
-  recorded results, how many rated results and puzzles they have, and when
-  they were last assessed.
-- **Assessments** — score a player against the eight-category rubric with
-  notes. Each one is kept as a dated record, so you can see movement over
-  time; the roster's rubric bars always show the most recent.
-- **Recent activity** — the last dozen recorded results across the club.
-- **Export spreadsheet** — see below.
+- member approval and invite codes;
+- player progress;
+- dated assessments against the eight-category rubric;
+- recent activity;
+- a list of errors members' browsers have reported.
 
-## Spreadsheet export
+Each player on the **Roster** page also has a printable report card.
 
-The Coach page's **Export spreadsheet** button produces a real `.xlsx`
-workbook of everything the club has recorded, one tab per kind of record,
-mirroring the structure of the original `chess_club_player_database`
-workbook:
+**Export spreadsheet** builds an `.xlsx` workbook in the browser, so nothing
+is uploaded. The spreadsheet library only downloads when you click. It has
+five tabs:
 
 | Tab | Contents |
 | --- | --- |
-| Club Summary | Headline counts, averages, and rubric averages |
-| Player Master | One row per player — identity, ratings, goals, notes |
-| Skill Assessments | Every dated rubric assessment, one row each |
+| Club Summary | Headline counts and averages |
+| Player Master | One row per player: identity, ratings, goals, notes |
+| Skill Assessments | Every dated rubric assessment |
 | Ratings Log | Every rating change: date, source, opponent, delta |
-| Games | Every archived game, including its full PGN |
-| Attendance | Grid of players against session dates, with totals |
+| Games | Every archived game, with its PGN |
 
-It's generated in the browser — nothing is uploaded anywhere. The
-spreadsheet library is only downloaded when you actually click export, so
-it costs regular visitors nothing.
+## Accounts and the shared database (Supabase)
+
+Without a backend, the app works for one browser. To share it across the
+club:
+
+1. Create a [Supabase](https://supabase.com) project. The free tier is
+   enough.
+2. In the **SQL Editor**, run `supabase/schema.sql`, then the files in
+   `supabase/migrations/` in number order. `docs/RUNBOOK.md` lists them and
+   the one step in `0005` you must do by hand to make yourself the coach.
+3. Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` from **Project Settings → API**. Restart
+   `npm run dev`.
+
+Accounts are email and password, with at least 8 characters. Supabase Auth
+holds the passwords. A new account has to be approved by the coach, or use
+an invite code, before it sees anything. Members then link their account to
+their roster row with their student ID.
+
+The anon key is meant to be public. Access control is Row Level Security in
+the database.
 
 ## Deploying
 
-This is a static site — `npm run build` produces `dist/`, which is every
-file the app needs, no server required. Any static host works:
-**Vercel**, **Netlify**, and **Cloudflare Pages** all auto-detect a Vite
-project (build command `npm run build`, output directory `dist`) and
-redeploy automatically on every push once connected to the GitHub repo; add
-your `VITE_SUPABASE_*` values in that host's dashboard as environment
-variables if you're using the shared roster. **GitHub Pages** works too —
-push `dist/` to a `gh-pages` branch (or use the official
-`actions/deploy-pages` workflow) — since `vite.config.js` already uses a
-relative `base: './'`, it works from a project subpath without extra config.
+The app is deployed on Vercel, which builds `npm run build` and serves
+`dist/`. `vercel.json` adds the security headers and long cache lifetimes
+for hashed assets. Put the `VITE_SUPABASE_*` values in the Vercel project's
+environment variables.
 
-## Connecting it to the rest of the club setup
+Preview deploys use the same database as production. Anything done on a
+preview link while signed in changes real club data.
 
-- `src/data/rosterStore.js` is where player data lives at runtime, whether
-  that's local storage or the shared Supabase table above — no page needs to
-  know which.
-- The PGN produced on the Play page is the input format `game_analyzer.py`
-  already accepts. Games played here can go straight into the existing
-  analysis pipeline.
+**Apply database migrations before deploying code that needs them.** As of
+November 2026, migrations `0025`–`0027` are not yet applied to the live
+database.
+
+## History
+
+Reports and logs from earlier work sessions are in
+[`docs/history/`](docs/history/), and the prompts used to brief AI coding
+agents are in [`docs/agents/`](docs/agents/). They are kept for context.
+They are not current documentation.

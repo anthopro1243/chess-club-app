@@ -1,5 +1,5 @@
 /*
- * pgnImport.test.js — run with: node --test src/data/pgnImport.test.js
+ * pgnImport.test.js — run with: node --test src/features/games/pgnImport.test.js
  *
  * The cases here are the ones that actually go wrong on a club laptop: a
  * tournament export with one mangled game in it, a phone export full of

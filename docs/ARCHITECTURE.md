@@ -5,135 +5,175 @@ repo can find the thing they need to change.
 
 ## Shape of the thing
 
-React + Vite single-page app. No router package, no state library, no UI
-framework. Runtime dependencies are `react`, `react-dom`, `@supabase/supabase-js`
-and `xlsx` (lazy-loaded, export only). That short list is deliberate.
+React 18 + Vite single-page app. No router package, no state library, no UI
+framework. Runtime dependencies are `react`, `react-dom`,
+`@supabase/supabase-js`, `xlsx` (lazy-loaded, export only) and the two
+self-hosted fonts from `@fontsource`. That short list is deliberate.
 
 The app runs in two modes and the pages cannot tell them apart:
 
-- **Local mode** — no Supabase environment variables set. Everything lives in
+- **Local mode**: no Supabase environment variables set. Everything lives in
   `localStorage`. Sign-in UI hides itself entirely.
-- **Cloud mode** — `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set. Same
+- **Cloud mode**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set. Same
   local stores, but mirrored to Postgres and kept live through Realtime.
 
-`src/data/supabaseClient.js` exports `isSupabaseConfigured`, and every store
-branches on it. This is the single most important pattern in the codebase.
+`src/services/backend.js` exports `isCloud`. UI code imports that, never the
+Supabase client itself; stores branch on it. This is the single most
+important pattern in the codebase.
+
+## Folders, and which way imports point
+
+```
+src/
+  main.jsx        entry: imports services/auth.js first, then renders App
+  app/            the shell: App.jsx, routes, useRoute, lazy pages, error boundary
+  features/       one folder per area of the app (below)
+  board/          the chessboard and its pieces, move list, keyboard/SR support
+  ui/             shared widgets: Modal, Link, Toast, InfoTooltip, flash timer
+  services/       Supabase client, auth, the localStorage store, error log,
+                  external/ (Chess.com and Lichess adapters)
+  analysis/       pure game analysis: scoring, motifs, SEE, skill model, PGN
+  engine/         the rules engine and the Stockfish client
+  styles/         app.css, which @imports parts/01-…37-… in order
+```
+
+Dependencies point down only: `app` → `features` → `board` / `ui` →
+`services` / `analysis` → `engine`. A feature may import from another
+feature's store (Training reads the roster), but nothing under `analysis/`,
+`engine/` or `services/` imports React components.
+
+### Features
+
+| Folder | What lives there |
+|---|---|
+| `club/` | `ClubPage` (leaderboard, club averages, weakest areas) and `PlayerHome` (a member's own home) |
+| `play/` | `PlayPage`, the engine opponent hook, clocks, time controls, `PlayerBar`, pure game helpers |
+| `training/` | `TrainingPage`, 402 Lichess puzzles, the puzzle rating, puzzle targeting, endgame drills, the review queue |
+| `games/` | The archive (`GamesPage`, `MyGamesPage`), logging a board game, PGN and scoresheet import, position editor |
+| `analysis/` | The analysis queue and runner, game review, report card, club weaknesses |
+| `roster/` | `RosterPage` (+ `RosterList`, `PlayerEditForm`, `PlayerDetails`), the roster store, imports, graduation archive |
+| `coach/` | `CoachPage`, assessments, coach notes, member approval, client error list, spreadsheet export |
+| `account/` | Sign in/up, password reset, invite codes, linking an account to a student, Chess.com/Lichess connections |
+| `ratings/` | Glicko-2 and the rating log |
+| `sync/` | Pulling online games and turning them into rated club results |
 
 ## Routing
 
-`src/App.jsx` owns routing off `window.location.hash`. Six routes, listed in
-the `ROUTES` array: `home`, `play`, `training`, `games`, `roster`, `coach`.
-`routeFromHash()` falls back to `home` for anything unrecognised.
+`src/app/routes.js` holds `ROUTES` (`home`, `play`, `training`, `games`,
+`my-games`, `roster`, `coach`), page titles, who can open what, and
+`href(to, params)` for building links like `#/training?theme=fork`.
+`useRoute()` in `src/app/useRoute.js` reads the hash through
+`useSyncExternalStore`; `goTo()` changes it. Use `<Link>` from `ui/` for
+navigation, so links are real anchors that open in a new tab.
 
-App.jsx also handles two Supabase auth redirects that arrive in the hash:
-an error (`error=`) becomes a dismissible banner, and a recovery token
-(`type=recovery`) opens `ResetPasswordModal`. Both are mount-only effects, so
-they only fire on a genuine page load, not on hash navigation.
-
-## Pages
-
-| File | Does |
-|---|---|
-| `pages/DashboardPage.jsx` | Club-wide view: leaderboard, rubric averages, the three weakest categories |
-| `pages/PlayPage.jsx` | The board. Human vs human, or vs Stockfish at a set Elo. Archives finished games and applies ratings |
-| `pages/TrainingPage.jsx` | Puzzle trainer over 402 Lichess puzzles, filtered by theme and difficulty |
-| `pages/GamesPage.jsx` | The game archive, filterable by player and source |
-| `pages/RosterPage.jsx` | One row per player plus a detail/edit panel |
-| `pages/CoachPage.jsx` | Attendance, player progress, dated assessments, spreadsheet export |
-
-## Components
-
-`Board.jsx` (interactive board), `Piece.jsx` (original SVG piece set),
-`MoveList.jsx`, `PromotionDialog.jsx`, `InfoTooltip.jsx` (the circled "i"),
-`AccountControl.jsx` (sign-in / account menu in the top bar),
-`ResetPasswordModal.jsx`, `ConnectionsModal.jsx` (link Chess.com / Lichess).
+`App.jsx` renders the page from a map, moves focus to a hidden page heading
+on every route change, sets `document.title`, and wraps each page in an error
+boundary that tells a failed download (new deploy) apart from a crash.
+It also handles two Supabase auth redirects in the hash: an error becomes a
+banner, a recovery token opens `ResetPasswordModal`.
 
 ## Data layer
 
 ### The store pattern
 
-`src/data/store.js` is the whole state library: `createStore(key, initial)`
-returns `{ get, set, subscribe }` backed by `localStorage`, and `useStore(store)`
-wraps it in `useSyncExternalStore`. If storage is unavailable it degrades to
-in-memory for the visit rather than throwing.
+`src/services/store.js` is the whole state library: `createStore(key,
+initial)` returns `{ get, set, subscribe }` backed by `localStorage`, and
+`useStore(store)` wraps it in `useSyncExternalStore`. Every store registers
+itself, so `clearUserData()` can wipe them all on sign-out or when a
+different account signs in (theme and last-user keys survive).
 
-Every domain store is built on it and follows the same five-part shape:
+Every domain store follows the same shape:
 
 1. `createStore(...)` for the local value
 2. `fromRow` / `toRow` to translate between camelCase JS and snake_case SQL
-3. `syncFromCloud()` on sign-in, plus a Realtime subscription
-4. `pushToCloud(record)` after every local write
+3. `syncFromCloud()` on sign-in, plus a Realtime subscription that applies
+   the changed row rather than refetching the table
+4. A push after every local write that sends only the changed columns
 5. Exported `useX()` hooks and mutation functions the pages call
 
-`rosterStore.js` (players) and `gamesStore.js` (games) both do this. **Any new
-table should follow the same five parts.**
-
-### Files
-
-| File | Does |
-|---|---|
-| `data/store.js` | The localStorage store primitive |
-| `data/roster.js` | Rubric category definitions and the club-average helpers |
-| `data/rosterStore.js` | Players: CRUD, ratings, puzzle stats, assessments, attendance, linked accounts |
-| `data/gamesStore.js` | The game archive |
-| `data/glicko2.js` | Glicko-2, implemented from Glickman's paper |
-| `data/supabaseClient.js` | The client, and `isSupabaseConfigured` |
-| `data/auth.js` | Sign up / in / out, password reset, magic link |
-| `data/puzzles.js` + `puzzles.json` | 402 Lichess puzzles, 59 themes |
-| `data/externalChess.js` | Chess.com and Lichess API adapters |
-| `data/externalSync.js` | Turns online games into rated club results |
-| `data/exportWorkbook.js` | Multi-tab .xlsx export (lazy-loads `xlsx`) |
+`rosterStore.js` (with the pure row helpers in `playerRows.js`) and
+`gamesStore.js` are the reference examples. **Any new table should follow the
+same five parts.**
 
 ### Where ratings happen
 
-All rating maths lives in `rosterStore.js`. Pages never compute a rating; they
-decide *what an opponent was worth* and hand that over:
+Two separate ratings, both Glicko-2:
 
-- `PlayPage` sets `COMPUTER_OPPONENT_RD = 40`
-- `TrainingPage` sets `PUZZLE_OPPONENT_RD = 60`
-- `externalSync.js` converts online opponents onto the club scale
+- **Club rating** (`player.rating`): games only. `recordGameResult` updates
+  both players at once through the `record_club_game_ratings` RPC
+  (migration 0026); `recordRatingResult` handles one side (a game against
+  Stockfish, with `COMPUTER_OPPONENT_RD = 40`); `recordExternalResults`
+  takes a batch of online games, with double-count protection.
+- **Puzzle rating** (`player.puzzleStats.rating`): puzzles only, via
+  `recordPuzzleResult`. Only the first outcome of a visit counts, solved
+  puzzles never re-rate, and positions from the player's own games are never
+  rated (`training/puzzleRating.js`). Puzzle targeting uses it once a player
+  has five results.
 
-Entry points: `recordRatingResult` (one side), `recordGameResult` (both sides
-from each other's pre-game rating), `recordExternalResults` (a batch, with
-double-count protection).
+Pages never compute a rating; they decide what an opponent was worth and hand
+that over.
+
+### Database
+
+`supabase/schema.sql` is the starting schema; `supabase/migrations/` holds
+numbered migrations applied in order in the SQL editor. Access control is Row
+Level Security throughout. The anon key is public by design.
 
 ## Engine
 
 `src/engine/chess.js` is a dependency-free rules engine: legal move
 generation, castling, en passant, promotion, check/mate/stalemate, fifty-move,
-threefold repetition, insufficient material, FEN/SAN/PGN. **Do not refactor it
-and do not replace it with a library.** It is verified by a perft suite.
+threefold repetition, insufficient material, FEN/SAN/PGN. **Do not refactor
+it and do not replace it with a library.** It is verified by a perft suite.
 
 `src/engine/stockfishClient.js` wraps the Stockfish 18 WASM build in
-`public/stockfish/` with a promise-based UCI client. Calls are serialised
-through an internal queue because UCI has no per-request ids, so overlapping
-searches would otherwise resolve the wrong promise.
+`public/stockfish/` with a promise-based UCI client, loaded only when first
+needed. Calls are serialised through a queue because UCI has no per-request
+ids.
+
+## Accessibility conventions
+
+- Dialogs use `ui/Modal.jsx` (a native `<dialog>` opened with `showModal()`):
+  focus moves in, Escape closes, focus returns to the opener.
+- The board is a grid with a roving tab stop: arrow keys move, Enter/Space
+  picks up and drops, and new moves are announced through `LiveRegion`.
+  `SanInput` lets anyone type a move such as `Nf3`.
+- Clickable table rows hold a real `<button className="row-button">`.
+- `npm run lint` includes `jsx-a11y`; keep it clean.
 
 ## Tests
 
-`npm test` runs three plain Node scripts, no test framework:
+- `npm test`: every `src/**/*.test.js` under `node --test`, then the SQL
+  scenario tests (`scripts/sql-tests.mjs`, which runs `supabase/tests/` on an
+  in-process PGlite Postgres), then the RLS check (`supabase/rls-test.mjs`,
+  which skips unless its test accounts are configured).
+- `npm run test:engine`: the two suites that drive real Stockfish
+  (`*.engine-test.js`). Slow; run before touching analysis or the engine.
+- `npm run lint`: ESLint with react, react-hooks and jsx-a11y.
 
-- `src/engine/chess.test.mjs` — 93 assertions including perft counts
-- `src/data/glicko2.test.mjs` — checked against the worked example in the paper
-- `src/data/externalChess.test.mjs` — 45 assertions on the API adapters
-
-Anything pure should get a `.test.mjs` next to it in the same style.
+Anything pure should get a `.test.js` next to it. CI
+(`.github/workflows/ci.yml`) runs lint, tests and build on every push and
+pull request.
 
 ## Build and deploy
 
-`npm run dev` (Vite, port 5173), `npm run build`, deploy with
-`npx vercel --prod`. `.claude/launch.json` holds the dev server config.
+`npm run dev` (Vite, port 5173), `npm run build`, deployed on Vercel.
+`vercel.json` sets the Content Security Policy and other security headers,
+and long cache lifetimes for hashed assets. If you add a new outside service
+the app talks to, add its origin to `connect-src` there.
 
 Live at https://chess-club-app-seven.vercel.app
 
 ## Gotchas worth knowing
 
-- **Node is not on PATH in some shells here.** Prefix with
-  `$env:PATH = "C:\Program Files\nodejs;$env:PATH"`.
+- **Preview deploys share the production database.** Anything you click on a
+  preview URL while signed in changes real club data.
 - **`recordGame` spreads `...game` last**, so passing `id` or `playedAt`
   overrides the generated ones. Imported games rely on this.
-- **Games are deduplicated by id**, players deduplicate rated games by
-  `importedGameIds`. Two club members who played each other online produce one
-  archive row but two rating updates, which is correct.
-- **The em dash `—` is used as an empty-value placeholder** in tables. That is
-  a display convention, not prose, and should be left alone.
+- **Games are deduplicated by id**; players deduplicate rated games by
+  `importedGameIds`. Two club members who played each other online produce
+  one archive row but two rating updates, which is correct.
+- **The em dash `—` is used as an empty-value placeholder** in tables. That
+  is a display convention, not prose, and should be left alone.
+- **On Windows, Node may not be on PATH** in some shells. See
+  `docs/WINDOWS_SETUP.md`.
