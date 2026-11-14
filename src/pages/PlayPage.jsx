@@ -3,6 +3,7 @@ import { Chess } from '../engine/chess.js';
 import { createEngine } from '../engine/stockfishClient.js';
 import { usePlayers, useMyProfile, recordGameResult, recordRatingResult } from '../data/rosterStore.js';
 import { recordGame } from '../data/gamesStore.js';
+import { useAccount } from '../data/accountStore.js';
 import Board from '../components/Board.jsx';
 import MoveList from '../components/MoveList.jsx';
 import PromotionDialog from '../components/PromotionDialog.jsx';
@@ -165,15 +166,24 @@ export default function PlayPage() {
   const engineRef = useRef(null);
   const requestIdRef = useRef(0);
 
+  // Stockfish is a 7 MB download, so it starts only when someone actually
+  // plays the computer, not on every visit to Play.
   useEffect(() => {
+    if (mode !== 'computer' || engineRef.current) return;
     const engine = createEngine();
     engineRef.current = engine;
     engine.eloRange().then((range) => {
       setEloRange(range);
       setElo((current) => Math.min(Math.max(current, range.min), range.max));
     });
-    return () => engine.terminate();
-  }, []);
+  }, [mode]);
+  useEffect(
+    () => () => {
+      engineRef.current?.terminate();
+      engineRef.current = null;
+    },
+    [],
+  );
 
   // How this build can hand the viewer a file. Running from a local folder or
   // any normal web host that is an ordinary blob download. When the page is
@@ -509,6 +519,26 @@ export default function PlayPage() {
    * during the visit (Guest included) stands.
    */
   const me = useMyProfile();
+  const account = useAccount();
+  // A member's own seat is fixed to them; they pick a colour and an
+  // opponent. Only the coach seats any two players.
+  const memberSeat = !account.isCoach && me ? me : null;
+  const myColor = memberSeat && blackPlayerId === memberSeat.playerId ? 'b' : 'w';
+  const opponentId = memberSeat ? (myColor === 'w' ? blackPlayerId : whitePlayerId) : '';
+  const seatMember = (color, opponent) => {
+    if (!memberSeat) return;
+    if (color === 'w') {
+      selectWhitePlayer(memberSeat.playerId);
+      setBlackPlayerId(opponent);
+      const p = players.find((pl) => pl.playerId === opponent);
+      setNames((n) => ({ ...n, black: p ? p.name : opponent ? n.black : '' }));
+    } else {
+      selectBlackPlayer(memberSeat.playerId);
+      setWhitePlayerId(opponent);
+      const p = players.find((pl) => pl.playerId === opponent);
+      setNames((n) => ({ ...n, white: p ? p.name : opponent ? n.white : '' }));
+    }
+  };
   const seatedRef = useRef(!!(saved?.whitePlayerId || saved?.blackPlayerId));
   useEffect(() => {
     if (seatedRef.current || !me) return;
@@ -574,7 +604,31 @@ export default function PlayPage() {
                 <option value="computer">Play vs computer</option>
               </select>
             </label>
-            {mode === 'human' && (
+            {mode === 'human' && memberSeat && (
+              <>
+                <label className="field">
+                  <span>You play</span>
+                  <select value={myColor} onChange={(event) => seatMember(event.target.value, opponentId)}>
+                    <option value="w">White</option>
+                    <option value="b">Black</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Opponent</span>
+                  <select value={opponentId} onChange={(event) => seatMember(myColor, event.target.value)}>
+                    <option value="">Guest (not rated)</option>
+                    {players
+                      .filter((p) => p.playerId !== memberSeat.playerId)
+                      .map((p) => (
+                        <option key={p.playerId} value={p.playerId}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </>
+            )}
+            {mode === 'human' && !memberSeat && (
               <>
                 <label className="field">
                   <span>White player</span>
@@ -621,6 +675,9 @@ export default function PlayPage() {
                     <option value="b">Black</option>
                   </select>
                 </label>
+                {memberSeat ? (
+                  <p className="hint-text field-wide">Playing as {memberSeat.name}. Rated.</p>
+                ) : (
                 <label className="field">
                   <span>Playing as</span>
                   <select value={humanPlayerId} onChange={(event) => selectHumanPlayer(event.target.value)}>
@@ -632,6 +689,7 @@ export default function PlayPage() {
                     ))}
                   </select>
                 </label>
+                )}
                 <label className="field field-wide">
                   <span>
                     Strength{' '}

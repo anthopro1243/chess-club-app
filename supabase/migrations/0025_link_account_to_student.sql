@@ -11,7 +11,11 @@
 --   After a member is approved, the app asks once for their first name, last
 --   name and DISD student ID, and calls link_my_account(). That function:
 --     * matches the ID against player_private (the coach's imported roster)
---       and links the account to that roster row when it has no account yet;
+--       and links the account to that roster row when it has no account yet
+--       AND the typed name matches the imported one (names_match below), so
+--       typing a classmate's ID doesn't hand over the classmate's row;
+--     * answers once per account: a second call is refused, and later
+--       changes go through the coach (who can unlink to let them answer again);
 --     * otherwise fills the member's own player row, or creates one, and
 --       stores the ID in player_private;
 --     * never overwrites a link or an ID the coach already has: if the ID is
@@ -75,6 +79,32 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 3a. Do two names belong to the same person? Case, accents and punctuation
+--     are ignored, and a nickname passes when the last name and the first
+--     initial agree ("Alex Ruiz" = "Alejandro Ruiz").
+-- ---------------------------------------------------------------------------
+create or replace function public.names_match(p_a text, p_b text)
+returns boolean language plpgsql immutable as $$
+declare
+  a text[];
+  b text[];
+  clean text := 'áàâäãåéèêëíìîïóòôöõúùûüñçý';
+  plain text := 'aaaaaaeeeeiiiiooooouuuuncy';
+begin
+  a := regexp_split_to_array(btrim(regexp_replace(translate(lower(coalesce(p_a, '')), clean, plain), '[^a-z ]', '', 'g')), '\s+');
+  b := regexp_split_to_array(btrim(regexp_replace(translate(lower(coalesce(p_b, '')), clean, plain), '[^a-z ]', '', 'g')), '\s+');
+  if a[1] = '' or b[1] = '' then
+    return false;
+  end if;
+  if array_to_string(a, ' ') = array_to_string(b, ' ') then
+    return true;
+  end if;
+  return a[array_length(a, 1)] = b[array_length(b, 1)]
+     and left(a[1], 1) = left(b[1], 1);
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 3. The member answers "Who are you?".
 -- ---------------------------------------------------------------------------
 create or replace function public.link_my_account(p_first text, p_last text, p_student_id text)
@@ -88,6 +118,7 @@ declare
   v_mine         text;
   v_mine_sid     text;
   v_match        text;
+  v_match_name   text;
   v_match_owner  uuid;
   v_match_gone   boolean;
   v_player       text;
@@ -106,6 +137,12 @@ begin
   end if;
   v_name := v_first || ' ' || v_last;
 
+  -- One answer per account. Without this the function answered "is this ID
+  -- in the club?" for any ID typed, and let an account hop between rows.
+  if exists (select 1 from public.account_links where user_id = v_uid) then
+    raise exception 'You have already answered. Ask the coach to change it.' using errcode = '22023';
+  end if;
+
   -- One link at a time, so two new members can't be handed the same CC-### id.
   perform pg_advisory_xact_lock(hashtext('public.link_my_account'));
 
@@ -116,8 +153,8 @@ begin
 
   select player_id into v_mine from public.players where user_id = v_uid;
 
-  select pp.player_id, p.user_id, p.deleted_at is not null
-    into v_match, v_match_owner, v_match_gone
+  select pp.player_id, p.name, p.user_id, p.deleted_at is not null
+    into v_match, v_match_name, v_match_owner, v_match_gone
     from public.player_private pp
     join public.players p on p.player_id = pp.player_id
    where pp.student_id = v_sid;
@@ -126,6 +163,13 @@ begin
     -- Already linked to the row with this ID.
     v_player := v_mine;
     v_outcome := 'matched';
+
+  elsif v_match is not null and v_match_owner is null and not v_match_gone
+        and not public.names_match(v_name, v_match_name) then
+    -- The ID is on an unclaimed row, but under someone else's name: a typo
+    -- or a classmate's ID. Don't link; let the coach decide.
+    v_outcome := 'clash';
+    v_player := v_mine;
 
   elsif v_match is not null and v_match_owner is null and not v_match_gone then
     -- The coach imported this student and nobody has claimed the row yet.
@@ -284,6 +328,7 @@ begin
 end;
 $$;
 
+revoke all on function public.names_match(text, text)                 from public, anon;
 revoke all on function public.my_account_link()                       from public, anon;
 revoke all on function public.link_my_account(text, text, text)       from public, anon;
 revoke all on function public.coach_link_account(uuid, text)          from public, anon;

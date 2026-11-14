@@ -26,36 +26,47 @@ const CLAIM_WINDOW = 25;
 const staleCutoff = () => new Date(Date.now() - STALE_MINUTES * 60000).toISOString();
 
 /** How much work is outstanding, for the coach's dashboard. */
+const STATUSES = ['pending', 'running', 'done', 'failed', 'skipped'];
+
 export async function queueCounts() {
   if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase
-    .from('games')
-    .select('analysis_status')
-    .is('deleted_at', null);
-  if (error) {
-    reportSyncError('the analysis queue', error.message);
+  // One count per status rather than downloading every game row to count
+  // them in the browser.
+  const results = await Promise.all(
+    STATUSES.map((status) =>
+      supabase
+        .from('games')
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .eq('analysis_status', status),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed) {
+    reportSyncError('the analysis queue', failed.error.message);
     return null;
   }
-  const counts = { pending: 0, running: 0, done: 0, failed: 0, skipped: 0 };
-  for (const row of data || []) {
-    counts[row.analysis_status] = (counts[row.analysis_status] || 0) + 1;
-  }
-  return counts;
+  return Object.fromEntries(STATUSES.map((status, i) => [status, results[i].count ?? 0]));
 }
 
 /**
  * Take the next game that needs analysing, marking it as ours.
  *
  * The claim is a conditional UPDATE rather than a read-then-write, so two tabs
- * racing for the same row cannot both win: the second one updates zero rows
- * and moves on.
+ * racing for the same row cannot both win: the update only matches the row
+ * in exactly the state this tab read (same status, same attempt count, and
+ * for a takeover a claim that is still stale). The second tab updates zero
+ * rows and moves on. It used to match any status but 'done', so a row the
+ * first tab had just set to 'running' still matched and both tabs analysed it.
  */
 export async function claimNext({ playerId = null, preferPlayerId = null } = {}) {
   if (!isSupabaseConfigured) return null;
 
   let find = supabase
     .from('games')
-    .select('id, pgn, white_player_id, black_player_id, played_at, mode, analysis_attempts, analysis_updated_at')
+    .select(
+      'id, pgn, white_player_id, black_player_id, played_at, mode, analysis_status, analysis_claimed_at, analysis_attempts, analysis_updated_at',
+    )
     .is('deleted_at', null)
     .not('pgn', 'is', null)
     .lt('analysis_attempts', MAX_ATTEMPTS)
@@ -87,7 +98,7 @@ export async function claimNext({ playerId = null, preferPlayerId = null } = {})
   const ready = viewerFirst(analyse.filter((g) => readyForRetry(g, now)), preferPlayerId);
 
   for (const candidate of ready) {
-    const { data: claimed, error: claimError } = await supabase
+    let claim = supabase
       .from('games')
       .update({
         analysis_status: 'running',
@@ -96,9 +107,10 @@ export async function claimNext({ playerId = null, preferPlayerId = null } = {})
         analysis_updated_at: new Date().toISOString(),
       })
       .eq('id', candidate.id)
-      .neq('analysis_status', 'done')
-      .select('id')
-      .maybeSingle();
+      .eq('analysis_status', candidate.analysis_status)
+      .eq('analysis_attempts', candidate.analysis_attempts ?? 0);
+    if (candidate.analysis_status === 'running') claim = claim.lt('analysis_claimed_at', staleCutoff());
+    const { data: claimed, error: claimError } = await claim.select('id').maybeSingle();
     if (!claimError && claimed) return candidate;
   }
   return null;

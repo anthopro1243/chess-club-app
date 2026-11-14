@@ -62,7 +62,15 @@ export default function App() {
   // The viewer's own games go first: theirs is the analysis someone is
   // waiting to read. `publish` feeds the corner indicator.
   const me = useMyProfile();
-  useAnalysisQueue({ enabled: !!account?.isApproved, preferPlayerId: me?.playerId ?? null, publish: true });
+  // A member's tab drains only their own games: claiming anyone else's is
+  // refused by the database anyway, and used to cost dozens of wasted
+  // requests per idle cycle in every open tab.
+  useAnalysisQueue({
+    enabled: !!account?.isApproved && (account.isCoach || !!me),
+    playerId: account?.isCoach ? null : me?.playerId ?? null,
+    preferPlayerId: me?.playerId ?? null,
+    publish: true,
+  });
 
   // Linked Chess.com / Lichess accounts sync themselves on open: the viewer's
   // own at most every 30 minutes, and in a coach's session every member's

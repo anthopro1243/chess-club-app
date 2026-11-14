@@ -45,11 +45,11 @@ insert into public.games values ('g1', 'CC-011', 'CC-002');
 
 set role authenticated;
 
--- m1: ID matches an imported row with no account -> linked to it.
+-- m1: ID and name match an imported row with no account -> linked to it.
 set test.uid = '00000000-0000-0000-0000-000000000001';
 do $$ declare r jsonb; begin
   assert (select public.my_account_link() ->> 'answered') = 'false', 'm1 not answered yet';
-  r := public.link_my_account(' Alpha ', 'Member', '123-4567');
+  r := public.link_my_account(' alpha ', 'IMPORTED', '123-4567');
   assert r ->> 'outcome' = 'matched' and r ->> 'player_id' = 'CC-005', 'm1 matched: ' || r::text;
   r := public.my_account_link();
   assert r ->> 'answered' = 'true' and r ->> 'student_id' = '1234567' and r ->> 'player_id' = 'CC-005', 'm1 status ' || r::text;
@@ -77,7 +77,7 @@ end $$;
 -- m7: empty self-made row + imported row with the ID -> moved, old row retired.
 set test.uid = '00000000-0000-0000-0000-000000000007';
 do $$ declare r jsonb; begin
-  r := public.link_my_account('Echo', 'Member', '2222222');
+  r := public.link_my_account('Gamma', 'Imported', '2222222');
   assert r ->> 'outcome' = 'matched' and r ->> 'player_id' = 'CC-010', 'm7: ' || r::text;
 end $$;
 
@@ -94,6 +94,34 @@ do $$ declare r jsonb; begin
   r := public.link_my_account('Golf', 'Member', '4444444');
   assert r ->> 'outcome' = 'updated' and r ->> 'player_id' = 'CC-013', 'm9: ' || r::text;
 end $$;
+
+-- m3b: a classmate's ID under a different name -> clash, no takeover.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000b1', 'm10@example.test');
+insert into public.profiles (user_id, role, status) values ('00000000-0000-0000-0000-0000000000b1', 'player', 'approved');
+insert into public.players (player_id, user_id, name) values ('CC-020', null, 'Hotel Imported');
+insert into public.player_private (player_id, student_id) values ('CC-020', '6666666');
+set role authenticated;
+set test.uid = '00000000-0000-0000-0000-0000000000b1';
+do $$ declare r jsonb; begin
+  r := public.link_my_account('Sneaky', 'Classmate', '6666666');
+  assert r ->> 'outcome' = 'clash' and r ->> 'player_id' <> 'CC-020', 'm10 must not take CC-020: ' || r::text;
+  -- One answer per account: a second try is refused.
+  begin
+    perform public.link_my_account('Hotel', 'Imported', '6666666');
+    raise exception 'a second answer should be refused';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+do $$ begin
+  assert (select user_id from public.players where player_id = 'CC-020') is null, 'CC-020 still unclaimed';
+  -- Nicknames pass: same last name and first initial.
+  assert public.names_match('Alex Ruiz', 'Alejandro Ruiz'), 'nickname';
+  assert public.names_match('José  Núñez', 'jose nunez'), 'accents';
+  assert not public.names_match('Alex Ruiz', 'Alex Smith'), 'different last name';
+  assert not public.names_match('', 'Alex Ruiz'), 'blank';
+end $$;
+set role authenticated;
 
 -- Refusals: a pending account, a bad ID, a missing name, a member using coach tools.
 set test.uid = '00000000-0000-0000-0000-0000000000aa';
@@ -122,9 +150,9 @@ exception when insufficient_privilege then null; end $$;
 -- Coach checks and fixes.
 set test.uid = '00000000-0000-0000-0000-0000000000c0';
 do $$ begin
-  assert (select count(*) from public.coach_list_accounts()) = 9, 'coach sees every account';
+  assert (select count(*) from public.coach_list_accounts()) = 10, 'coach sees every account';
   assert (select email from public.coach_list_accounts() where user_id = '00000000-0000-0000-0000-000000000002') = 'm2@example.test', 'email';
-  assert (select display_name from public.profiles where user_id = '00000000-0000-0000-0000-000000000001') = 'Alpha Member', 'display name filled';
+  assert (select display_name from public.profiles where user_id = '00000000-0000-0000-0000-000000000001') = 'alpha IMPORTED', 'display name filled';
   assert (select deleted_at is not null and user_id is null from public.players where player_id = 'CC-009'), 'm7 empty row retired';
   assert (select name from public.players where player_id = 'CC-013') = 'Golf Member', 'm9 name';
   assert (select name from public.players where player_id = 'CC-005') = 'Alpha Imported', 'imported name kept';
@@ -154,11 +182,14 @@ end $$;
 set test.uid = '00000000-0000-0000-0000-000000000001';
 do $$ declare r jsonb; begin
   assert (public.my_account_link() ->> 'answered') = 'false', 'm1 asked again';
-  r := public.link_my_account('Alpha', 'Member', '1234567');
+  r := public.link_my_account('Alpha', 'Imported', '1234567');
   assert r ->> 'outcome' = 'matched' and r ->> 'player_id' = 'CC-005', 'm1 relinks: ' || r::text;
-  -- Answering again while already linked changes nothing.
-  r := public.link_my_account('Alpha', 'Member', '1234567');
-  assert r ->> 'outcome' = 'matched' and r ->> 'player_id' = 'CC-005', 'm1 again: ' || r::text;
+  -- Answering again is refused; the link stays.
+  begin
+    perform public.link_my_account('Alpha', 'Imported', '1234567');
+    raise exception 'answering twice should be refused';
+  exception when invalid_parameter_value then null; end;
+  assert (public.my_account_link() ->> 'player_id') = 'CC-005', 'm1 still linked';
 end $$;
 
 reset role;
