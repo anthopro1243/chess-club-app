@@ -8,6 +8,8 @@ import GameAnalysisPanel from '../analysis/GameAnalysisPanel.jsx';
 import GameReview from '../analysis/GameReview.jsx';
 import { gameFromPlayerSide, shortGameDate } from '../../analysis/playerHome.js';
 import { isCloud } from '../../services/backend.js';
+import Link from '../../ui/Link.jsx';
+import EmptyState from '../../ui/EmptyState.jsx';
 
 /*
  * MyGamesPage — a player's own game history, and the analyser on demand.
@@ -44,14 +46,19 @@ export default function MyGamesPage() {
     return (
       <div className="page">
         <section className="panel">
-          <div className="panel-header">
-            <h2>My games</h2>
-          </div>
-          <p className="muted">
+          <EmptyState
+            icon="my-games"
+            title={isCloud ? 'Your account isn’t on the roster yet' : 'My games needs a club account'}
+            actions={
+              <Link to="games" className="btn btn-primary">
+                See every game
+              </Link>
+            }
+          >
             {isCloud
-              ? 'Your account isn’t on the club roster yet. Ask the coach to link it from the Roster page.'
-              : 'My games needs club accounts, and this copy of the app isn’t connected to the club server. Every game is on the Games page.'}
-          </p>
+              ? 'Ask the coach to link it from the Roster page. Until then, every game is on the Games page.'
+              : 'This copy of the app isn’t connected to the club server, so there is nobody signed in. Every game is on the Games page.'}
+          </EmptyState>
         </section>
       </div>
     );
@@ -74,10 +81,17 @@ export default function MyGamesPage() {
         )}
 
         {!mine.length && (
-          <p className="muted">
-            No games yet. Games you play here or on a linked Chess.com or Lichess account show up
-            here.
-          </p>
+          <EmptyState
+            icon="my-games"
+            title="No games yet"
+            actions={
+              <Link to="play" className="btn btn-primary">
+                Play a game
+              </Link>
+            }
+          >
+            Games you play here or on a linked Chess.com or Lichess account show up here.
+          </EmptyState>
         )}
 
         {!!mine.length && (

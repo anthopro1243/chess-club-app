@@ -339,23 +339,6 @@
   font-size: 0.86rem;
 }
 
-/* The archive header now carries three actions; on a phone let them wrap
-   as whole labels instead of breaking each into a column of words. */
-@media (max-width: 640px) {
-  .games-layout .panel-header {
-    flex-wrap: wrap;
-  }
-
-  .games-layout .panel-header-actions {
-    flex-wrap: wrap;
-    gap: 6px 14px;
-  }
-
-  .games-layout .panel-header-actions .link-button {
-    white-space: nowrap;
-  }
-}
-
 @media (max-width: 760px) {
   .ss-modal {
     width: calc(100vw - 16px);
