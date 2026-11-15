@@ -68,7 +68,7 @@ export default function ReviewQueuePanel({ playerId = null, compact = false }) {
                   </div>
                   <button
                     type="button"
-                    className="link-button"
+                    className="btn btn-sm"
                     onClick={() => {
                       setGameReviewed(item.gameId, true);
                       showReviewed(`vs ${item.opponent}`);

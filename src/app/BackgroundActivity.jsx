@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../services/store.js';
 import { useAnalysisActivity } from '../features/analysis/useAnalysisQueue.js';
 import { autoSyncStatus } from '../features/sync/useAutoSync.js';
+import { useGames } from '../features/games/gamesStore.js';
+import { useMyProfile } from '../features/roster/rosterStore.js';
+import { recentAnalysisProgress } from '../features/analysis/progress.js';
 
 /*
  * BackgroundActivity — a small, quiet note in the corner saying what the app
@@ -16,6 +19,8 @@ export default function BackgroundActivity() {
   const analysis = useAnalysisActivity();
   const sync = useStore(autoSyncStatus);
   const [hiddenSync, setHiddenSync] = useState(null);
+  const games = useGames();
+  const me = useMyProfile();
 
   // Let a finished or failed sync note go away on its own.
   useEffect(() => {
@@ -33,6 +38,18 @@ export default function BackgroundActivity() {
       key: 'analysis',
       text: `Analyzing a game${pct != null ? ` (${pct}%)` : '…'}${queued ? ` · ${queued} waiting` : ''}`,
       busy: true,
+    });
+  }
+  // A member who has just linked an account has a long backlog; say so, so
+  // the plan changing over the next while makes sense. Only while the engine
+  // is actually working through it.
+  const backlog = analysis.current ? recentAnalysisProgress(games, me?.playerId) : null;
+  if (backlog) {
+    lines.push({
+      key: 'backlog',
+      text: `Analysing your recent games: ${backlog.done} of ${backlog.total}`,
+      title: 'Your plan updates as each game is done, newest games first.',
+      note: 'This carries on while the app is open in a tab.',
     });
   }
   if (sync !== hiddenSync) {
@@ -56,9 +73,12 @@ export default function BackgroundActivity() {
       {lines.map((line) => (
         <div key={line.key} className="background-activity-line" title={line.title}>
           {line.busy && <span className="activity-dot" aria-hidden="true" />}
-          <span>{line.text}</span>
+          <span>
+            {line.text}
+            {line.note && <span className="background-activity-note">{line.note}</span>}
+          </span>
           {line.dismiss && (
-            <button type="button" className="link-button" onClick={line.dismiss} aria-label="Dismiss">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={line.dismiss} aria-label="Dismiss">
               ×
             </button>
           )}

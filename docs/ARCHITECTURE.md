@@ -48,8 +48,7 @@ feature's store (Training reads the roster), but nothing under `analysis/`,
 | Folder | What lives there |
 |---|---|
 | `club/` | `ClubPage` (leaderboard, club averages, weakest areas) and `PlayerHome` (a member's own home) |
-| `play/` | `PlayPage`, the engine opponent hook, clocks, time controls, `PlayerBar`, pure game helpers |
-| `training/` | `TrainingPage`, 402 Lichess puzzles, the puzzle rating, puzzle targeting, endgame drills, the review queue |
+| `training/` | `TrainingPage` (the weekly plan, "Your mistakes", endgames, theme links), `StudyPlan`, `MistakesReview`, endgame drills, the review queue store |
 | `games/` | The archive (`GamesPage`, `MyGamesPage`), logging a board game, PGN and scoresheet import, position editor |
 | `analysis/` | The analysis queue and runner, game review, report card, club weaknesses |
 | `roster/` | `RosterPage` (+ `RosterList`, `PlayerEditForm`, `PlayerDetails`), the roster store, imports, graduation archive |
@@ -60,7 +59,7 @@ feature's store (Training reads the roster), but nothing under `analysis/`,
 
 ## Routing
 
-`src/app/routes.js` holds `ROUTES` (`home`, `play`, `training`, `games`,
+`src/app/routes.js` holds `ROUTES` (`home`, `training`, `games`,
 `my-games`, `roster`, `coach`), page titles, who can open what, and
 `href(to, params)` for building links like `#/training?theme=fork`.
 `useRoute()` in `src/app/useRoute.js` reads the hash through
@@ -73,6 +72,11 @@ boundary that tells a failed download (new deploy) apart from a crash.
 It also handles two Supabase auth redirects in the hash: an error becomes a
 banner, a recovery token opens `ResetPasswordModal`.
 
+A hash path that names no page (`#/nonsense`) parses to `NOT_FOUND`, and
+`App.jsx` shows a not-found `EmptyState` with a link home and a matching
+document title. An empty hash, or one that is not a path at all (Supabase's
+`#access_token=…` links), is still the home page.
+
 Two routes carry a record in the query string, so Back works and the view can
 be linked: `#/games?game=<id>` is one game (the list is replaced by the board
 review, with a Games › White vs Black breadcrumb) and `#/roster?player=<id>`
@@ -82,10 +86,10 @@ opens the roster with that player selected. Link to a player with
 ## Shell and page chrome
 
 `App.jsx` draws the shell. Above 940px that is a sidebar: the brand, a search
-button, the menu in groups (`navGroups()` in `routes.js`: Club, Play and
-train, Game records, Coaching), then the theme switch and the account. At
+button, the menu in groups (`navGroups()` in `routes.js`: Club, Improve,
+Game records, Coaching), then the theme switch and the account. At
 940px and below it is a top bar and a bottom tab bar (`tabRoutes()` in
-`routes.js`: four tabs and a "More" sheet, which is a `Modal`). Each route in
+`routes.js`: Club, Training, My games, Games and a "More" sheet, which is a `Modal`). Each route in
 `ROUTES` has an `icon`, a `group` and a one-line `summary`.
 
 Every page gets a visible header from `ui/PageHeader.jsx`: the `<h1>` (which
@@ -104,7 +108,7 @@ Shared pieces to reach for before writing new markup:
 
 | Piece | Use |
 |---|---|
-| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm` | Every action. One primary per page. `.link-button` is for inline text actions only |
+| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm` | Every action. One primary per page. `.link-button` is for inline text actions only ("Forgot password?", a name that opens a player). `.btn-block` makes a button full width in a narrow card |
 | `ui/Icon.jsx` | Inline SVG icons by name, `aria-hidden`; the label is always text |
 | `ui/Avatar.jsx` | Initials on a colour picked from the name |
 | `ui/EmptyState.jsx` | An icon, a title, a sentence and the action that fills the list |
@@ -130,8 +134,11 @@ Every domain store follows the same shape:
 
 1. `createStore(...)` for the local value
 2. `fromRow` / `toRow` to translate between camelCase JS and snake_case SQL
-3. `syncFromCloud()` on sign-in, plus a Realtime subscription that applies
-   the changed row rather than refetching the table
+3. `syncFromCloud()` on sign-in, plus a Realtime subscription. A table that
+   changes in bursts (games, puzzle attempts, notes) wraps its refetch in
+   `coalesce()` (`services/coalesce.js`): one fetch per burst, 1.5 s after
+   the last event, never two at once. The roster applies the changed row
+   instead of refetching
 4. A push after every local write that sends only the changed columns
 5. Exported `useX()` hooks and mutation functions the pages call
 
@@ -139,20 +146,30 @@ Every domain store follows the same shape:
 `gamesStore.js` are the reference examples. **Any new table should follow the
 same five parts.**
 
+### Sync errors
+
+A failed cloud write or read calls `reportSyncError(what, message)` (or
+`reportLoadError` for a read) in `services/syncStatus.js`, which puts a banner
+on screen. The next success for the same `what` calls `reportSyncOk(what)`,
+which clears the banner. It clears only that thing's own error, so a store must
+use the same `what` string on its failure and its success. A new store that
+reports errors needs both calls.
+
 ### Where ratings happen
 
-Two separate ratings, both Glicko-2:
+One rating, Glicko-2:
 
 - **Club rating** (`player.rating`): games only. `recordGameResult` updates
   both players at once through the `record_club_game_ratings` RPC
   (migration 0026); `recordRatingResult` handles one side (a game against
   Stockfish, with `COMPUTER_OPPONENT_RD = 40`); `recordExternalResults`
   takes a batch of online games, with double-count protection.
-- **Puzzle rating** (`player.puzzleStats.rating`): puzzles only, via
-  `recordPuzzleResult`. Only the first outcome of a visit counts, solved
-  puzzles never re-rate, and positions from the player's own games are never
-  rated (`training/puzzleRating.js`). Puzzle targeting uses it once a player
-  has five results.
+
+The old puzzle rating (`player.puzzleStats.rating`) is no longer updated: it
+only ever moved on the retired puzzle library. The column and the stored
+values stay as they were. `puzzleStats.solvedIds` now gains `own:<id>`
+entries as a player solves their own mistakes, and the Coach and Club tables
+show that count as "Mistakes solved" (`mistakesSolvedCount`).
 
 Pages never compute a rating; they decide what an opponent was worth and hand
 that over.
@@ -208,6 +225,55 @@ the app talks to, add its origin to `connect-src` there.
 
 Live at https://chess-club-app-seven.vercel.app
 
+## From "account linked" to "priority shown"
+
+1. **Link** (`connectAccount`): the username is checked against the site and
+   saved on the member's `connections` entry.
+2. **Rated import** (`syncPlatform`, `externalSync.js`): the newest
+   `FIRST_SYNC_LIMIT` (50) games on a first sync, `INCREMENTAL_LIMIT` (100)
+   after that, go through `recordExternalResults`. This is the only path that
+   updates the club rating (Glicko-2, oldest game first), and it is unchanged:
+   same games, same order, same arithmetic. Each game id is remembered in
+   `importedGameIds`, so a game is never rated twice.
+3. **History top-up** (`topUpHistory`, `historyTopUp.js`): straight after the
+   rated import, the account is brought up to `HISTORY_DEPTH` (200) recent
+   games with `fetchRecentHistory`. These games are **analysis only**: they are
+   archived and queued but never passed to `recordExternalResults`, so they
+   cannot move a rating. It runs for a brand-new link and, once, for members
+   who linked before it existed (who have about 50). Whether it is needed comes
+   from data that already exists: how many games of that account the archive
+   holds (`importedHistoryOf`, a count in the database, not the local list,
+   which keeps only the newest 500). When it finishes, `historyToppedUpAt` is
+   written inside the existing `connections` JSON (no new column), so a short
+   account with fewer than 200 games is not asked again. A walk cut short by
+   the 25-second budget or an error leaves no note and resumes next sync. Games
+   already archived are skipped (`knownGameIds`), and the insert uses
+   `ignoreDuplicates`, so a second run cannot duplicate or overwrite anything.
+   Chess.com is walked month by month, newest first, one request at a time with
+   a 250 ms pause; Lichess is one request with `max`. A 429 is rethrown so the
+   club sweep's back-off (`clubSync.js`) applies.
+4. **Queue**: every archived game is a `games` row with `analysis_status`
+   (`queue.js`). Bullet games (`bulletGames.js`) are written as `skipped` with
+   `BULLET_SKIP_REASON` at import; one already `pending` is skipped when a
+   worker meets it (the PGN's `TimeControl` tag is read with each site's own
+   bullet rule, because the table has no time-class column). "Retry failed and
+   skipped" leaves bullet alone.
+5. **Order** (`claimOrder` in `autoPolicy.js`): the signed-in member's own games
+   first, then most recently played first, so the plan reflects this month
+   before last year.
+6. **Scores** (`runner.js` → `trackedScores.js`): after each analysed game the
+   player's tracked scores are **rebuilt from all their analysed games in the
+   order they were played**, read from the database (`analysesForScoring`),
+   not carried forward from the stored value. The running average depends on
+   the order games arrive in (14 points apart in the worst case tested), which
+   newest-first analysis would otherwise have made depend on queue order.
+7. **Priority**: `playerHome.js` ranks the weakest confident category into the
+   one priority. A member with no analysed games (for instance only bullet)
+   gets the new-player defaults.
+
+Progress is shown by `BackgroundActivity` ("Analysing your recent games: 37 of
+180", `progress.js`), worked out from the status already on each game row.
+
 ## Gotchas worth knowing
 
 - **Preview deploys share the production database.** Anything you click on a
@@ -221,3 +287,22 @@ Live at https://chess-club-app-seven.vercel.app
   is a display convention, not prose, and should be left alone.
 - **On Windows, Node may not be on PATH** in some shells. See
   `docs/WINDOWS_SETUP.md`.
+
+## Diagnose, then link out
+
+`src/data/resources.js` is the one place that names outside resources: one
+YouTube video per coaching category (by rating band) and per tactic, and the
+Lichess themed-puzzle URLs. `src/analysis/studyPlan.js` turns a player's one
+priority (`playerHome.js`) into the five-row plan, `StudyPlan.jsx` draws it
+on the player's home and on Training, and `ui/ExternalLink.jsx` opens every
+outside link in a new tab with `rel="noopener noreferrer"` and says so to
+screen readers. Each video has an optional `short` name that the UI shows instead of the full
+YouTube title, and `THEME_GROUPS` sets the headings the Training page's theme
+chips sit under. `node scripts/check-links.mjs` re-checks every outside link
+(it needs internet, so it is not part of `npm test`). Plain links get the
+accent colour from a global `a` rule in `02-base.css`; buttons and cards set
+their own. An empty video slot falls back to the next one (category at
+any rating, then the band's fundamentals video), so nothing renders broken.
+Games already saved with `mode: 'computer'` (from the removed Play page) still
+show in the archive and review as "vs Computer". An old `#/play` link lands on
+the not-found page.

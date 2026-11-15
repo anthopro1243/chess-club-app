@@ -55,10 +55,10 @@ export default function ResetPasswordModal({ onDone, onCancel }) {
             {error}
           </span>
         )}
-        <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
           Set password
         </button>
-        <button type="button" className="link-button" onClick={onCancel}>
+        <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
           Cancel
         </button>
       </form>

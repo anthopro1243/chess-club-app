@@ -85,12 +85,12 @@ export default function MyGamesPage() {
             icon="my-games"
             title="No games yet"
             actions={
-              <Link to="play" className="btn btn-primary">
-                Play a game
+              <Link to="games" params={{ log: '1' }} className="btn btn-primary">
+                Log a game
               </Link>
             }
           >
-            Games you play here or on a linked Chess.com or Lichess account show up here.
+            Games from a linked Chess.com or Lichess account show up here by themselves. Games played over the board come in when they are logged.
           </EmptyState>
         )}
 
@@ -171,7 +171,7 @@ function MyGameRow({ game, playerId, open, onToggle }) {
       <td>
         <button
           type="button"
-          className="link-button"
+          className="btn btn-sm"
           aria-expanded={open}
           onClick={(event) => {
             event.stopPropagation(); // the row toggles too; don't toggle twice

@@ -15,7 +15,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { writeEngineAssessment } from './engineAssessmentWrite.js';
 import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 import { RUBRIC_KEY_BY_CATEGORY } from '../../analysis/presentation.js';
@@ -110,6 +110,7 @@ export async function recordEngineAssessment(playerId, skills, { gamesAnalysed =
     reportSyncError('the assessment', saved.error);
     return { ok: false, error: saved.error };
   }
+  reportSyncOk('the assessment');
   return { ok: true, measured };
 }
 
@@ -121,9 +122,10 @@ export async function syncAssessmentsFromCloud() {
     .order('assessed_at', { ascending: false })
     .limit(500);
   if (error) {
-    reportSyncError('the assessments', error.message);
+    reportLoadError('the assessments', error.message);
     return;
   }
+  reportSyncOk('the assessments');
   store.set((data || []).map(fromRow));
 }
 

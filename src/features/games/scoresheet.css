@@ -240,7 +240,7 @@
    dialog buttons here, which do not sit in a .button-grid. */
 .ss-actions button,
 .ss-paste button:not(.primary),
-.ss-modal .import-actions button:not(.link-button):not(.primary) {
+.ss-modal .import-actions button:not(.link-button):not(.primary):not(.btn) {
   background: var(--bg-sunken);
   color: var(--text);
   border: 1px solid var(--border);
@@ -252,7 +252,7 @@
 
 .ss-actions button:hover:not(:disabled),
 .ss-paste button:not(.primary):hover:not(:disabled),
-.ss-modal .import-actions button:not(.link-button):not(.primary):hover:not(:disabled) {
+.ss-modal .import-actions button:not(.link-button):not(.primary):not(.btn):hover:not(:disabled) {
   border-color: var(--border-strong);
   background: var(--bg-raised);
 }

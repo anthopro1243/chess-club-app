@@ -4,13 +4,8 @@ import { parseTrainingLink } from './trainingLink.js';
 
 const THEMES = ['fork', 'pin', 'backRankMate'];
 
-test('parseTrainingLink: a theme and difficulty link is read back', () => {
-  assert.deepEqual(parseTrainingLink('#/training?theme=fork&difficulty=easy', { themes: THEMES }), {
-    theme: 'fork',
-    difficulty: 'easy',
-    puzzleIds: [],
-    mode: '',
-  });
+test('parseTrainingLink: a theme link is read back', () => {
+  assert.deepEqual(parseTrainingLink('#/training?theme=fork', { themes: THEMES }), { theme: 'fork', mode: '' });
 });
 
 test('parseTrainingLink: ?mode=mistakes opens the player\'s own positions; unknown modes are dropped', () => {
@@ -19,14 +14,14 @@ test('parseTrainingLink: ?mode=mistakes opens the player\'s own positions; unkno
   assert.equal(parseTrainingLink('#/training?mode=everything').mode, '');
 });
 
-test('parseTrainingLink: known puzzle ids are kept once, in order', () => {
-  const parsed = parseTrainingLink('#/training?puzzles=b,a,b,zz', { themes: THEMES, puzzleIds: ['a', 'b'] });
-  assert.deepEqual(parsed.puzzleIds, ['b', 'a']);
+test('parseTrainingLink: old puzzle-set and difficulty links are ignored, not an error', () => {
+  assert.deepEqual(parseTrainingLink('#/training?puzzles=a,b&difficulty=easy', { themes: THEMES }), { theme: '', mode: '' });
+  assert.equal(parseTrainingLink('#/training?theme=fork&difficulty=easy&puzzles=a', { themes: THEMES }).theme, 'fork');
 });
 
-test('parseTrainingLink: unknown themes, bands and ids are dropped (negative case)', () => {
-  const empty = { theme: '', difficulty: '', puzzleIds: [], mode: '' };
-  assert.deepEqual(parseTrainingLink('#/training?theme=nonsense&difficulty=godlike&puzzles=zzz', { themes: THEMES }), empty);
+test('parseTrainingLink: unknown themes are dropped (negative case)', () => {
+  const empty = { theme: '', mode: '' };
+  assert.deepEqual(parseTrainingLink('#/training?theme=nonsense', { themes: THEMES }), empty);
   assert.deepEqual(parseTrainingLink('#/training', { themes: THEMES }), empty);
   assert.deepEqual(parseTrainingLink(undefined), empty);
 });

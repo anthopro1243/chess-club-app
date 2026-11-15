@@ -29,14 +29,15 @@ test('a member typing #/coach is refused; a coach is not', () => {
   assert.equal(canOpenRoute('nope', { isCoach: true }), false);
 });
 
-test('parseHash: page and parameters, unknown pages go home', () => {
+test('parseHash: page and parameters; an unknown path is not-found, a non-path hash is home', () => {
   assert.deepEqual(parseHash('#/training?theme=fork&difficulty=easy'), {
     id: 'training',
     params: { theme: 'fork', difficulty: 'easy' },
   });
   assert.deepEqual(parseHash('#/games'), { id: 'games', params: {} });
   assert.deepEqual(parseHash(''), { id: 'home', params: {} });
-  assert.deepEqual(parseHash('#/nope?x=1'), { id: 'home', params: { x: '1' } });
+  assert.deepEqual(parseHash('#/nope?x=1'), { id: 'not-found', params: { x: '1' } });
+  assert.equal(parseHash('#/').id, 'home');
   // Supabase's auth redirects also arrive in the hash; they land on home.
   assert.equal(parseHash('#access_token=abc&type=recovery').id, 'home');
 });
@@ -50,6 +51,7 @@ test('href builds what parseHash reads, dropping empty parameters', () => {
 test('documentTitle names the page', () => {
   assert.equal(documentTitle('games'), 'Games · Chess Club');
   assert.equal(documentTitle('home'), 'Chess Club');
+  assert.equal(documentTitle('not-found'), 'Page not found · Chess Club');
 });
 
 test('navGroups: every visible page once, and no Coaching group for a member', () => {
@@ -62,7 +64,7 @@ test('navGroups: every visible page once, and no Coaching group for a member', (
 
 test('tabRoutes: four tabs, the rest under More, nothing lost or repeated', () => {
   const { tabs, more } = tabRoutes({ isCoach: true });
-  assert.deepEqual(tabs.map((r) => r.id), ['home', 'play', 'training', 'games']);
+  assert.deepEqual(tabs.map((r) => r.id), ['home', 'training', 'my-games', 'games']);
   assert.equal(tabs.length + more.length, ROUTES.length);
   assert.ok(!tabRoutes({ isCoach: false }).more.some((r) => r.id === 'coach'));
 });

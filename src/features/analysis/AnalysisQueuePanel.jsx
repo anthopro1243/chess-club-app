@@ -93,6 +93,12 @@ export default function AnalysisQueuePanel({ queue }) {
         </button>
       </div>
 
+      {shown?.skipped > 0 && (
+        <p className="muted">
+          Skipped games are ones the engine is not meant to do: bullet games, and games of members
+          who have left the club. Open one and press Analyze to do it by hand.
+        </p>
+      )}
       {shown?.failed > 0 && (
         <p className="muted">
           {shown.failed} game{shown.failed === 1 ? '' : 's'} couldn&rsquo;t be analyzed after a few

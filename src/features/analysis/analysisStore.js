@@ -13,7 +13,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 
 const analyses = createStore('cc-game-analyses-v1', []);
@@ -115,6 +115,7 @@ export async function saveAnalysis(rows) {
     reportSyncError('the game analysis', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the game analysis');
   return { ok: true };
 }
 
@@ -151,6 +152,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
     reportSyncError('the skill scores', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the skill scores');
 
   const history = rows.map((r) => ({
     player_id: r.player_id,
@@ -161,6 +163,7 @@ export async function saveSkillScores(playerId, tracked, { gameId = null } = {})
   }));
   const { error: histError } = await supabase.from('player_skill_history').insert(history);
   if (histError) reportSyncError('the skill history', histError.message);
+  else reportSyncOk('the skill history');
 
   return { ok: true };
 }
@@ -175,19 +178,81 @@ export async function syncFromCloud() {
     .order('analyzed_at', { ascending: false })
     .limit(LOCAL_LIMIT);
   if (error) {
-    reportSyncError('the analysis archive', error.message);
+    reportLoadError('the analysis archive', error.message);
     return;
   }
+  reportSyncOk('the analysis archive');
   analyses.set((data || []).map(fromRow));
 
   const { data: skillData, error: skillError } = await supabase
     .from('player_skill_scores')
     .select('*');
   if (skillError) {
-    reportSyncError('the skill scores', skillError.message);
+    reportLoadError('the skill scores', skillError.message);
     return;
   }
+  reportSyncOk('the skill scores');
   skills.set((skillData || []).map(skillFromRow));
+}
+
+/**
+ * Every analysis of one player's own games, for working out their tracked
+ * scores: one entry per game, each with the date the game was played.
+ *
+ * Read from the database, not from the local list. The local list holds only
+ * the newest 500 analysis rows in the whole club, so a coach's browser working
+ * through a backlog would score a member from whichever few of their games
+ * happened to be in that window, and write the result over the member's real
+ * scores. Heavy columns (the per-move detail) are left out.
+ *
+ * Falls back to what is held locally when there is no database or it cannot
+ * be reached; `playedAtOf` supplies dates for that case.
+ */
+export async function analysesForScoring(playerId, { playedAtOf = () => null } = {}) {
+  const fromLocal = () =>
+    analyses.get()
+      .filter((a) => a.playerId === playerId)
+      .map((a) => ({
+        gameId: a.gameId, schemaVersion: a.schemaVersion ?? 1, playedAt: playedAtOf(a.gameId),
+        raw: a.raw, movesPlayed: a.movesPlayed, movesCounted: a.movesCounted, motifCounts: a.motifCounts,
+      }));
+  if (!isSupabaseConfigured) return fromLocal();
+
+  const { data, error } = await supabase
+    .from('game_analyses')
+    .select('game_id, schema_version, moves_played, moves_counted, raw, motif_counts')
+    .eq('player_id', playerId)
+    .order('analyzed_at', { ascending: false })
+    .limit(1000);
+  if (error || !data) return fromLocal();
+
+  // One entry per game: the newest engine schema if a game was analysed twice.
+  const latest = new Map();
+  for (const row of data) {
+    const kept = latest.get(row.game_id);
+    if (!kept || (row.schema_version ?? 1) > (kept.schema_version ?? 1)) latest.set(row.game_id, row);
+  }
+
+  const ids = [...latest.keys()];
+  const dates = new Map();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: games, error: gamesError } = await supabase
+      .from('games')
+      .select('id, played_at')
+      .in('id', ids.slice(i, i + 100));
+    if (gamesError) return fromLocal();
+    for (const g of games || []) dates.set(g.id, g.played_at);
+  }
+
+  return [...latest.values()].map((row) => ({
+    gameId: row.game_id,
+    schemaVersion: row.schema_version ?? 1,
+    playedAt: dates.get(row.game_id) ?? null,
+    raw: row.raw || {},
+    movesPlayed: row.moves_played,
+    movesCounted: row.moves_counted,
+    motifCounts: row.motif_counts || {},
+  }));
 }
 
 /** Both sides of one game, if it has been analysed. */

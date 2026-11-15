@@ -3,7 +3,8 @@ import { usePlayers } from '../roster/rosterStore.js';
 import { useGames } from '../games/gamesStore.js';
 import { useAnalyses } from './analysisStore.js';
 import { activePlayerIdSet } from '../roster/retiredPlayers.js';
-import { PUZZLE_THEMES } from '../training/puzzles.js';
+import ThemeResources from '../training/ResourceLinks.jsx';
+import { LICHESS_THEMES } from '../../data/resources.js';
 import { clubWeaknesses, MIN_GAMES } from '../../analysis/clubWeaknesses.js';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 
@@ -12,7 +13,7 @@ import InfoTooltip from '../../ui/InfoTooltip.jsx';
  * members' analysed games (research F015). Coach-only: it names patterns
  * across the club, not individuals, but it lives with the coach's tools.
  */
-const themes = new Set(PUZZLE_THEMES);
+const themes = new Set(Object.keys(LICHESS_THEMES));
 
 export default function ClubWeaknessesPanel() {
   const players = usePlayers();
@@ -30,8 +31,8 @@ export default function ClubWeaknessesPanel() {
         <div className="heading-row">
           <h2>Club weaknesses, last {report.windowDays} days</h2>
           <InfoTooltip>
-            What keeps going wrong in members&rsquo; analyzed games. Use it to plan the next
-            lesson.
+            What keeps going wrong in members&rsquo; analyzed games. Each tactic links to a video and
+            Lichess puzzles you can put on the projector.
           </InfoTooltip>
         </div>
         <span className="badge mono">{report.analysedGames} games</span>
@@ -57,7 +58,11 @@ export default function ClubWeaknessesPanel() {
                     <span className="muted">
                       {m.count} time{m.count === 1 ? '' : 's'}, {m.players} member{m.players === 1 ? '' : 's'}
                     </span>
-                    {m.drill && <> · <a href={m.drill}>drill</a></>}
+                    {m.theme && (
+                      <div className="club-weakness-links">
+                        <ThemeResources theme={m.theme} />
+                      </div>
+                    )}
                   </li>
                 ))}
               </ol>

@@ -88,16 +88,19 @@ export function clubWeaknesses({ analyses = [], games = [], activeIds, now = Dat
   const topMotifs = Object.values(motifs)
     .sort((a, b) => b.count - a.count || b.players.size - a.players.size)
     .slice(0, 3)
-    .map((m) => ({
-      motif: m.motif,
-      label: m.label,
-      count: m.count,
-      players: m.players.size,
-      drill: (() => {
-        const theme = PUZZLE_THEME_FOR_MOTIF[m.motif] ?? m.motif;
-        return knownThemes.has(theme) ? `#/training?theme=${theme}` : null;
-      })(),
-    }));
+    .map((m) => {
+      const key = PUZZLE_THEME_FOR_MOTIF[m.motif] ?? m.motif;
+      const theme = knownThemes.has(key) ? key : null;
+      return {
+        motif: m.motif,
+        label: m.label,
+        count: m.count,
+        players: m.players.size,
+        // The Lichess theme key for this motif, or null when there is no page for it.
+        theme,
+        drill: theme ? `#/training?theme=${theme}` : null,
+      };
+    });
 
   // Where decisive errors (the stored critical moments) happen.
   const phases = { opening: 0, middlegame: 0, endgame: 0 };

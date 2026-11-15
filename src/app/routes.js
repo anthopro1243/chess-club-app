@@ -15,8 +15,7 @@
 
 export const ROUTES = [
   { id: 'home', label: 'Club', title: 'Club', icon: 'home', group: 'club', summary: 'The leaderboard and how the club is doing.' },
-  { id: 'play', label: 'Play', title: 'Play', icon: 'play', group: 'play', summary: 'A game against a clubmate or the computer.' },
-  { id: 'training', label: 'Training', title: 'Training', icon: 'training', group: 'play', summary: 'Puzzles picked for what you need to work on.' },
+  { id: 'training', label: 'Training', title: 'Training', icon: 'training', group: 'improve', summary: 'Your weekly plan: a video, themed puzzles and your own mistakes.' },
   { id: 'games', label: 'Games', title: 'Games', icon: 'games', group: 'records', summary: 'Every game the club has played, newest first.' },
   { id: 'my-games', label: 'My games', title: 'My games', icon: 'my-games', group: 'records', summary: 'Your own games, with the analysis for each.' },
   { id: 'roster', label: 'Roster', title: 'Roster', icon: 'roster', group: 'club', summary: 'Everyone in the club and their record.' },
@@ -29,15 +28,18 @@ export const ROUTES = [
  */
 export const NAV_GROUPS = [
   { id: 'club', label: 'Club' },
-  { id: 'play', label: 'Play and train' },
+  { id: 'improve', label: 'Improve' },
   { id: 'records', label: 'Game records' },
   { id: 'coach', label: 'Coaching' },
 ];
 
-/** The phone's bottom bar: the pages people use most. The rest sit under "More". */
-const TAB_IDS = ['home', 'play', 'training', 'games'];
+/** The phone's bottom bar: the pages people use most. The rest (Roster, Coach) sit under "More". */
+const TAB_IDS = ['home', 'training', 'my-games', 'games'];
 
 export const SITE_NAME = 'Chess Club';
+
+/** What a typed-in address that names no page resolves to (see parseHash). */
+export const NOT_FOUND = 'not-found';
 
 /** The routes this account may see in the nav. */
 export function visibleRoutes({ isCoach = false } = {}) {
@@ -63,7 +65,7 @@ export function tabRoutes(account = {}) {
 
 /**
  * What counts as "a different view" for focus and scroll: the page, plus the
- * one game a Games link opens. Other parameters (a puzzle theme, a selected
+ * one game a Games link opens. Other parameters (a training theme, a selected
  * player) change what a page shows without leaving it.
  */
 export function viewKey({ id, params = {} } = {}) {
@@ -77,13 +79,16 @@ export function canOpenRoute(id, { isCoach = false } = {}) {
 }
 
 /**
- * The route a hash names: { id, params }. Unknown pages fall back to home,
- * and parameters come from the query part: #/games?game=abc → { game: 'abc' }.
+ * The route a hash names: { id, params }. A path that names no page is
+ * NOT_FOUND. An empty hash, or one that is not a path at all (Supabase's
+ * #access_token=… sign-in links), is home. Parameters come from the query
+ * part: #/games?game=abc → { game: 'abc' }.
  */
 export function parseHash(hash = '') {
   const raw = String(hash).replace(/^#\/?/, '');
   const [path, query = ''] = raw.split('?');
-  const id = ROUTES.some((r) => r.id === path) ? path : 'home';
+  const isPath = /^#\//.test(hash) && path !== '';
+  const id = ROUTES.some((r) => r.id === path) ? path : isPath ? NOT_FOUND : 'home';
   let params = {};
   try {
     params = Object.fromEntries(new URLSearchParams(query));
@@ -102,6 +107,7 @@ export function href(id, params = null) {
 
 /** The browser tab title for a route. */
 export function documentTitle(id) {
+  if (id === NOT_FOUND) return `Page not found · ${SITE_NAME}`;
   const route = ROUTES.find((r) => r.id === id);
   return route && route.id !== 'home' ? `${route.title} · ${SITE_NAME}` : SITE_NAME;
 }

@@ -164,6 +164,11 @@
   font-size: var(--text-sm);
 }
 
+/* Full-width, for the single action under a form in a narrow card. */
+.btn-block {
+  width: 100%;
+}
+
 .btn[aria-pressed='true'] {
   background: var(--accent-soft);
   border-color: var(--accent);

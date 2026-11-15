@@ -30,7 +30,7 @@ import { Chess, START_FEN } from '../../engine/chess.js';
 import { parseAndValidate } from '../../analysis/pgn.js';
 import { stableGameId } from './pgnImport.js';
 import { replayMoves, plyLabel } from './sanMatch.js';
-import { parseUsChessTimeControl, formatUsChess, toPgnTimeControlTag } from '../play/timeControl.js';
+import { parseUsChessTimeControl, formatUsChess, toPgnTimeControlTag } from './timeControl.js';
 
 export const RESULTS = [
   { value: '1-0', label: 'White won (1–0)' },

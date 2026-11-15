@@ -13,7 +13,8 @@
 
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportSyncOk } from '../../services/syncStatus.js';
+import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-coach-notes-v1', {});
 
@@ -41,11 +42,13 @@ async function syncFromCloud() {
   store.set(Object.fromEntries(data.map((row) => [row.player_id, row.note || ''])));
 }
 
+const refetchFromCloud = coalesce(syncFromCloud);
+
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('coach-notes-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'coach_notes' }, syncFromCloud)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'coach_notes' }, refetchFromCloud)
     .subscribe();
 }
 
@@ -56,6 +59,7 @@ if (isSupabaseConfigured) {
       subscribeRealtime();
     } else {
       cloudReady = false;
+      refetchFromCloud.cancel();
       if (channel) {
         supabase.removeChannel(channel);
         channel = null;
@@ -79,6 +83,7 @@ export function setCoachNote(playerId, note) {
       .upsert({ player_id: playerId, note, updated_at: new Date().toISOString() }, { onConflict: 'player_id' })
       .then(({ error }) => {
         if (error) reportSyncError('that coach note', error.message);
+        else reportSyncOk('that coach note');
       });
   }
 }

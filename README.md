@@ -2,21 +2,27 @@
 
 The club website. Members can:
 
-- play on a full-rules chessboard, against each other or the real Stockfish
-  engine at a chosen strength;
-- train on 402 real Lichess puzzles, filtered by theme and difficulty;
-- review their own games once the engine has analyzed them;
+- have their games come in by themselves from a linked Chess.com or Lichess
+  account (or by scoresheet or PGN for games played over the board);
+- see what the engine found in those games, and get one thing to work on;
+- follow a short weekly plan: a hand-picked YouTube video, Lichess themed
+  puzzles, and their own mistakes to review;
 - climb a club leaderboard built on a real Glicko-2 rating.
 
 Coaches get a roster, dated skill assessments, report cards and a
 spreadsheet export.
 
-The stack is React + Vite. The chess rules, the board, the routing and the
-piece artwork all live in this repository. Two things come from outside:
+The app diagnoses and then links out. It does not host games, puzzles or
+lessons: Lichess, Chess.com and YouTube do those better, and members already
+use them. Over-the-board games come in through "Log a game", "Enter a
+scoresheet" and "Import PGN".
 
-- the Stockfish 18 engine, vendored in `public/stockfish/`;
-- a curated slice of Lichess's open puzzle database, in
-  `src/features/training/puzzles.json` (see `scripts/import-puzzles.mjs`).
+The stack is React + Vite. The chess rules, the board, the routing and the
+piece artwork all live in this repository. One thing is vendored: the
+Stockfish 18 engine, in `public/stockfish/`, used for game analysis and the
+endgame trainer. Every outside link (YouTube videos, Lichess puzzle themes)
+is listed in one file, `src/data/resources.js`, and in
+[`docs/RESOURCES.md`](docs/RESOURCES.md) with the date it was checked.
 
 How the code is laid out, and the patterns to follow when changing it, are
 in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Running the live club
@@ -41,9 +47,23 @@ npm run test:engine  # the slow suites that drive real Stockfish
 npm run lint         # ESLint, including accessibility rules
 ```
 
-With no `.env.local` the app runs entirely on browser storage, which is the
-quickest way to try it. GitHub Actions runs lint, tests and build on every
-push and pull request.
+### Local mode and environment variables
+
+With no `.env.local` the app runs in **local mode**: no accounts, no sign-in,
+and everything (games, roster, ratings) is kept in that browser's storage. It
+is the quickest way to try the app, and there is nobody to approve or lock
+out. Two variables switch on the shared database:
+
+| Variable | What it is |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | The project's public anon key |
+
+Set both in `.env.local` (copy `.env.example`) and restart `npm run dev`. To
+force local mode while a `.env.local` exists, start the server with both set to
+nothing: `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite`.
+
+GitHub Actions runs lint, tests and build on every push and pull request.
 
 ## The rules engine
 
@@ -72,54 +92,27 @@ game.status();           // { over, result, reason, text }
 game.pgn({ White: 'CC-001', Black: 'CC-002' });
 ```
 
-## Playing
-
-There are three ways to move:
-
-- **Click or drag:** click a piece then its destination, or drag it.
-- **Keyboard:** Tab onto the board, move with the arrow keys, and press Enter
-  or Space to pick up and drop. Every move is announced to screen readers.
-- **Type it:** enter a move such as `Nf3` in the move box under the board.
-
-The move list is clickable: rewind to any move, then come back to the live
-position. A game in progress is saved to the browser, so refreshing resumes
-it.
-
-**Against the computer**, every move is real Stockfish. You can pick:
-
-- the Elo, bounded by whatever range the loaded engine build reports;
-- full strength;
-- how long it thinks per move.
-
-While it thinks, the board stops accepting moves for its side. **Undo** takes
-back its reply and the move it answered.
-
-**Against another person**, pick both players from the roster to have the
-game rated. A signed-in member is always one of the two players. Clocks and
-time controls are optional.
-
 ## Training
 
-The trainer has 402 tactics puzzles from
-[Lichess's CC0 puzzle database](https://database.lichess.org/#puzzles),
-rated about 400 to 1700 and tagged with 59 themes. The theme menu shows the
-ones with enough puzzles to practise. Every puzzle is a forced line: play
-your move, the reply comes automatically, and the puzzle is solved when the
-line is complete.
+The Training page is the player's weekly plan, then two things that stay in
+the app because nobody else can do them:
 
-Puzzles have their **own puzzle rating**, separate from the club rating:
+1. **The plan**: the one thing the games point to, a **Watch** link (one
+   YouTube video per weakness), a **Practise** link (Lichess's own themed
+   puzzles, "about 15 minutes, a few times a week"), the count of **mistakes
+   to review**, and a nudge to play one long game. With no analyzed games yet
+   it shows defaults for a newer player. `#/training?theme=fork` focuses the
+   plan on one tactic.
+2. **Your mistakes**: positions you got wrong in your own analyzed games,
+   brought back on a spaced-repetition schedule.
+3. **Endgames**: textbook endgames played out against the engine.
 
-- only your first try at a puzzle counts;
-- solving it again later doesn't count;
-- positions taken from your own games are practice only.
+A short "Practise a theme" list of Lichess links closes the page. The coach
+changes a video by editing `src/data/resources.js` (the top of the file says
+how); there is no in-app editor.
 
-Once you have five rated results, new puzzles are picked near your puzzle
-rating. There are also endgame drills, and a review queue that brings back
-the mistakes from your analyzed games.
-
-To refresh the puzzle set, run `node scripts/import-puzzles.mjs`. Every
-candidate line is replayed through the rules engine, and anything illegal is
-dropped.
+Chess.com is linked once, as a general puzzles page: free Chess.com accounts
+are limited on themed puzzles.
 
 ## Club ratings
 
@@ -213,8 +206,8 @@ Preview deploys use the same database as production. Anything done on a
 preview link while signed in changes real club data.
 
 **Apply database migrations before deploying code that needs them.** As of
-November 2026, migrations `0025`–`0027` are not yet applied to the live
-database.
+14 November 2026 every migration through `0028` is applied to the live
+database (`docs/RUNBOOK.md` keeps the list).
 
 ## History
 

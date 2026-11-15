@@ -5,6 +5,12 @@ local mode at 1280px and at 375px, in both themes, with a roster of eight and ei
 Dialogs opened: log a game, Import PGN, Enter a scoresheet, Import CSV, report card. The account
 menu only exists with a backend, so it was read in code rather than used.
 
+> **Since this was written:** the Play page and the built-in puzzle library were removed. The app
+> now diagnoses and links out (Lichess for puzzles, YouTube for lessons). Mentions of Play below
+> describe the app as it was evaluated. The phone tab bar is now Club, Training, My games, Games,
+> and the "Play and train" menu group is "Improve". The Club page offers "Log a game" at the top
+> because over-the-board games can only come in by hand. The Training page is a weekly plan.
+
 The markup itself was evaluated separately (`html-structure-evaluation.md`, findings H1–H14 and
 S1–S11). Most of those were already fixed on the base branch: the nav is real links (H2), rows
 have a real control (H3), dialogs are native `<dialog>` (H1), faint text passes contrast (H9).
@@ -136,17 +142,36 @@ Each finding above, and what answers it. After screenshots are in
 
 | Finding | Now |
 |---|---|
-| 1. Flat navigation | A grouped sidebar with icons on a laptop; on a phone a bottom tab bar (Club, Play, Training, Games) and a More sheet. Nothing scrolls sideways |
+| 1. Flat navigation | A grouped sidebar with icons on a laptop; on a phone a bottom tab bar (now Club, Training, My games, Games) and a More sheet. Nothing scrolls sideways |
 | 2. No page title | Every page has a visible heading, a line of context and its actions beside it |
 | 3. Actions as footnotes | Real buttons, one primary per page, destructive ones set apart in red |
 | 4. Opening a game | A game is its own view at `#/games?game=<id>` with a breadcrumb; Back returns to the list |
 | 5. No way to jump | Quick search (Ctrl K or the search button) over pages, players and games; names link to the player at `#/roster?player=<id>` |
-| 6. Club page | Opens on the things to do (play, train, log a game), then the leaderboard with ranks and avatars. The preview control is a small "Preview as" select in the page header |
+| 6. Club page | Opens on the things to do (log a game, train, games, roster), then the leaderboard with ranks and avatars. The preview control is a small "Preview as" select in the page header |
 | 7. Same flat surfaces | A type scale, two levels of elevation, avatars, icons, and tables with hover and selected rows |
 | 8. States | A skeleton while a page loads; empty states with an icon, a sentence and the next action |
 | 9. Motion | Pages and dialogs fade in briefly; off under `prefers-reduced-motion` |
 | 10. Coach | Jump links to each section, export in the page header, links in the accent colour |
-| 11. Small things | Icon theme switch, report card buttons, the Play board sized so both clocks stay on screen |
+| 11. Small things | Icon theme switch, report card buttons (the Play board is gone with the Play page) |
 
-Left as it was: the account menu (it needs a backend to exercise), the board,
-and the long forms inside dialogs, which only took the new buttons.
+The signed-in screens (account menu and its forms, connected accounts, member
+approval, account links, the scoresheet and import dialogs) were restyled in a
+later pass: real actions use `.btn`, destructive ones `.btn-danger`, and
+`.link-button` is left only on inline text links. A hash that names no page now
+shows a not-found page instead of the home page.
+
+The weekly plan and the theme list were finished last, to the same standard
+(before and after in `docs/screenshots/ui/before-final-*` and `after-final-*`):
+the plan is the thing to work on in large type, then one card each for Watch,
+Practise and Review (icon, short title, channel and minutes, a button-style link),
+with exactly one primary button (Review when something is due, otherwise Watch)
+and Play as a quiet line. Links are no longer the browser's default blue: a
+global `a` rule gives every plain link the accent colour. "Practise a theme" is
+grouped chips (Tactics, Checkmates, Phases of the game). The Club page shows
+skill scores as whole numbers, and the analysis progress note says it carries
+on while the app is open in a tab.
+
+Left as it was: the board, and the long forms inside dialogs, which only took
+the new buttons. The signed-in screens could only be checked as isolated
+components (no sign-in on a shared database), so they want a look by a person
+who is signed in.

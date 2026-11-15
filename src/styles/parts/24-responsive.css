@@ -1,17 +1,9 @@
 /* ---------- responsive -------------------------------------------------- */
 
 @media (max-width: 940px) {
-  .play-layout,
-  .training-layout,
   .roster-layout,
   .two-column {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .board-column {
-    max-width: none;
-    margin: 0 auto;
-    width: 100%;
   }
 
   .roster-form,
@@ -29,12 +21,6 @@
 @media (max-width: 640px) {
   .content {
     padding: 16px 12px;
-  }
-
-  /* Use the bar's free width (the clock, if any, keeps its place on the right). */
-  .player-name {
-    width: auto;
-    flex: 1 1 0;
   }
 
   h1 {

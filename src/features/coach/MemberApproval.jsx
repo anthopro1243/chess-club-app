@@ -146,7 +146,7 @@ export default function MemberApproval() {
                     {m.status === 'approved' ? (
                       <button
                         type="button"
-                        className="link-button danger"
+                        className="btn btn-sm btn-danger"
                         disabled={!!busy || m.user_id === account.userId}
                         onClick={() => run(m.user_id, () => suspendMember(m.user_id))}
                       >
@@ -155,7 +155,7 @@ export default function MemberApproval() {
                     ) : (
                       <button
                         type="button"
-                        className="link-button"
+                        className="btn btn-sm"
                         disabled={!!busy}
                         onClick={() => run(m.user_id, () => approveMember(m.user_id))}
                       >

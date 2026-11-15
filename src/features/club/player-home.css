@@ -75,17 +75,15 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
-    'priority trend'
-    'reviews trend'
-    'queue trend'
+    'plan plan'
+    'trend queue'
     'games games';
   gap: 14px;
   align-items: start;
 }
 
-.ph-priority { grid-area: priority; }
+.ph-plan { grid-area: plan; }
 .ph-trend { grid-area: trend; }
-.ph-reviews { grid-area: reviews; }
 .ph-review-queue { grid-area: queue; }
 .ph-games { grid-area: games; }
 
@@ -102,19 +100,9 @@
   margin-bottom: 8px;
 }
 
-/* The priority and the trend are the page; they get the wide slots. */
-.ph-priority {
+/* The plan is the page; it gets the full width. */
+.ph-plan {
   border-left: 3px solid var(--accent);
-}
-
-.ph-priority-label {
-  font-size: 1.15rem;
-  font-weight: 650;
-  margin: 0 0 4px;
-}
-
-.ph-priority .ph-action {
-  margin-top: 6px;
 }
 
 .ph-trend-headline {
@@ -181,16 +169,6 @@
 .ph-trend-chip.steady,
 .ph-trend-chip.none {
   color: var(--text-muted);
-}
-
-.ph-count {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.ph-count .mono {
-  font-size: 1.5rem;
-  font-weight: 650;
 }
 
 .ph-list {

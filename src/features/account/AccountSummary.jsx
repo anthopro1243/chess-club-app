@@ -72,12 +72,12 @@ export default function AccountSummary({ cloud, profile, studentId, onClose, onO
 
       {!changingPassword && (
         <div className="auth-links">
-          <button type="button" className="link-button" onClick={() => setChangingPassword(true)}>
+          <button type="button" className="btn btn-sm" onClick={() => setChangingPassword(true)}>
             Change password
           </button>
           <button
             type="button"
-            className="link-button"
+            className="btn btn-sm"
             onClick={() => {
               signOut();
               onClose();
@@ -104,10 +104,10 @@ export default function AccountSummary({ cloud, profile, studentId, onClose, onO
               {error}
             </span>
           )}
-          <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
             {busy ? 'Saving…' : 'Update password'}
           </button>
-          <button type="button" className="link-button" onClick={() => setChangingPassword(false)}>
+          <button type="button" className="btn btn-ghost btn-block" onClick={() => setChangingPassword(false)}>
             Cancel
           </button>
         </form>

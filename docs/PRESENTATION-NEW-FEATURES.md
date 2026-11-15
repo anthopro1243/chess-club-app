@@ -1,7 +1,7 @@
 # Chess Club app — new features, for the "How to use the app" section
 
 Give this to Claude Cowork to add to the presentation. The app's purpose: members sign in, analyse
-their games, and see exactly what to improve. Menu: Club · Play · Training · Games · My games ·
+their games, and see exactly what to improve. Menu: Club · Training · Games · My games ·
 Roster · Coach (Roster and Coach are for the coach).
 
 **Do not show** (removed from the app): Prep page, Events page, availability poll, rules quiz,
@@ -15,10 +15,9 @@ notation trainer, homework, announcements, team tools, attendance.
 - **What it is:** a private page that only you (and the coach) can see.
 - **How to use:** sign in and open **Club**. The card says "Hi, [your name]".
 - **What's on it:**
-  - **Work on this next:** the single biggest weakness from your analysed games, with a
-    button straight to the matching puzzles.
+  - **Your week:** the single biggest weakness from your analysed games, one video to watch, a
+    Lichess puzzles link, your mistakes to review, and a nudge to play one long game.
   - **How you're trending:** which skills are going up or down over recent games.
-  - **Positions to review:** positions you got wrong in your own games, coming back to practise.
   - **Games to go over:** your review queue (see 4).
   - **Recent games:** your last few games with accuracy.
 - **Talking point:** one clear priority instead of a wall of numbers.
@@ -45,15 +44,14 @@ notation trainer, homework, announcements, team tools, attendance.
 - **How to use:** tap a game to open it and go through it (ideally with the coach), then press
   **Mark reviewed** to clear it from the queue.
 
-### 5. Puzzles at your level (Training)
-- **How to use:** open **Training**, pick yourself as the trainee, and leave Difficulty on
-  **"Near [your name]'s rating (~1150)"**, which is the default.
-- **How it works:** puzzles are pitched a little above your rating, and ones you haven't solved come
-  first. Every puzzle you solve updates your club rating, so the difficulty grows with you.
-- Other options: pick a theme (fork, pin, …), or **Your mistakes** to replay positions from your
-  own games.
+### 5. Your weekly plan (Training)
+- **How to use:** open **Training**. The plan names the one thing to work on, links one YouTube video
+  for it and the matching Lichess puzzles ("about 15 minutes, a few times a week").
+- **Your mistakes:** positions you got wrong in your own games come back on a schedule. Press
+  **Start reviewing**.
+- **Practise a theme:** a list of Lichess themed-puzzle links (fork, pin, …).
 
-### 6. Endgame trainer (Training → Puzzle type → "Endgames: play them out vs the engine")
+### 6. Endgame trainer (Training → Endgames → "Play an endgame")
 - 13 classic endgames in four levels matched to rating (basic mates → opposition → king-and-pawn →
   rook endings). You play the position out against the engine until you win or hold the draw.
 
@@ -98,5 +96,5 @@ notation trainer, homework, announcements, team tools, attendance.
 
 ## One-slide summary
 Sign in → **Club** shows what to **work on next** → **Games** explains every big mistake in plain
-English → **Training** serves puzzles at your level → **Games to go over** makes sure every game,
+English → **Training** hands you a video and Lichess puzzles for it → **Games to go over** makes sure every game,
 especially the ones played in person, gets reviewed with the coach.

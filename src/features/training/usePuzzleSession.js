@@ -3,22 +3,19 @@ import { Chess } from '../../engine/chess.js';
 import { reviewOwnPuzzle } from './ownPuzzleStore.js';
 import { recordPuzzleResult } from '../roster/rosterStore.js';
 import { recordAttempt } from './puzzleAttemptsStore.js';
-import { puzzleRatingScore } from './puzzleRating.js';
-
-const PUZZLE_OPPONENT_RD = 60; // puzzle ratings are well-established; treat them as near-certain
 
 const sameMove = (a, b) =>
   !!a && !!b && a.from === b.from && a.to === b.to && (a.promotion || undefined) === (b.promotion || undefined);
 
 /**
- * One puzzle being solved: the board, the expected line, the opponent's
- * automatic replies, hints, promotion, and what gets recorded when.
+ * One of the player's own mistakes being solved: the board, the expected
+ * move, hints, promotion, and what gets recorded when.
  *
- * `puzzle` is the active puzzle; the board resets whenever its id changes.
- * `trainee` is the roster player results are saved to, or null for practice.
- * `bandFor(rating)` names the difficulty band an attempt is logged under.
+ * `puzzle` is the active position (see MistakesReview); the board resets
+ * whenever its id changes. `trainee` is the roster player results are saved
+ * to, or null for practice.
  */
-export function usePuzzleSession({ puzzle, trainee, bandFor }) {
+export function usePuzzleSession({ puzzle, trainee }) {
   const gameRef = useRef(new Chess(puzzle.fen));
   const [, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
@@ -32,8 +29,8 @@ export function usePuzzleSession({ puzzle, trainee, bandFor }) {
   // quick glance (or a screen reader) catches it, not only a 0.7 s flash.
   const [lastWrong, setLastWrong] = useState('');
 
-  // Puzzles whose first outcome this visit was already rated (or, for an
-  // own-game position, already rescheduled). Later tries don't count.
+  // Positions whose first outcome this visit already rescheduled them.
+  // Later tries don't count.
   const ratedRef = useRef(new Set());
   // Pending timers (undo a wrong move, play the opponent's reply). Cleared
   // whenever the board is reset, so a reply can't land on the next puzzle.
@@ -90,8 +87,8 @@ export function usePuzzleSession({ puzzle, trainee, bandFor }) {
       playerId: trainee.playerId,
       puzzleId: puzzle.id,
       themes: puzzle.themes || [],
-      difficulty: bandFor(puzzle.rating),
-      puzzleRating: puzzle.rating,
+      difficulty: '',
+      puzzleRating: null,
       correct,
       usedHint: showHint,
       usedSolution,
@@ -101,33 +98,24 @@ export function usePuzzleSession({ puzzle, trainee, bandFor }) {
   };
 
   /*
-   * The first outcome of a visit is the one that counts: it moves the puzzle
-   * rating (puzzleRating.js says when) and reschedules an own-game position.
-   * Later tries are logged as attempts but change neither.
+   * The first outcome of a visit is the one that counts: it reschedules the
+   * position. Later tries are logged as attempts but change nothing. Own-game
+   * positions have no rating, so nothing here ever moves one.
    */
   const settleFirstOutcome = (outcome) => {
     const first = !ratedRef.current.has(puzzle.id);
     ratedRef.current.add(puzzle.id);
-    if (puzzle.own && first) {
+    if (first) {
       // Solved moves it further out; missed or revealed brings it back tomorrow.
       reviewOwnPuzzle(puzzle.own, outcome === 'solved' ? 'good' : 'again');
     }
-    if (!trainee) {
-      if (outcome === 'solved') setSessionSolved((prev) => new Set(prev).add(puzzle.id));
-      return;
-    }
-    const score = puzzleRatingScore({
-      puzzle,
-      outcome,
-      alreadyRated: !first,
-      alreadySolved: (trainee.puzzleStats?.solvedIds || []).includes(puzzle.id),
-    });
-    // A wrong move that isn't the first outcome writes nothing to the row.
-    if (outcome === 'wrong' && score == null) return;
+    if (outcome === 'solved') setSessionSolved((prev) => new Set(prev).add(puzzle.id));
+    // A wrong move writes nothing to the roster row; a solve or a reveal does.
+    if (!trainee || outcome === 'wrong') return;
     recordPuzzleResult(trainee.playerId, {
       puzzleId: puzzle.id,
       solved: outcome === 'solved',
-      rated: score == null ? null : { opponentRating: puzzle.rating, opponentRd: PUZZLE_OPPONENT_RD, score },
+      rated: null,
     });
   };
 

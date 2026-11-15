@@ -145,7 +145,7 @@ test('exactly one priority, from improvementPlan, with its advice and drill', ()
   assert.match(priority.advice, /leaving pieces undefended/);
   assert.deepEqual(priority.action, {
     href: '#/training?theme=hangingPiece',
-    label: 'Practice hanging piece puzzles',
+    label: 'Watch and practise hanging piece',
   });
   assert.ok(!('score' in priority), 'the priority carries no number');
   assert.ok(!Array.isArray(priority), 'one priority, not a list');
@@ -206,11 +206,22 @@ test('a frequent motif gives the concrete version of the drill', () => {
   assert.equal(home.priority.action.href, '#/training?theme=fork');
 });
 
-test('a priority with no puzzle theme sends the player somewhere that fits', () => {
+test('a priority with no puzzle theme sends the player to the training plan', () => {
   const home = aliceHome({ skillRows: [skill('CC-010', 'timeManagement', 30, 'high', 9, 0, 60)] });
   assert.equal(home.priority.category, 'timeManagement');
   assert.equal(home.priority.trainingTheme, null);
-  assert.equal(home.priority.action.href, '#/play');
+  assert.equal(home.priority.action.href, '#/training');
+});
+
+test('the plan carries the priority, one video, one Lichess link and the review count', () => {
+  const home = aliceHome();
+  assert.equal(home.plan.hasPriority, true);
+  assert.equal(home.plan.focus.label, home.priority.label);
+  assert.equal(home.plan.focus.line, home.priority.advice);
+  assert.equal(home.plan.practise.url, 'https://lichess.org/training/hangingPiece');
+  assert.match(home.plan.watch.url, /^https:\/\/www\.youtube\.com\//);
+  assert.equal(home.plan.review.due, home.reviews.due);
+  assert.ok(!('score' in home.plan) && !Array.isArray(home.plan.focus), 'no scores, no ranked list');
 });
 
 test('motifTotals sums only what it is given, and ignores junk counts', () => {
@@ -399,7 +410,11 @@ test('a brand-new member: empty everything, and sent to play a game', () => {
   assert.equal(home.priority, null);
   assert.equal(home.reviews.due, 0);
   assert.equal(home.measuredCount, 0);
-  assert.deepEqual(home.nextStep, { href: '#/play', label: 'Play a game', reason: 'new' });
+  assert.deepEqual(home.nextStep, { href: '#/games?log=1', label: 'Log a game', reason: 'new' });
+  // A new member still gets a plan: the newer-player defaults, never an empty page.
+  assert.equal(home.plan.hasPriority, false);
+  assert.equal(home.plan.practise.url, 'https://lichess.org/training');
+  assert.ok(home.plan.watch.url.startsWith('https://www.youtube.com/'));
 });
 
 import { shortGameDate } from './playerHome.js';
@@ -411,4 +426,20 @@ test('shortGameDate: month and day this year, with the year otherwise; junk give
   assert.equal(shortGameDate('2025-12-31', now), 'Dec 31, 2025');
   assert.equal(shortGameDate('', now), '');
   assert.equal(shortGameDate('not a date', now), '');
+});
+
+test('a member with only bullet games (all skipped) gets the new-player plan, not an error', () => {
+  const bulletGame = (id) => ({
+    id, playedAt: '2026-11-01T10:00:00Z', whitePlayerId: 'CC-010', blackPlayerId: '', whiteName: 'Alice', blackName: 'Rival',
+    result: '1-0', mode: 'chesscom', analysisStatus: 'skipped', analysisError: 'skipped: bullet games are not analysed automatically',
+  });
+  const home = buildPlayerHome({
+    player: alice, viewer: aliceViewer, skillRows: [], analyses: [], games: [bulletGame('g1'), bulletGame('g2')], now: NOW,
+  });
+  assert.equal(home.available, true);
+  assert.equal(home.priority, null);
+  assert.equal(home.analysedCount, 0);
+  assert.equal(home.nextStep.reason, 'games');
+  assert.ok(home.plan, 'the study plan still builds');
+  assert.ok(home.recentGames.every((g) => g.bulletSkipped && g.accuracy == null));
 });

@@ -16,7 +16,8 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
+import { coalesce } from '../../services/coalesce.js';
 
 /** Attempts pile up faster than any other record, so the local copy is capped. */
 const LOCAL_LIMIT = 2000;
@@ -72,20 +73,21 @@ async function syncFromCloud() {
     .order('attempted_at', { ascending: false })
     .limit(LOCAL_LIMIT);
   if (error) {
-    reportSyncError('your puzzle history', error.message);
+    reportLoadError('your puzzle history', error.message);
     return;
   }
+  reportSyncOk('your puzzle history');
   cloudReady = true;
   store.set(data.map(fromRow));
 }
+
+const refetchFromCloud = coalesce(syncFromCloud);
 
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('puzzle-attempts-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'puzzle_attempts' }, () => {
-      syncFromCloud();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'puzzle_attempts' }, refetchFromCloud)
     .subscribe();
 }
 
@@ -96,6 +98,7 @@ if (isSupabaseConfigured) {
       subscribeRealtime();
     } else {
       cloudReady = false;
+      refetchFromCloud.cancel();
       if (channel) {
         supabase.removeChannel(channel);
         channel = null;
@@ -139,6 +142,7 @@ export function recordAttempt(attempt) {
       .insert(toRow(record))
       .then(({ error }) => {
         if (error) reportSyncError('that puzzle attempt', error.message);
+        else reportSyncOk('that puzzle attempt');
       });
   }
   return record;

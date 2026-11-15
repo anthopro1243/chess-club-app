@@ -2,7 +2,7 @@
  * lazyPage.js — load a page's code the first time someone opens it.
  *
  * The Club page is what everyone sees first, so only it ships in the first
- * download; Play, Training (with its 400-puzzle library), Games, Roster and
+ * download; Training, Games, Roster and
  * Coach come when tapped. On a phone on school wifi that is most of the
  * first-load script.
  *

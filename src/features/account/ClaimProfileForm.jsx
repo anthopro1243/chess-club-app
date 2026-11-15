@@ -28,7 +28,7 @@ export default function ClaimProfileForm({ onDone }) {
         <span>Grade (optional)</span>
         <input type="text" value={grade} onChange={(e) => setGrade(e.target.value)} />
       </label>
-      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
         {busy ? 'Joining…' : 'Join the roster'}
       </button>
     </form>

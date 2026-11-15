@@ -1,8 +1,8 @@
 /*
  * gamesStore.js — the club's game archive.
  *
- * Every finished game on the Play page lands here: who played, the result,
- * the full PGN, and whether it was a club game or one against Stockfish.
+ * Every game lands here: who played, the result, the full PGN, and whether
+ * it was a club game, an imported one, or (older ones) one against Stockfish.
  * Same pattern as rosterStore — local by default, backed by the shared
  * `games` table once Supabase is configured and someone is signed in.
  *
@@ -13,11 +13,15 @@
 
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
+import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-games-v1', []);
 
-/** Where a game came from. 'human' and 'computer' are played in the app; the other two are imported. */
+/**
+ * Where a game came from. 'human' (logged by hand or from a scoresheet) and 'computer' (played
+ * on the old Play page, since removed) are club-recorded; the other two are imported.
+ */
 export const GAME_MODE_LABEL = {
   human: 'Club',
   computer: 'vs Computer',
@@ -81,7 +85,11 @@ function toRow(game) {
     mode: game.mode,
     computer_elo: game.computerElo,
     pgn: game.pgn,
-    // Sent only when set, so the Play page, sync and PGN import write exactly
+    // Sent only when set (a bullet game is filed as skipped from the start),
+    // so every other path writes exactly the columns it always did.
+    ...(game.analysisStatus ? { analysis_status: game.analysisStatus } : {}),
+    ...(game.analysisError ? { analysis_error: game.analysisError } : {}),
+    // Sent only when set, so sync, the log form and PGN import write exactly
     // the columns they always did, whether or not 0022 has been applied.
     ...(game.event ? { event: game.event } : {}),
     ...(game.round ? { round: game.round } : {}),
@@ -114,20 +122,23 @@ async function syncFromCloud() {
     .order('played_at', { ascending: false })
     .limit(500);
   if (error) {
-    reportSyncError('the game archive', error.message);
+    reportLoadError('the game archive', error.message);
     return;
   }
+  reportSyncOk('the game archive');
   cloudReady = true;
   store.set(data.map(fromRow));
 }
+
+// Row updates arrive in bursts (the analysis queue touches a game several
+// times); one refetch per burst, not per event.
+const refetchFromCloud = coalesce(syncFromCloud);
 
 function subscribeRealtime() {
   if (channel) return;
   channel = supabase
     .channel('games-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
-      syncFromCloud();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, refetchFromCloud)
     .subscribe();
 }
 
@@ -138,6 +149,7 @@ if (isSupabaseConfigured) {
       subscribeRealtime();
     } else {
       cloudReady = false;
+      refetchFromCloud.cancel();
       if (channel) {
         supabase.removeChannel(channel);
         channel = null;
@@ -167,6 +179,7 @@ export function recordGame(game) {
       .insert(toRow(record))
       .then(({ error }) => {
         if (error) reportSyncError('that game', error.message);
+        else reportSyncOk('that game');
       });
   }
   return record;
@@ -193,14 +206,72 @@ export function recordExternalGames(games) {
   });
 
   if (added.length && isSupabaseConfigured && cloudReady) {
+    // ignoreDuplicates: a game already in the table is left exactly as it is,
+    // including its analysis, so re-importing an old game can never undo a
+    // finished analysis or a skip.
     supabase
       .from('games')
-      .upsert(added.map(toRow))
+      .upsert(added.map(toRow), { onConflict: 'id', ignoreDuplicates: true })
       .then(({ error }) => {
         if (error) reportSyncError('the imported games', error.message);
+        else reportSyncOk('the imported games');
       });
   }
   return added;
+}
+
+/**
+ * What the archive already holds from one linked account: how many games and
+ * the date of the oldest. Asked of the database rather than the local list,
+ * because the local list keeps only the club's newest 500 games and would
+ * undercount a member whose history is deeper than that.
+ */
+export async function importedHistoryOf(playerId, platform) {
+  const mine = (g) =>
+    g.mode === platform && (g.whitePlayerId === playerId || g.blackPlayerId === playerId);
+
+  if (!isSupabaseConfigured || !cloudReady) {
+    const local = store.get().filter(mine);
+    const oldest = local.reduce((min, g) => (!min || String(g.playedAt) < min ? String(g.playedAt) : min), null);
+    return { count: local.length, oldestAt: oldest };
+  }
+
+  const owned = `white_player_id.eq.${playerId},black_player_id.eq.${playerId}`;
+  const [countResult, oldestResult] = await Promise.all([
+    supabase
+      .from('games')
+      .select('id', { count: 'exact', head: true })
+      .eq('mode', platform)
+      .is('deleted_at', null)
+      .or(owned),
+    supabase
+      .from('games')
+      .select('played_at')
+      .eq('mode', platform)
+      .is('deleted_at', null)
+      .or(owned)
+      .order('played_at', { ascending: true })
+      .limit(1),
+  ]);
+  const error = countResult.error || oldestResult.error;
+  if (error) throw new Error(error.message);
+  return { count: countResult.count ?? 0, oldestAt: oldestResult.data?.[0]?.played_at ?? null };
+}
+
+/** Which of these game ids are already in the archive. */
+export async function knownGameIds(ids) {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return new Set();
+  const known = new Set(store.get().filter((g) => wanted.includes(g.id)).map((g) => g.id));
+  if (!isSupabaseConfigured || !cloudReady) return known;
+
+  // In slices, so the request line stays short enough for any proxy.
+  for (let i = 0; i < wanted.length; i += 50) {
+    const { data, error } = await supabase.from('games').select('id').in('id', wanted.slice(i, i + 50));
+    if (error) throw new Error(error.message);
+    for (const row of data || []) known.add(row.id);
+  }
+  return known;
 }
 
 /*
@@ -241,6 +312,7 @@ export async function recordImportedGames(games) {
     reportSyncError('the imported games', error.message);
     return { ok: false, added: [], error: error.message };
   }
+  reportSyncOk('the imported games');
   return { ok: true, added };
 }
 
@@ -261,6 +333,7 @@ export function setGameReviewed(id, reviewed = true) {
         .eq('id', id)
         .then(({ error }) => {
           if (error) reportSyncError('marking that game reviewed', error.message);
+          else reportSyncOk('marking that game reviewed');
         }),
     );
   }
@@ -284,6 +357,7 @@ export async function renameInGames(updates = []) {
     if (error) failed += 1;
   }
   if (failed) reportSyncError('renaming archived games', `${failed} game(s) were not updated`);
+  else reportSyncOk('renaming archived games');
   return failed;
 }
 
@@ -296,6 +370,7 @@ export function removeGame(id) {
       .eq('id', id)
       .then(({ error }) => {
         if (error) reportSyncError('removing that game', error.message);
+        else reportSyncOk('removing that game');
       });
   }
 }

@@ -51,10 +51,10 @@ export default function AwaitingApproval() {
           {error}
         </span>
       )}
-      <button type="submit" className="primary" disabled={busy} aria-busy={busy}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
         {busy ? 'Checking…' : 'Use code'}
       </button>
-      <button type="button" className="link-button" onClick={() => signOut()}>
+      <button type="button" className="btn btn-ghost btn-block" onClick={() => signOut()}>
         Sign out
       </button>
     </form>

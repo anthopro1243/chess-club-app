@@ -28,7 +28,7 @@ export default function ClientErrorsPanel() {
         <h2>Problems in members&rsquo; browsers</h2>
         <button
           type="button"
-          className="link-button"
+          className="btn btn-sm"
           disabled={busy}
           aria-busy={busy}
           onClick={async () => {

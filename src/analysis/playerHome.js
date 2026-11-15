@@ -13,6 +13,8 @@
  *     and only for categories confident enough to be shown at all.
  *   - review positions due: the player's own-game puzzles, via the same
  *     spaced-repetition rules the Training page uses.
+ *   - the weekly plan (studyPlan.js): that one priority, a video, a Lichess
+ *     link, the review count and a nudge to play a long game.
  *   - recent games: the last few games this player actually played.
  *   - one next step: a single link, so the page ends in an action.
  */
@@ -22,6 +24,7 @@ import {
   canViewAnalysis, categoryLine, playerSummary, puzzleThemeFor, trendLabel,
 } from './presentation.js';
 import { reviewSummary } from './spacedRepetition.js';
+import { buildStudyPlan } from './studyPlan.js';
 
 export const RECENT_GAMES_LIMIT = 5;
 
@@ -44,17 +47,6 @@ const NOTATION_NOTE = "Games can't measure this. It comes from scoresheet checks
  */
 const SHOWABLE_CONFIDENCE = new Set(['medium', 'high']);
 const KNOWN_CONFIDENCE = new Set(['none', 'low', 'medium', 'high']);
-
-/*
- * Where a priority with no puzzle theme should send the player. The plan's
- * advice for these categories is about playing (a per-move budget, playing on
- * from worse positions) or about daily mixed puzzles, not a themed drill.
- */
-const ACTION_WITHOUT_THEME = Object.freeze({
-  tacticalVision: { href: '#/training', label: 'Do some puzzles' },
-  timeManagement: { href: '#/play', label: 'Play a game with the clock on' },
-  psychologicalResilience: { href: '#/play', label: 'Play on against the engine' },
-});
 
 
 const toTime = (value) => {
@@ -213,16 +205,16 @@ export function trendOverview(categories) {
   };
 }
 
-/** Where the priority's "do it now" button goes, or null when nothing fits. */
+/**
+ * Where the priority's button goes: the Training page, which holds the video
+ * and the Lichess link for it (focused on the tactic when there is one).
+ */
 function priorityAction(priority) {
   const puzzleTheme = puzzleThemeFor(priority.trainingTheme);
   if (puzzleTheme) {
-    return {
-      href: `#/training?theme=${puzzleTheme}`,
-      label: `Practice ${priority.trainingTheme.toLowerCase()} puzzles`,
-    };
+    return { href: `#/training?theme=${puzzleTheme}`, label: `Watch and practise ${priority.trainingTheme.toLowerCase()}` };
   }
-  return ACTION_WITHOUT_THEME[priority.category] ?? null;
+  return { href: '#/training', label: 'Open your training plan' };
 }
 
 /** The last few games this player played, newest first, with accuracy where analysed. */
@@ -247,6 +239,8 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
       mode: game.mode || 'human',
       ...view,
       analysed: !!row,
+      // Filed as skipped on purpose (bullet), not waiting in line.
+      bulletSkipped: !row && game.analysisStatus === 'skipped' && /bullet/i.test(game.analysisError || ''),
       accuracy,
     };
   });
@@ -255,7 +249,7 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
 /*
  * The single next step: the plan's drill first, then the player's own
  * mistakes due for review, then their games, and a new member is sent to
- * play one.
+ * log one (their linked accounts bring games in by themselves).
  */
 // Straight to "Your mistakes" on Training, already set to the signed-in player.
 const REVIEW_HREF = '#/training?mode=mistakes';
@@ -272,7 +266,7 @@ function nextStepFor({ priority, reviews, gamesCount }) {
     };
   }
   if (gamesCount > 0) return { href: '#/my-games', label: 'Go over your games', reason: 'games' };
-  return { href: '#/play', label: 'Play a game', reason: 'new' };
+  return { href: '#/games?log=1', label: 'Log a game', reason: 'new' };
 }
 
 /**
@@ -285,6 +279,7 @@ function nextStepFor({ priority, reviews, gamesCount }) {
  * @param {Array}  input.analyses   analysisStore analysis rows (anyone's; filtered here)
  * @param {Array}  input.games      gamesStore rows (anyone's; filtered here)
  * @param {Array}  input.ownPuzzles ownPuzzleStore rows, in any state (anyone's; filtered here)
+ * @param {number|null} [input.rating] picks the video's level (studyPlan.planRating)
  * @param {number} [input.now]      epoch ms, injected so tests need not wait
  */
 export function buildPlayerHome({
@@ -294,6 +289,7 @@ export function buildPlayerHome({
   analyses = [],
   games = [],
   ownPuzzles = [],
+  rating = null,
   now = Date.now(),
   recentLimit = RECENT_GAMES_LIMIT,
 } = {}) {
@@ -369,6 +365,8 @@ export function buildPlayerHome({
     categories,
     measuredCount: categories.filter((c) => c.showNumber).length,
     reviews,
+    rating,
+    plan: buildStudyPlan({ priority, reviews, rating, analysedCount: analysedGameIds.size }),
     recentGames,
     nextStep: nextStepFor({ priority, reviews, gamesCount: mineGames.length }),
   };

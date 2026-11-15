@@ -13,9 +13,10 @@ import { useAnalysisQueue } from '../features/analysis/useAnalysisQueue.js';
 import { useAutoSync } from '../features/sync/useAutoSync.js';
 import { useMyProfile } from '../features/roster/rosterStore.js';
 import BackgroundActivity from './BackgroundActivity.jsx';
-import { ROUTES, SITE_NAME, navGroups, tabRoutes, viewKey, canOpenRoute, documentTitle } from './routes.js';
+import { ROUTES, SITE_NAME, NOT_FOUND, navGroups, tabRoutes, viewKey, canOpenRoute, documentTitle } from './routes.js';
 import { useRoute } from './useRoute.js';
 import Link from '../ui/Link.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
 import Icon from '../ui/Icon.jsx';
 import Modal from '../ui/Modal.jsx';
 import PageHeader, { PageChromeProvider } from '../ui/PageHeader.jsx';
@@ -28,7 +29,6 @@ import { shouldAskWhoAreYou } from '../features/account/accountLinking.js';
 // Everything but the Club page loads when first opened (lazyPage.js).
 const PAGES = {
   home: ClubPage,
-  play: lazyPage(() => import('../features/play/PlayPage.jsx')),
   training: lazyPage(() => import('../features/training/TrainingPage.jsx')),
   games: lazyPage(() => import('../features/games/GamesPage.jsx')),
   'my-games': lazyPage(() => import('../features/games/MyGamesPage.jsx')),
@@ -175,9 +175,12 @@ export default function App() {
   }, [route, detailTitle]);
 
   const mainRef = useRef(null);
-  const Page = PAGES[route] || ClubPage;
-  const allowed = canOpenRoute(route, account);
-  const routeInfo = ROUTES.find((r) => r.id === route) || ROUTES[0];
+  const missing = route === NOT_FOUND;
+  const Page = missing ? NotFound : PAGES[route] || ClubPage;
+  const allowed = missing || canOpenRoute(route, account);
+  const routeInfo = missing
+    ? { title: 'Page not found', summary: null }
+    : ROUTES.find((r) => r.id === route) || ROUTES[0];
   const showsPage = !(isCloud && account.loading) && !locked && !askWhoAreYou && allowed;
   const groups = locked ? [] : navGroups(account);
   const { tabs, more } = tabRoutes(account);
@@ -257,8 +260,11 @@ export default function App() {
         {syncError && (
           <div className="auth-banner error">
             <span>
-              Couldn&rsquo;t save {syncError.what} to the server. It&rsquo;s only saved in this browser
-              for now. {syncError.message}
+              {syncError.kind === 'load'
+                ? <>Couldn&rsquo;t load {syncError.what} from the server, so what you see may be out of
+                    date. {syncError.message}</>
+                : <>Couldn&rsquo;t save {syncError.what} to the server. It&rsquo;s only saved in this
+                    browser for now. {syncError.message}</>}
             </span>
             <button type="button" onClick={clearSyncError} aria-label="Dismiss">
               ×
@@ -397,13 +403,30 @@ export default function App() {
   );
 }
 
+/** A typed-in or out-of-date address that names no page. */
+function NotFound() {
+  return (
+    <EmptyState
+      icon="search"
+      title="There’s no page at this address"
+      actions={
+        <Link to="home" className="btn btn-primary">
+          Go to the Club page
+        </Link>
+      }
+    >
+      The link may be old or mistyped. Everything in the club is reachable from the menu.
+    </EmptyState>
+  );
+}
+
 /** What a member sees if they follow an old link to the Coach page. */
 function CoachOnly() {
   return (
     <section className="panel access-gate">
       <h2>Coaches only</h2>
       <p>This page is for the coach. Your own games and what to work on are on the Club page.</p>
-      <Link to="home" className="button primary">
+      <Link to="home" className="btn btn-primary">
         Go to the Club page
       </Link>
     </section>
@@ -452,7 +475,7 @@ class PageErrorBoundary extends Component {
             ? 'Check your connection and try again.'
             : 'It’s been reported to the coach. Reloading usually gets you going again.'}
         </p>
-        <button type="button" className="primary" onClick={() => window.location.reload()}>
+        <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
           Reload
         </button>
       </section>

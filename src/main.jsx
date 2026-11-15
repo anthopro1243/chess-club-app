@@ -10,6 +10,13 @@ import '@fontsource/public-sans/latin-600.css';
 import '@fontsource/public-sans/latin-700.css';
 import './styles/app.css';
 
+// The removed Play page left a saved game in the browser; nothing reads it any more.
+try {
+  localStorage.removeItem('cc-play-state-v2');
+} catch {
+  /* storage can be unavailable; the stale key is harmless */
+}
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

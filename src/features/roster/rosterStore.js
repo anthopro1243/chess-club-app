@@ -16,8 +16,8 @@
  * as they land.
  *
  * Club ratings (see glicko2.js) live on each player row as `clubRating` —
- * updated here, not on the pages that trigger a result, so Play and
- * Training don't need to know the rating math.
+ * updated here, not on the pages that trigger a result, so they
+ * don't need to know the rating math.
  */
 
 import { useEffect, useState } from 'react';
@@ -25,7 +25,7 @@ import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
 import { PLAYERS as SAMPLE_PLAYERS } from './roster.js';
 import { updateRating, DEFAULT_RATING } from '../ratings/glicko2.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { fromRow, toRow, toRowPatch, applyRealtimeChange, applyPuzzleOutcome } from './playerRows.js';
 import { savePrivateRows } from './playerPrivateStore.js';
 
@@ -57,9 +57,10 @@ let issuedPlayerIds = [];
 async function syncFromCloud() {
   const { data, error } = await supabase.from('players').select('*').order('player_id');
   if (error) {
-    reportSyncError('the roster', error.message);
+    reportLoadError('the roster', error.message);
     return;
   }
+  reportSyncOk('the roster');
   cloudReady = true;
   issuedPlayerIds = data.map((row) => row.player_id);
   // Soft-deleted members stay in the table so their games, analyses and scores
@@ -146,6 +147,7 @@ async function pushFields(player, fields) {
     reportSyncError('the roster', error.message);
     return false;
   }
+  reportSyncOk('the roster');
   return true;
 }
 
@@ -162,6 +164,7 @@ async function insertNewPlayer(player) {
   for (let tries = 0; tries < 3; tries += 1) {
     const { error } = await supabase.from('players').insert(toRow(candidate));
     if (!error) {
+      reportSyncOk('the roster');
       issuedPlayerIds = [...new Set([...issuedPlayerIds, candidate.playerId])];
       return candidate;
     }
@@ -191,6 +194,7 @@ async function retireInCloud(playerId) {
     reportSyncError('removing that player', error.message);
     return false;
   }
+  reportSyncOk('removing that player');
   return true;
 }
 
@@ -339,6 +343,7 @@ export async function applyRosterImport(rows) {
       reportSyncError('the roster import', error.message);
       throw new Error(error.message);
     }
+    reportSyncOk('the roster import');
     issuedPlayerIds = [...new Set([...issuedPlayerIds, ...merged.map((p) => p.playerId)])];
   }
 
@@ -441,6 +446,7 @@ export async function archiveGraduate(playerId, patch) {
       reportSyncError('archiving that member', error.message);
       return false;
     }
+    reportSyncOk('archiving that member');
   }
   store.set((players) => players.filter((p) => p.playerId !== playerId));
   await retireInCloud(playerId);
@@ -581,7 +587,10 @@ async function pushGameRatings(white, black) {
     p_black_rating: black.clubRating,
     p_black_entry: lastEntry(black),
   });
-  if (!error) return;
+  if (!error) {
+    reportSyncOk('the game ratings');
+    return;
+  }
   const missing = error.code === 'PGRST202' || /could not find the function|does not exist/i.test(error.message || '');
   if (!missing) {
     reportSyncError('the game ratings', error.message);
@@ -653,9 +662,8 @@ function mergePlatformRatings(existing, platform, ratings) {
  * in a single write.
  *
  * Each game must arrive carrying the opponent rating already converted to
- * the club's scale (see externalSync.js) — the same division of labour the
- * Play and Training pages use, where the caller decides what the opponent
- * was worth and this module only does the maths.
+ * the club's scale (see externalSync.js) — the caller decides what the
+ * opponent was worth and this module only does the maths.
  *
  * Returns which games were actually new, so the caller knows what to
  * archive and what to report.

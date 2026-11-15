@@ -10,7 +10,7 @@
 import { useMemo } from 'react';
 import { createStore, useStore } from '../../services/store.js';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
-import { reportSyncError } from '../../services/syncStatus.js';
+import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 
 const ratings = createStore('cc-platform-ratings-v1', []);
 const overrides = createStore('cc-rating-overrides-v1', []);
@@ -63,6 +63,7 @@ export async function savePlatformRatings(rows) {
     reportSyncError('the platform ratings', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the platform ratings');
   return { ok: true, saved: rows.length };
 }
 
@@ -84,6 +85,7 @@ export async function setRatingOverride(playerId, clubRating, note = null) {
     reportSyncError('the rating override', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the rating override');
   return { ok: true };
 }
 
@@ -95,6 +97,7 @@ export async function clearRatingOverride(playerId) {
     reportSyncError('the rating override', error.message);
     return { ok: false, error: error.message };
   }
+  reportSyncOk('the rating override');
   return { ok: true };
 }
 
@@ -104,10 +107,16 @@ export async function syncRatingsFromCloud() {
     supabase.from('player_platform_ratings').select('*'),
     supabase.from('player_rating_overrides').select('*'),
   ]);
-  if (a.error) reportSyncError('the platform ratings', a.error.message);
-  else ratings.set((a.data || []).map(fromRow));
-  if (b.error) reportSyncError('the rating overrides', b.error.message);
-  else overrides.set((b.data || []).map(overrideFromRow));
+  if (a.error) reportLoadError('the platform ratings', a.error.message);
+  else {
+    reportSyncOk('the platform ratings');
+    ratings.set((a.data || []).map(fromRow));
+  }
+  if (b.error) reportLoadError('the rating overrides', b.error.message);
+  else {
+    reportSyncOk('the rating overrides');
+    overrides.set((b.data || []).map(overrideFromRow));
+  }
 }
 
 /** Every stored rating for one player, newest platform read first. */

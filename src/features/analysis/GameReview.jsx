@@ -176,7 +176,7 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
             <div className="critical-head">
               <h4>{showingBig ? 'Big mistakes' : 'Turning points'}</h4>
               {big.length > 0 && big.length < explained.length && (
-                <button type="button" className="link-button" onClick={() => setBigOnly((v) => !v)}>
+                <button type="button" className="btn btn-sm" onClick={() => setBigOnly((v) => !v)}>
                   {showingBig ? 'Show all turning points' : 'Big mistakes only'}
                 </button>
               )}
@@ -203,7 +203,9 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
 
         {!analyses.length && (
           <p className="muted">
-            Not analyzed yet. You can still step through the moves.
+            {game.analysisStatus === 'skipped' && /bullet/i.test(game.analysisError || '')
+              ? 'Bullet games aren’t analyzed automatically. You can still step through the moves.'
+              : 'Not analyzed yet. You can still step through the moves.'}
           </p>
         )}
       </div>

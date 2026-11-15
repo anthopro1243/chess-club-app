@@ -1,5 +1,194 @@
 /* ---------- training ---------------------------------------------------- */
 
+.training-page {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.trainee-pick {
+  max-width: 320px;
+}
+
+/* The weekly plan: the thing to work on, then a card each for Watch,
+   Practise and Review, then one quiet line. */
+.study-plan {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.plan-eyebrow {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.plan-focus {
+  padding-bottom: var(--space-1);
+}
+
+.plan-main {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.plan-line {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+
+.plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.plan-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.plan-title {
+  margin: 1px 0 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.plan-meta {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.plan-action {
+  flex: none;
+}
+
+.plan-quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  padding: 0 var(--space-1);
+  color: var(--text-muted);
+}
+
+.plan-quiet p {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .plan-action,
+  .plan-action .btn {
+    width: 100%;
+  }
+  .plan-action .btn {
+    white-space: normal;
+    min-height: 40px;
+  }
+}
+
+/* A link to another website: the icon sits right after the words. */
+.ext-link {
+  display: inline;
+  font-weight: 600;
+}
+
+/* As a button, the link keeps the button's own layout and colours. */
+.ext-link.btn {
+  display: inline-flex;
+}
+
+.ext-link.btn .ext-link-icon {
+  margin-left: 0;
+  vertical-align: baseline;
+}
+
+.ext-link-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-left: 4px;
+}
+
+/* "Practise a theme": small chips under a few headings, wrapping freely. */
+.panel h2 + .theme-group {
+  margin-top: var(--space-3);
+}
+
+.theme-group + .theme-group {
+  margin-top: var(--space-4);
+}
+
+.theme-group h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.theme-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.theme-chips .btn {
+  border-radius: 999px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.theme-chips .btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.theme-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-5) 0 0;
+}
+
+
+.club-weakness-links {
+  margin-top: 2px;
+}
+
+.theme-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+}
+
+/* "Your mistakes": one position at a time. */
 .puzzle-banner {
   display: flex;
   align-items: center;
@@ -33,12 +222,6 @@
   margin-right: 8px;
 }
 
-.puzzle-rating {
-  color: var(--text-faint);
-  font-size: 0.78rem;
-  margin-left: 8px;
-}
-
 .puzzle-prompt {
   color: var(--text-muted);
   font-size: 0.86rem;
@@ -59,73 +242,6 @@
   font-size: 0.88rem;
 }
 
-.big-number {
-  font-size: 1.9rem;
-  font-weight: 650;
-  margin: 4px 0 10px;
-}
-
-.big-number span {
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
-.puzzle-index {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.puzzle-index li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.puzzle-chip {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--bg-sunken);
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.puzzle-chip.current {
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-
-.puzzle-chip.solved {
-  background: var(--good);
-  border-color: var(--good);
-  color: #0d1a10;
-  font-weight: 700;
-}
-
-.puzzle-theme {
-  font-size: 0.83rem;
-  color: var(--text-muted);
-}
-
-.loop-list {
-  margin: 10px 0 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  font-size: 0.88rem;
-  color: var(--text-muted);
-}
-
-.loop-list strong {
-  color: var(--text);
+.mistakes-review {
+  max-width: 560px;
 }

@@ -10,9 +10,6 @@
   margin-bottom: 14px;
 }
 
-/* Player and type filters sit side by side (the Play page's first field spans
-   the row; here neither needs to). */
-.opponent-controls.games-filters .field:first-child { grid-column: auto; }
 
 /* The chevron at the end of a row that opens something. */
 .row-chevron {
