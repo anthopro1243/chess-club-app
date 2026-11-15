@@ -113,6 +113,29 @@ Without those variables it skips, so `npm test` stays green on a fresh clone.
 Run it after any policy change. A broken board is obvious in a second; a
 broken permission rule is invisible until it matters.
 
+## Linked accounts: history depth and the analysis queue
+
+A member who links Chess.com or Lichess gets about 200 recent games analysed,
+not just the latest 50. Only the first 50 (and later syncs) change their club
+rating; the older ones are for the practice plan only. Members who linked
+before this was added are topped up once, automatically, the next time their
+account syncs.
+
+- **"Analysing your recent games: 37 of 180"** in the corner is normal after a
+  link. The plan changes as games finish, newest first. It only counts while a
+  tab with the app open is doing the work, so a member who closes the app
+  pauses it.
+- **Bullet games are not analysed.** They are imported and rated, then show as
+  *Skipped* on the Coach page's queue panel. Any game can still be analysed by
+  hand: open it and press *Analyze this game*.
+- **A member's plan looks thin after linking.** Check the Skipped count: someone
+  who only plays bullet has nothing to analyse and sees the new-member plan.
+- **Wanting a re-run of the top-up for one member** (for example after they
+  relinked a different account): the note is `historyToppedUpAt` inside that
+  member's `connections` entry for the platform; relinking clears it.
+- **Rate limits.** Both sites are asked one request at a time. A 429 pauses
+  that site for the whole club sweep (one minute, then two, four…).
+
 ## Deploying
 
 ```bash

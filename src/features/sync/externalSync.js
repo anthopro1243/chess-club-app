@@ -12,10 +12,14 @@
  * roster only does the arithmetic.
  */
 
-import { fetchGames, fetchProfile, PLATFORMS } from '../../services/external/externalChess.js';
+import { fetchGames, fetchProfile, fetchRecentHistory, PLATFORMS } from '../../services/external/externalChess.js';
 import { getPlayers, recordExternalResults, setConnection } from '../roster/rosterStore.js';
-import { recordExternalGames } from '../games/gamesStore.js';
+import { recordExternalGames, importedHistoryOf, knownGameIds } from '../games/gamesStore.js';
 import { enqueueGameRow } from '../analysis/queue.js';
+import { isBulletGame, BULLET_SKIP_REASON } from '../analysis/bulletGames.js';
+import {
+  HISTORY_DEPTH, HISTORY_TIME_BUDGET_MS, needsHistoryTopUp, topUpIsComplete, newHistoryGames,
+} from './historyTopUp.js';
 import { toRatingRows } from '../../analysis/ratings.js';
 import { savePlatformRatings } from '../ratings/ratingStore.js';
 
@@ -49,7 +53,11 @@ const RATING_OFFSETS = {
 const ESTABLISHED_RD = 80;
 const PROVISIONAL_RD = 200;
 
-/** How much history to take on the first sync, and on every sync after it. */
+/**
+ * How much history feeds the club RATING on the first sync, and on every sync
+ * after it. Deeper history for the engine to analyse is a separate step that
+ * never touches the rating: see historyTopUp.js (HISTORY_DEPTH).
+ */
 const FIRST_SYNC_LIMIT = 50;
 const INCREMENTAL_LIMIT = 100;
 
@@ -66,7 +74,11 @@ function toClubScale(game) {
 }
 
 function toArchiveRecord(game, playerId) {
+  // Bullet is imported and rated like any other game, but filed as skipped so
+  // the engine never queues it.
+  const skipped = isBulletGame(game);
   return {
+    ...(skipped ? { analysisStatus: 'skipped', analysisError: BULLET_SKIP_REASON } : {}),
     id: game.externalId,
     playedAt: game.playedAt,
     whitePlayerId: game.color === 'white' ? playerId : '',
@@ -95,6 +107,7 @@ export async function connectAccount(playerId, platform, username) {
     connectedAt: new Date().toISOString(),
     lastSyncedAt: null,
     lastGameAt: null,
+    historyToppedUpAt: null,
   });
   return profile;
 }
@@ -109,6 +122,17 @@ export async function syncPlatform(playerId, platform) {
   if (!connection?.username) throw new Error(`No ${PLATFORMS[platform]?.label} account linked.`);
 
   const profile = await fetchProfile(platform, connection.username);
+
+  // How much of this account is already archived, read before anything new
+  // lands. Null when it cannot be read: the top-up then waits for a later sync.
+  let archivedBefore = null;
+  if (needsHistoryTopUp({ connection, storedCount: 0 })) {
+    try {
+      archivedBefore = (await importedHistoryOf(playerId, platform)).count;
+    } catch (error) {
+      console.warn(`history top-up: could not count ${platform} games:`, error?.message);
+    }
+  }
 
   const firstSync = !connection.lastGameAt;
   const fetched = await fetchGames(platform, connection.username, {
@@ -143,24 +167,78 @@ export async function syncPlatform(playerId, platform) {
     // Nothing should sit waiting for a coach to notice it exists. The row is
     // inserted with analysis_status 'pending' by default, so this only matters
     // for a game that was previously marked failed or skipped.
-    for (const game of archived) await enqueueGameRow(game.id);
+    for (const game of archived) if (!game.analysisStatus) await enqueueGameRow(game.id);
   }
 
   // Ratings are stored per (platform, time control) as separate rows and are
   // never merged into one number - see src/analysis/ratings.js for why.
   await savePlatformRatings(toRatingRows(playerId, platform, profile.ratings));
 
+  // Deeper history for analysis. Runs last, so a slow or refused request here
+  // can never cost the member the rated import above.
+  const history = await topUpHistory(playerId, platform, {
+    connection: { ...connection, username: profile.username },
+    storedCount: archivedBefore == null ? null : archivedBefore + archived.length,
+    alreadyHave: new Set([...fetched.map((g) => g.externalId), ...(player.importedGameIds || [])]),
+  });
+
   return {
     platform,
     label: PLATFORMS[platform]?.label || platform,
     username: profile.username,
     imported: imported.length,
-    queuedForAnalysis: archived.length,
+    queuedForAnalysis: archived.filter((g) => !g.analysisStatus).length,
+    historyAdded: history.added,
     ratings: profile.ratings,
     ratingBefore,
     ratingAfter,
     ratingChange: ratingBefore != null && ratingAfter != null ? ratingAfter - ratingBefore : 0,
   };
+}
+
+/**
+ * Bring an account's archive up to HISTORY_DEPTH recent games for analysis.
+ *
+ * Analysis only: these games go to the archive and the queue and are never
+ * handed to recordExternalResults, so the club rating cannot move because of
+ * them. A game already archived is left alone (checked against the archive,
+ * and the table refuses a second row with the same id anyway).
+ *
+ * A rate limit is rethrown, so the caller's back-off applies; any other
+ * failure just leaves the job unfinished for the next sync to pick up.
+ */
+async function topUpHistory(playerId, platform, { connection, storedCount, alreadyHave }) {
+  if (storedCount == null) return { added: 0 };
+  if (!needsHistoryTopUp({ connection, storedCount })) {
+    // Already deep enough: note it, so the archive is not counted every sync.
+    if (storedCount >= HISTORY_DEPTH && !connection.historyToppedUpAt) {
+      setConnection(playerId, platform, { historyToppedUpAt: new Date().toISOString() });
+    }
+    return { added: 0 };
+  }
+  try {
+    const { games, reachedEnd } = await fetchRecentHistory(platform, connection.username, {
+      limit: HISTORY_DEPTH,
+      deadlineAt: Date.now() + HISTORY_TIME_BUDGET_MS,
+    });
+
+    const known = await knownGameIds(games.map((g) => g.externalId));
+    for (const id of alreadyHave) known.add(id);
+    const archived = newHistoryGames(games, known).map((g) => toArchiveRecord(g, playerId));
+
+    if (archived.length) {
+      recordExternalGames(archived);
+      for (const game of archived) if (!game.analysisStatus) await enqueueGameRow(game.id);
+    }
+    if (topUpIsComplete({ fetchedCount: games.length, reachedEnd })) {
+      setConnection(playerId, platform, { historyToppedUpAt: new Date().toISOString() });
+    }
+    return { added: archived.length };
+  } catch (error) {
+    if (error?.status === 429) throw error;
+    console.warn(`history top-up: ${platform}:`, error?.message);
+    return { added: 0 };
+  }
 }
 
 /**

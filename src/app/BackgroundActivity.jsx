@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../services/store.js';
 import { useAnalysisActivity } from '../features/analysis/useAnalysisQueue.js';
 import { autoSyncStatus } from '../features/sync/useAutoSync.js';
+import { useGames } from '../features/games/gamesStore.js';
+import { useMyProfile } from '../features/roster/rosterStore.js';
+import { recentAnalysisProgress } from '../features/analysis/progress.js';
 
 /*
  * BackgroundActivity — a small, quiet note in the corner saying what the app
@@ -16,6 +19,8 @@ export default function BackgroundActivity() {
   const analysis = useAnalysisActivity();
   const sync = useStore(autoSyncStatus);
   const [hiddenSync, setHiddenSync] = useState(null);
+  const games = useGames();
+  const me = useMyProfile();
 
   // Let a finished or failed sync note go away on its own.
   useEffect(() => {
@@ -33,6 +38,17 @@ export default function BackgroundActivity() {
       key: 'analysis',
       text: `Analyzing a game${pct != null ? ` (${pct}%)` : '…'}${queued ? ` · ${queued} waiting` : ''}`,
       busy: true,
+    });
+  }
+  // A member who has just linked an account has a long backlog; say so, so
+  // the plan changing over the next while makes sense. Only while the engine
+  // is actually working through it.
+  const backlog = analysis.current ? recentAnalysisProgress(games, me?.playerId) : null;
+  if (backlog) {
+    lines.push({
+      key: 'backlog',
+      text: `Analysing your recent games: ${backlog.done} of ${backlog.total}`,
+      title: 'Your plan updates as each game is done, newest games first.',
     });
   }
   if (sync !== hiddenSync) {

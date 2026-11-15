@@ -427,3 +427,19 @@ test('shortGameDate: month and day this year, with the year otherwise; junk give
   assert.equal(shortGameDate('', now), '');
   assert.equal(shortGameDate('not a date', now), '');
 });
+
+test('a member with only bullet games (all skipped) gets the new-player plan, not an error', () => {
+  const bulletGame = (id) => ({
+    id, playedAt: '2026-11-01T10:00:00Z', whitePlayerId: 'CC-010', blackPlayerId: '', whiteName: 'Alice', blackName: 'Rival',
+    result: '1-0', mode: 'chesscom', analysisStatus: 'skipped', analysisError: 'skipped: bullet games are not analysed automatically',
+  });
+  const home = buildPlayerHome({
+    player: alice, viewer: aliceViewer, skillRows: [], analyses: [], games: [bulletGame('g1'), bulletGame('g2')], now: NOW,
+  });
+  assert.equal(home.available, true);
+  assert.equal(home.priority, null);
+  assert.equal(home.analysedCount, 0);
+  assert.equal(home.nextStep.reason, 'games');
+  assert.ok(home.plan, 'the study plan still builds');
+  assert.ok(home.recentGames.every((g) => g.bulletSkipped && g.accuracy == null));
+});

@@ -203,7 +203,9 @@ export default function GameReview({ game, analyses = [], orientation = 'w' }) {
 
         {!analyses.length && (
           <p className="muted">
-            Not analyzed yet. You can still step through the moves.
+            {game.analysisStatus === 'skipped' && /bullet/i.test(game.analysisError || '')
+              ? 'Bullet games aren’t analyzed automatically. You can still step through the moves.'
+              : 'Not analyzed yet. You can still step through the moves.'}
           </p>
         )}
       </div>

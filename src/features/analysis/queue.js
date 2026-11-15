@@ -16,7 +16,8 @@
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient.js';
 import { reportSyncError, reportLoadError, reportSyncOk } from '../../services/syncStatus.js';
 import { partitionQueueCandidates, RETIRED_SKIP_REASON } from '../roster/retiredPlayers.js';
-import { readyForRetry, viewerFirst } from '../../services/external/autoPolicy.js';
+import { readyForRetry, claimOrder } from '../../services/external/autoPolicy.js';
+import { partitionBulletGames, BULLET_SKIP_REASON } from './bulletGames.js';
 
 export const STALE_MINUTES = 15;
 export const MAX_ATTEMPTS = 3;
@@ -88,15 +89,22 @@ export async function claimNext({ playerId = null, preferPlayerId = null } = {})
    * would come back at the top of every claim and could starve the window of
    * real work (CC-003 alone had 67 pending when it was retired).
    */
-  const { analyse, skip } = partitionQueueCandidates(data, await retiredPlayerIds());
+  const { analyse: notRetired, skip } = partitionQueueCandidates(data, await retiredPlayerIds());
   await markSkipped(skip.map((g) => g.id));
+
+  // Bullet games are imported and rated but not worth engine time. One
+  // already waiting in the queue is skipped the moment a worker meets it.
+  const { analyse, skip: bullet } = partitionBulletGames(notRetired);
+  await markSkipped(bullet.map((g) => g.id), BULLET_SKIP_REASON);
 
   // A game that just failed waits out a backoff before it is tried again, so
   // a transient fault (a dropped connection, a busy engine) gets time to
   // clear instead of burning all MAX_ATTEMPTS in a few seconds. The viewer's
-  // own games go first: their analysis is the one somebody is waiting for.
+  // own games go first: their analysis is the one somebody is waiting for,
+  // and after that the most recently played, so the plan reflects this month
+  // before last year.
   const now = Date.now();
-  const ready = viewerFirst(analyse.filter((g) => readyForRetry(g, now)), preferPlayerId);
+  const ready = claimOrder(analyse.filter((g) => readyForRetry(g, now)), preferPlayerId);
 
   for (const candidate of ready) {
     let claim = supabase
@@ -127,13 +135,13 @@ async function retiredPlayerIds() {
   return new Set((data || []).map((row) => row.player_id));
 }
 
-async function markSkipped(gameIds) {
+async function markSkipped(gameIds, reason = RETIRED_SKIP_REASON) {
   if (!gameIds.length) return;
   const { error } = await supabase
     .from('games')
     .update({
       analysis_status: 'skipped',
-      analysis_error: RETIRED_SKIP_REASON,
+      analysis_error: reason,
       analysis_claimed_at: null,
       analysis_updated_at: new Date().toISOString(),
     })
@@ -188,7 +196,10 @@ export async function enqueueAll({ playerId = null } = {}) {
     .update({ analysis_status: 'pending', analysis_attempts: 0, analysis_error: null })
     .is('deleted_at', null)
     .not('pgn', 'is', null)
-    .in('analysis_status', ['failed', 'skipped']);
+    .in('analysis_status', ['failed', 'skipped'])
+    // Bullet games are skipped on purpose; putting them back would only have
+    // the next worker skip them again.
+    .or(`analysis_error.is.null,analysis_error.neq.${BULLET_SKIP_REASON}`);
   if (playerId) update = update.or(`white_player_id.eq.${playerId},black_player_id.eq.${playerId}`);
   const { data, error } = await update.select('id');
   if (error) {

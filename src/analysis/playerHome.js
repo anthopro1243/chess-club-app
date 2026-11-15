@@ -239,6 +239,8 @@ export function recentGamesFor(games = [], analyses = [], playerId, limit = RECE
       mode: game.mode || 'human',
       ...view,
       analysed: !!row,
+      // Filed as skipped on purpose (bullet), not waiting in line.
+      bulletSkipped: !row && game.analysisStatus === 'skipped' && /bullet/i.test(game.analysisError || ''),
       accuracy,
     };
   });

@@ -52,6 +52,17 @@ export function viewerFirst(rows = [], viewerId = null) {
   return [...mine, ...rest];
 }
 
+/**
+ * The order a worker takes games in: the viewer's own first, then the most
+ * recently played. Sorting here rather than trusting the query means the
+ * rule is tested, and a change to the query cannot quietly undo it.
+ */
+export function claimOrder(rows = [], viewerId = null) {
+  const playedAt = (row) => String(row?.played_at ?? row?.playedAt ?? '');
+  const newestFirst = [...(rows || [])].sort((a, b) => playedAt(b).localeCompare(playedAt(a)));
+  return viewerFirst(newestFirst, viewerId);
+}
+
 /* ── syncing linked accounts on open ────────────────────────────────────── */
 
 /** Do not sync a linked account more than once every 30 minutes. */

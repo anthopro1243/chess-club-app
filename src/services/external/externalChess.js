@@ -351,6 +351,94 @@ export function normalizeLichessGame(game, username) {
   };
 }
 
+// -- deeper history ---------------------------------------------------------
+
+const newestFirst = (a, b) => String(b.playedAt).localeCompare(String(a.playedAt));
+const pause = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve());
+
+/** Wait between months so a long walk is never a burst of requests. */
+const MONTH_PAUSE_MS = 250;
+
+/**
+ * The most recent `limit` rated standard games, newest first, however many
+ * the member already has. Used to deepen a member's history for analysis; it
+ * is a different question from fetchGames, which asks "what is new since the
+ * last sync", and it never feeds the rating.
+ *
+ * Chess.com: walk the monthly archives newest to oldest, one request at a
+ * time, until enough games are in hand. Lichess: one request, max=limit.
+ *
+ * `reachedEnd` says the whole account history was seen (so a short account
+ * is known to be complete rather than merely unfinished). `deadlineAt`
+ * (epoch ms) stops a long walk early; what was found is still returned.
+ */
+export async function fetchRecentHistory(platform, username, { limit = 200, deadlineAt = null, pauseMs = MONTH_PAUSE_MS } = {}) {
+  if (platform === 'chesscom') return fetchChesscomHistory(username, { limit, deadlineAt, pauseMs });
+  if (platform === 'lichess') return fetchLichessHistory(username, { limit });
+  throw new ExternalChessError(`Unknown platform: ${platform}`);
+}
+
+async function fetchChesscomHistory(username, { limit, deadlineAt, pauseMs }) {
+  const user = username.trim().toLowerCase();
+  const { archives } = await (
+    await getJson(`${CHESSCOM_API}/player/${encodeURIComponent(user)}/games/archives`)
+  ).json();
+
+  const collected = [];
+  let reachedEnd = true;
+  let first = true;
+  for (const monthUrl of [...(archives || [])].reverse()) {
+    if (collected.length >= limit) {
+      reachedEnd = false;
+      break;
+    }
+    if (deadlineAt && Date.now() > deadlineAt) {
+      reachedEnd = false;
+      break;
+    }
+    if (!first) await pause(pauseMs);
+    first = false;
+    const { games } = await (await getJson(monthUrl)).json();
+    for (const game of games || []) {
+      const normalised = normalizeChesscomGame(game, user);
+      if (normalised) collected.push(normalised);
+    }
+  }
+
+  collected.sort(newestFirst);
+  return { games: collected.slice(0, limit), reachedEnd: reachedEnd && collected.length <= limit };
+}
+
+async function fetchLichessHistory(username, { limit }) {
+  const user = username.trim();
+  const params = new URLSearchParams({
+    max: String(limit),
+    rated: 'true',
+    perfType: LICHESS_PERFS,
+    pgnInJson: 'true',
+    sort: 'dateDesc',
+  });
+  const response = await getJson(
+    `${LICHESS_API}/games/user/${encodeURIComponent(user)}?${params}`,
+    { headers: { Accept: 'application/x-ndjson' } },
+  );
+  const lines = (await response.text()).split('\n').filter((line) => line.trim());
+
+  const games = [];
+  for (const line of lines) {
+    let parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const normalised = normalizeLichessGame(parsed, user);
+    if (normalised) games.push(normalised);
+  }
+  // Fewer lines than asked for means the site had no more to give.
+  return { games: games.sort(newestFirst), reachedEnd: lines.length < limit };
+}
+
 // -- one entry point per platform -----------------------------------------
 
 export function fetchProfile(platform, username) {

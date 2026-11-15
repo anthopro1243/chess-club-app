@@ -225,6 +225,55 @@ the app talks to, add its origin to `connect-src` there.
 
 Live at https://chess-club-app-seven.vercel.app
 
+## From "account linked" to "priority shown"
+
+1. **Link** (`connectAccount`): the username is checked against the site and
+   saved on the member's `connections` entry.
+2. **Rated import** (`syncPlatform`, `externalSync.js`): the newest
+   `FIRST_SYNC_LIMIT` (50) games on a first sync, `INCREMENTAL_LIMIT` (100)
+   after that, go through `recordExternalResults`. This is the only path that
+   updates the club rating (Glicko-2, oldest game first), and it is unchanged:
+   same games, same order, same arithmetic. Each game id is remembered in
+   `importedGameIds`, so a game is never rated twice.
+3. **History top-up** (`topUpHistory`, `historyTopUp.js`): straight after the
+   rated import, the account is brought up to `HISTORY_DEPTH` (200) recent
+   games with `fetchRecentHistory`. These games are **analysis only**: they are
+   archived and queued but never passed to `recordExternalResults`, so they
+   cannot move a rating. It runs for a brand-new link and, once, for members
+   who linked before it existed (who have about 50). Whether it is needed comes
+   from data that already exists: how many games of that account the archive
+   holds (`importedHistoryOf`, a count in the database, not the local list,
+   which keeps only the newest 500). When it finishes, `historyToppedUpAt` is
+   written inside the existing `connections` JSON (no new column), so a short
+   account with fewer than 200 games is not asked again. A walk cut short by
+   the 25-second budget or an error leaves no note and resumes next sync. Games
+   already archived are skipped (`knownGameIds`), and the insert uses
+   `ignoreDuplicates`, so a second run cannot duplicate or overwrite anything.
+   Chess.com is walked month by month, newest first, one request at a time with
+   a 250 ms pause; Lichess is one request with `max`. A 429 is rethrown so the
+   club sweep's back-off (`clubSync.js`) applies.
+4. **Queue**: every archived game is a `games` row with `analysis_status`
+   (`queue.js`). Bullet games (`bulletGames.js`) are written as `skipped` with
+   `BULLET_SKIP_REASON` at import; one already `pending` is skipped when a
+   worker meets it (the PGN's `TimeControl` tag is read with each site's own
+   bullet rule, because the table has no time-class column). "Retry failed and
+   skipped" leaves bullet alone.
+5. **Order** (`claimOrder` in `autoPolicy.js`): the signed-in member's own games
+   first, then most recently played first, so the plan reflects this month
+   before last year.
+6. **Scores** (`runner.js` → `trackedScores.js`): after each analysed game the
+   player's tracked scores are **rebuilt from all their analysed games in the
+   order they were played**, read from the database (`analysesForScoring`),
+   not carried forward from the stored value. The running average depends on
+   the order games arrive in (14 points apart in the worst case tested), which
+   newest-first analysis would otherwise have made depend on queue order.
+7. **Priority**: `playerHome.js` ranks the weakest confident category into the
+   one priority. A member with no analysed games (for instance only bullet)
+   gets the new-player defaults.
+
+Progress is shown by `BackgroundActivity` ("Analysing your recent games: 37 of
+180", `progress.js`), worked out from the status already on each game row.
+
 ## Gotchas worth knowing
 
 - **Preview deploys share the production database.** Anything you click on a

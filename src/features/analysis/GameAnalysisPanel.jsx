@@ -11,6 +11,7 @@ import { improvementPlan } from '../../analysis/scoring.js';
 import TimeUseChart from './TimeUseChart.jsx';
 import { CATEGORY_LABELS } from '../../analysis/scoring.js';
 import { describeMotifs } from '../../analysis/clubWeaknesses.js';
+import { BULLET_SKIP_REASON } from './bulletGames.js';
 
 /*
  * The engine's read on one archived game.
@@ -94,9 +95,11 @@ export default function GameAnalysisPanel({ game, viewer, allowSelfAnalysis = fa
 
       {!visible.length && !running && (
         <p className="muted">
-          {mayAnalyse
-            ? 'Not analyzed yet.'
-            : 'Your coach hasn’t shared an analysis of this game yet.'}
+          {game.analysisStatus === 'skipped' && game.analysisError === BULLET_SKIP_REASON
+            ? `Bullet games aren’t analyzed automatically.${mayAnalyse ? ' Press Analyze this game to do this one now.' : ''}`
+            : mayAnalyse
+              ? 'Not analyzed yet.'
+              : 'Your coach hasn’t shared an analysis of this game yet.'}
         </p>
       )}
 

@@ -12,12 +12,11 @@
 
 import { createEngine } from '../../engine/stockfishClient.js';
 import { analyzeGame, criticalMomentsAsPuzzles, TOURNAMENT_DEPTH, DEFAULT_DEPTH } from '../../analysis/analyzeGame.js';
-import {
-  saveAnalysis, saveSkillScores, getAnalyses, getSkillsForPlayer,
-} from './analysisStore.js';
+import { saveAnalysis, saveSkillScores, analysesForScoring } from './analysisStore.js';
+import { getGames } from '../games/gamesStore.js';
 import { addOwnGamePuzzles } from '../training/ownPuzzleStore.js';
 import { recordEngineAssessment } from '../coach/assessmentStore.js';
-import { aggregateRaw, rubricScores, updatePlayerScores } from '../../analysis/scoring.js';
+import { trackedScoresByDate } from '../../analysis/trackedScores.js';
 
 let engine = null;
 let busy = false;
@@ -78,7 +77,7 @@ export async function analyzeArchivedGame(game, opts = {}) {
     const refreshed = [];
     if (opts.updateScores !== false) {
       for (const playerId of [game.whitePlayerId, game.blackPlayerId].filter(Boolean)) {
-        const result = await refreshPlayerScoresFromStore(playerId);
+        const result = await refreshPlayerScoresFromStore(playerId, { gameId: game.id });
         if (result.ok) refreshed.push(playerId);
       }
     }
@@ -109,25 +108,23 @@ export function puzzlesFrom(analysis, game) {
 
 /**
  * Re-derive a player's tracked scores from every game of theirs analysed so
- * far, then store them. Aggregating the raw metrics and scoring once is not the
- * same as averaging per-game scores, and the former is what scoring.js wants.
+ * far, oldest to newest, then store them.
+ *
+ * The scores are rebuilt from the games each time rather than nudged from the
+ * stored value (see trackedScores.js): the queue now works newest-first, and a
+ * running average built in that order would let the oldest game, analysed
+ * last, count for more than it should. Aggregating the raw metrics and scoring
+ * once is not the same as averaging per-game scores, and the former is what
+ * scoring.js wants.
+ *
+ * @param analysesForPlayer { gameId, playedAt, raw, movesPlayed, movesCounted, motifCounts }[]
  */
-export async function refreshPlayerScores(playerId, analysesForPlayer, previous = null) {
+export async function refreshPlayerScores(playerId, analysesForPlayer, { gameId = null } = {}) {
   if (!playerId || !analysesForPlayer?.length) return { ok: false, error: 'nothing to score' };
 
-  // aggregateRaw reads movesPlayed/movesCounted/motifCounts off the TOP of each
-  // game report, not out of `raw`. Passing only { raw } silently zeroed the
-  // oversight denominator, which is what board vision is a rate over - so the
-  // category came back null and never reached the database.
-  const reports = analysesForPlayer.map((a) => ({
-    raw: a.raw || {},
-    movesPlayed: a.movesPlayed ?? 0,
-    movesCounted: a.movesCounted ?? 0,
-    motifCounts: a.motifCounts || {},
-  }));
-  const raw = aggregateRaw(reports);
-  const scores = rubricScores(raw);
-  const tracked = updatePlayerScores(previous, scores);
+  // The oversight denominator (movesPlayed) and the motif counts sit at the TOP
+  // of each report, not inside `raw`; trackedScoresByDate carries them across.
+  const { tracked, scores } = trackedScoresByDate(analysesForPlayer);
 
   // updatePlayerScores carries score/games/trend/confidence but not the
   // observation count, and the coach view labels a score by how much evidence
@@ -139,9 +136,7 @@ export async function refreshPlayerScores(playerId, analysesForPlayer, previous 
     ]),
   );
 
-  const result = await saveSkillScores(playerId, withCounts, {
-    gameId: analysesForPlayer[0]?.gameId ?? null,
-  });
+  const result = await saveSkillScores(playerId, withCounts, { gameId });
 
   /*
    * And write the assessment itself.
@@ -179,16 +174,13 @@ export async function drainQueue(games, queue, { signal, onGame } = {}) {
 }
 
 /**
- * Recompute one player's tracked scores from every analysis of theirs held
- * locally. Called automatically after each game is analysed, so a coach never
- * has to press anything for the numbers to move.
+ * Recompute one player's tracked scores from every analysis of theirs. Called
+ * automatically after each game is analysed, so a coach never has to press
+ * anything for the numbers to move.
  */
-export async function refreshPlayerScoresFromStore(playerId) {
-  const mine = getAnalyses().filter((a) => a.playerId === playerId);
+export async function refreshPlayerScoresFromStore(playerId, { gameId = null } = {}) {
+  const dates = new Map(getGames().map((g) => [g.id, g.playedAt]));
+  const mine = await analysesForScoring(playerId, { playedAtOf: (id) => dates.get(id) ?? null });
   if (!mine.length) return { ok: false, error: 'no analyses for that player' };
-  // Pass the scores already on record so the exponential update has something
-  // to move FROM. Without it every refresh reads as the player's first game
-  // and the trend is permanently zero.
-  const previous = getSkillsForPlayer(playerId);
-  return refreshPlayerScores(playerId, mine, Object.keys(previous).length ? previous : null);
+  return refreshPlayerScores(playerId, mine, { gameId });
 }

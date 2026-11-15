@@ -85,6 +85,10 @@ function toRow(game) {
     mode: game.mode,
     computer_elo: game.computerElo,
     pgn: game.pgn,
+    // Sent only when set (a bullet game is filed as skipped from the start),
+    // so every other path writes exactly the columns it always did.
+    ...(game.analysisStatus ? { analysis_status: game.analysisStatus } : {}),
+    ...(game.analysisError ? { analysis_error: game.analysisError } : {}),
     // Sent only when set, so sync, the log form and PGN import write exactly
     // the columns they always did, whether or not 0022 has been applied.
     ...(game.event ? { event: game.event } : {}),
@@ -202,15 +206,72 @@ export function recordExternalGames(games) {
   });
 
   if (added.length && isSupabaseConfigured && cloudReady) {
+    // ignoreDuplicates: a game already in the table is left exactly as it is,
+    // including its analysis, so re-importing an old game can never undo a
+    // finished analysis or a skip.
     supabase
       .from('games')
-      .upsert(added.map(toRow))
+      .upsert(added.map(toRow), { onConflict: 'id', ignoreDuplicates: true })
       .then(({ error }) => {
         if (error) reportSyncError('the imported games', error.message);
         else reportSyncOk('the imported games');
       });
   }
   return added;
+}
+
+/**
+ * What the archive already holds from one linked account: how many games and
+ * the date of the oldest. Asked of the database rather than the local list,
+ * because the local list keeps only the club's newest 500 games and would
+ * undercount a member whose history is deeper than that.
+ */
+export async function importedHistoryOf(playerId, platform) {
+  const mine = (g) =>
+    g.mode === platform && (g.whitePlayerId === playerId || g.blackPlayerId === playerId);
+
+  if (!isSupabaseConfigured || !cloudReady) {
+    const local = store.get().filter(mine);
+    const oldest = local.reduce((min, g) => (!min || String(g.playedAt) < min ? String(g.playedAt) : min), null);
+    return { count: local.length, oldestAt: oldest };
+  }
+
+  const owned = `white_player_id.eq.${playerId},black_player_id.eq.${playerId}`;
+  const [countResult, oldestResult] = await Promise.all([
+    supabase
+      .from('games')
+      .select('id', { count: 'exact', head: true })
+      .eq('mode', platform)
+      .is('deleted_at', null)
+      .or(owned),
+    supabase
+      .from('games')
+      .select('played_at')
+      .eq('mode', platform)
+      .is('deleted_at', null)
+      .or(owned)
+      .order('played_at', { ascending: true })
+      .limit(1),
+  ]);
+  const error = countResult.error || oldestResult.error;
+  if (error) throw new Error(error.message);
+  return { count: countResult.count ?? 0, oldestAt: oldestResult.data?.[0]?.played_at ?? null };
+}
+
+/** Which of these game ids are already in the archive. */
+export async function knownGameIds(ids) {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return new Set();
+  const known = new Set(store.get().filter((g) => wanted.includes(g.id)).map((g) => g.id));
+  if (!isSupabaseConfigured || !cloudReady) return known;
+
+  // In slices, so the request line stays short enough for any proxy.
+  for (let i = 0; i < wanted.length; i += 50) {
+    const { data, error } = await supabase.from('games').select('id').in('id', wanted.slice(i, i + 50));
+    if (error) throw new Error(error.message);
+    for (const row of data || []) known.add(row.id);
+  }
+  return known;
 }
 
 /*

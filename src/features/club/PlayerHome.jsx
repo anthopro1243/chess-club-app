@@ -163,7 +163,9 @@ function RecentGames({ games, total }) {
               </span>
             </span>
             <span className="ph-accuracy mono small">
-              {g.accuracy != null ? `${g.accuracy}% accuracy` : <span className="muted">not analyzed yet</span>}
+              {g.accuracy != null
+                ? `${g.accuracy}% accuracy`
+                : <span className="muted">{g.bulletSkipped ? 'bullet: not analyzed' : 'not analyzed yet'}</span>}
             </span>
           </li>
         ))}
