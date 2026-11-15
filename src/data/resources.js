@@ -9,7 +9,7 @@
  *      in a browser. If it shows a title and a channel, the link works and
  *      you can copy the title and channel from there. If it shows an error,
  *      the video is gone or private: do not use it.
- *   3. Replace the `title`, `channel` and `url` of the entry below, keep the
+ *   3. Replace the `title`, `short` (the short name shown in the app), `channel` and `url` of the entry below, keep the
  *      quote marks and commas, then save. A slot may also be set to null:
  *      the page then simply shows no video for it (the fallback described
  *      at the bottom of this comment is used instead).
@@ -72,7 +72,6 @@ export const CHESSCOM_PUZZLES = Object.freeze({ label: 'Chess.com puzzles', url:
  */
 const video = (title, short, channel, url, minutes) => ({ title, short, channel, url, ...(minutes ? { minutes } : {}) });
 const yt = (id) => `https://www.youtube.com/watch?v=${id}`;
-const playlist = (id) => `https://www.youtube.com/playlist?list=${id}`;
 
 export const BANDS = ['under1000', '1000-1400', '1400+'];
 
@@ -83,11 +82,14 @@ export function bandForRating(rating) {
   return r < 1400 ? '1000-1400' : '1400+';
 }
 
-/* The general fundamentals video for each band: the fallback for everything. */
+/*
+ * The general video for each band: the fallback for everything. GothamChess
+ * first (the videos members actually watch), then similar creators.
+ */
 export const GENERAL_VIDEOS = Object.freeze({
-  under1000: video('Chess Fundamentals', 'Chess fundamentals', 'John Bartholomew', playlist('PLl9uuRYQ-6MBwqkmwT42l1fI7Z0bYuwwO')),
-  '1000-1400': video('Climbing the Rating Ladder', 'Climbing the rating ladder', 'John Bartholomew', playlist('PLl9uuRYQ-6MCBnhtCk_bTZsD8GxeWP6BV')),
-  '1400+': video('SpeedRun', 'SpeedRun (Naroditsky)', 'Daniel Naroditsky', playlist('PLT1F2nOxLHOcmi_qi1BbY6axf5xLFEcit')),
+  under1000: video('Want to be 1000 in chess?', 'Want to be 1000 in chess?', 'GothamChess', yt('mjZKRoNuAvY'), 34),
+  '1000-1400': video('CHESS STEPS #3 (1000-1400)', 'Chess Steps #3: 1000–1400', 'GothamChess', yt('ghJRGPXsjfk'), 63),
+  '1400+': video('Intermediate Chess Masterclass: 1300 to 2000 Elo', 'Intermediate masterclass: 1300 to 2000', 'GothamChess', yt('F1gM7N-WXdU'), 40),
 });
 
 /*
@@ -97,43 +99,43 @@ export const GENERAL_VIDEOS = Object.freeze({
  */
 export const CATEGORY_VIDEOS = Object.freeze({
   openingKnowledge: {
-    under1000: video('Must-Know Opening Principles - Central Control | Chess Basics | Beginner Level | IM Alex Astaneh', 'Opening principles: central control', 'Chessfactor', yt('gpsZAim-mYc'), 22),
-    default: video('The Golden Opening and Endgame Rules | Chess Principles | Improver Level | IM Andrey Ostrovskiy', 'The golden opening and endgame rules', 'Chessfactor', yt('9ptbztQBxRA'), 25),
+    under1000: video('Basic Chess Openings Explained', 'Basic chess openings explained', 'GothamChess', yt('8IlJ3v8I4Z8'), 9),
+    default: video('How To Learn & Study Chess Openings', 'How to learn and study openings', 'GothamChess', yt('6IegDENuxU4'), 23),
   },
   tacticalVision: {
-    default: video('Most common Chess Tactics every Player needs to know | Attack & Defense | IM Andrey Ostrovskiy', 'The most common tactics', 'Chessfactor', yt('IKDkxv6PWf8'), 22),
+    default: video('How To Calculate In Chess', 'How to calculate in chess', 'GothamChess', yt('9Ga9dP3bvN8'), 32),
   },
   positionalUnderstanding: {
-    '1400+': video('Understanding Pawn Levers - Strategic Planning | Chess Middlegame |Advanced Level |GM Alex Lenderman', 'Pawn levers and planning', 'Chessfactor', yt('oEO6LhFx0p8'), 24),
-    default: video('Everything you need to know about Piece Mobilization | Beginner Level | IM Andrey Ostrovskiy', 'Getting your pieces into play', 'Chessfactor', yt('XPpwG8gGqco'), 21),
+    '1400+': video('How To Evaluate ANY Chess Position', 'How to evaluate any position', 'GothamChess', yt('3su1RGtmfcw'), 24),
+    default: video('Chess Tips: How To Make a Plan', 'Chess tips: how to make a plan', 'GothamChess', yt('u8MKyE9Qt8I'), 11),
   },
   endgameTechnique: {
-    under1000: video('Important Endgame Principles and Techniques for Beginners | Beginner Level | IM Alex Astaneh', 'Endgame principles for beginners', 'Chessfactor', yt('PzmTEz2hlak'), 16),
-    '1000-1400': video('Learn the Lucena Position (The Shield) - Beginner to Chess Master #19', 'The Lucena position', 'ChessNetwork', yt('V1QXsV9SKlk')),
-    '1400+': video('My 10 tips to quickly improve your rook endgames', '10 tips for rook endgames', 'BlitzStream', yt('813QD5vW5-4')),
+    under1000: video('EASY CHESS ENDGAMES: King & Pawns', 'Easy endgames: king and pawns', 'GothamChess', yt('mCsc24k-Q8M'), 21),
+    '1000-1400': video('EASY CHESS ENDGAMES: Rook & Pawn', 'Easy endgames: rook and pawn', 'GothamChess', yt('JMZJ9P2Hnq0'), 23),
+    '1400+': video('Play Chess Endgames Like Magnus Carlsen', 'Endgames like Magnus Carlsen', 'GothamChess', yt('IvxhIozo_zo'), 34),
   },
   timeManagement: {
-    default: video('How To Manage Time In Your Chess Games (197)', 'Managing your time in a game', 'NM Robert Ramirez', yt('grF4uU7gRbY'), 8),
+    default: video('Time Management In Chess', 'Time management in chess', 'GothamChess', yt('d_K8Xe3obMM'), 27),
   },
   boardVision: {
-    default: video('Useful Tips to avoid Blunders | How to Blunder Less | Beginner Level | IM Kostya Kavutskiy', 'How to blunder less', 'Chessfactor', yt('AYy2A6HIcU0'), 18),
+    default: video('The SECRET To Stop Blundering Your Pieces In Chess', 'Stop blundering your pieces', 'Anna Cramling', yt('7vt5Lt5VUH4'), 17),
   },
   psychologicalResilience: {
-    default: video('How I Deal with Losing in Chess', 'How to deal with losing', 'GM Noel Studer', yt('JgQFSgzAyIE'), 12),
+    default: video('How To Improve Your Chess Psychology', 'Chess psychology: handling losses', 'GothamChess', yt('mIZSNGPdxo8'), 16),
   },
   notation: {
-    default: video('How to Write Chess Moves - Notate a Game', 'How to write chess moves', 'Chess House', yt('itftX-QZ5Ms'), 15),
+    default: video('Learn Chess Notation - The Language of Chess! How to Read & Write Chess Moves! Basics for Beginners', 'How to read and write chess notation', 'Chess Talk', yt('b6PR885Rgb8'), 11),
   },
 });
 
 /** One video per tactic (Lichess theme names). */
 export const THEME_VIDEOS = Object.freeze({
-  fork: video('The Fork | Chess Tactics | ChessKid', 'The fork', 'ChessKid', yt('mgAbXPBeVEI'), 7),
-  pin: video('The Pin | Chess Tactics | ChessKid', 'The pin', 'ChessKid', yt('sjpKC9SMvKs'), 7),
-  skewer: video('The Skewer | Chess Tactics | ChessKid', 'The skewer', 'ChessKid', yt('2KlDixnZMhM'), 5),
-  discoveredAttack: video('Creating multiple Threats with the Discovered Attack | Chess Tactics | IM Alex Astaneh', 'The discovered attack', 'Chessfactor', yt('nMADfn1scbI'), 21),
-  backRankMate: video('Incredible Back Rank Combinations | Chess Tactics | Improver Level | IM Kostya Kavutskiy', 'Back-rank combinations', 'Chessfactor', yt('spMQR31h0-0'), 9),
-  hangingPiece: video('How to visualize and exploit Poorly Protected Pieces | Beginner Level | IM Kostya Kavutskiy', 'Spotting poorly protected pieces', 'Chessfactor', yt('hKZTX8ccOyc'), 19),
+  fork: video('The Chess Tactics Guide For Beginners!  Learn the 3 most common chess tactics: forks, pins, skewers!', 'Forks, pins and skewers for beginners', 'Chess Vibes', yt('MbMslp2WcI0'), 7),
+  pin: video('The Chess Tactics Guide For Beginners!  Learn the 3 most common chess tactics: forks, pins, skewers!', 'Forks, pins and skewers for beginners', 'Chess Vibes', yt('MbMslp2WcI0'), 7),
+  skewer: video('Why The Skewer Chess Tactic Is More Important Than You Thought', 'The skewer', 'Chess Vibes', yt('Vre4tVytoxA'), 14),
+  discoveredAttack: video('Discovered Attack Chess Tactic - Concepts, Principles and Examples', 'The discovered attack', 'Chess Vibes', yt('XTNplr3nwck'), 16),
+  backRankMate: video('6 Checkmate Patterns YOU MUST KNOW', '6 checkmate patterns', 'GothamChess', yt('iBZLU1FXhcI'), 22),
+  hangingPiece: video('The SECRET To Stop Blundering Your Pieces In Chess', 'Stop blundering your pieces', 'Anna Cramling', yt('7vt5Lt5VUH4'), 17),
 });
 
 /** The video for a tactic, or null when there is none. */

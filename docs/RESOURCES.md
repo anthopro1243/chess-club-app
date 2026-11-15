@@ -18,37 +18,37 @@ and band, else the video for that weakness at any rating, else the general video
 
 | Band | Video | Channel |
 |---|---|---|
-| under 1000 | [Chess Fundamentals](https://www.youtube.com/playlist?list=PLl9uuRYQ-6MBwqkmwT42l1fI7Z0bYuwwO) | John Bartholomew |
-| 1000–1400 | [Climbing the Rating Ladder](https://www.youtube.com/playlist?list=PLl9uuRYQ-6MCBnhtCk_bTZsD8GxeWP6BV) | John Bartholomew |
-| 1400+ | [SpeedRun](https://www.youtube.com/playlist?list=PLT1F2nOxLHOcmi_qi1BbY6axf5xLFEcit) | Daniel Naroditsky |
+| under 1000 | [Want to be 1000 in chess?](https://www.youtube.com/watch?v=mjZKRoNuAvY) | GothamChess |
+| 1000–1400 | [CHESS STEPS #3 (1000-1400)](https://www.youtube.com/watch?v=ghJRGPXsjfk) | GothamChess |
+| 1400+ | [Intermediate Chess Masterclass: 1300 to 2000 Elo](https://www.youtube.com/watch?v=F1gM7N-WXdU) | GothamChess |
 
 ## By coaching category
 
 | Category | Band | Video | Channel |
 |---|---|---|---|
-| Opening knowledge | under 1000 | [Must-Know Opening Principles - Central Control](https://www.youtube.com/watch?v=gpsZAim-mYc) | Chessfactor |
-| Opening knowledge | any other | [The Golden Opening and Endgame Rules](https://www.youtube.com/watch?v=9ptbztQBxRA) | Chessfactor |
-| Tactical vision | any | [Most common Chess Tactics every Player needs to know](https://www.youtube.com/watch?v=IKDkxv6PWf8) | Chessfactor |
-| Positional understanding | 1400+ | [Understanding Pawn Levers - Strategic Planning](https://www.youtube.com/watch?v=oEO6LhFx0p8) | Chessfactor |
-| Positional understanding | any other | [Everything you need to know about Piece Mobilization](https://www.youtube.com/watch?v=XPpwG8gGqco) | Chessfactor |
-| Endgame technique | under 1000 | [Important Endgame Principles and Techniques for Beginners](https://www.youtube.com/watch?v=PzmTEz2hlak) | Chessfactor |
-| Endgame technique | 1000–1400 | [Learn the Lucena Position (The Shield) - Beginner to Chess Master #19](https://www.youtube.com/watch?v=V1QXsV9SKlk) | ChessNetwork |
-| Endgame technique | 1400+ | [My 10 tips to quickly improve your rook endgames](https://www.youtube.com/watch?v=813QD5vW5-4) | BlitzStream |
-| Board vision | any | [Useful Tips to avoid Blunders](https://www.youtube.com/watch?v=AYy2A6HIcU0) | Chessfactor |
-| Time management | any | [How To Manage Time In Your Chess Games (197)](https://www.youtube.com/watch?v=grF4uU7gRbY) | NM Robert Ramirez |
-| Psychological resilience | any | [How I Deal with Losing in Chess](https://www.youtube.com/watch?v=JgQFSgzAyIE) | GM Noel Studer |
-| Notation | any | [How to Write Chess Moves - Notate a Game](https://www.youtube.com/watch?v=itftX-QZ5Ms) | Chess House |
+| Opening knowledge | under 1000 | [Basic Chess Openings Explained](https://www.youtube.com/watch?v=8IlJ3v8I4Z8) | GothamChess |
+| Opening knowledge | any | [How To Learn & Study Chess Openings](https://www.youtube.com/watch?v=6IegDENuxU4) | GothamChess |
+| Tactical vision | any | [How To Calculate In Chess](https://www.youtube.com/watch?v=9Ga9dP3bvN8) | GothamChess |
+| Positional understanding | 1400+ | [How To Evaluate ANY Chess Position](https://www.youtube.com/watch?v=3su1RGtmfcw) | GothamChess |
+| Positional understanding | any | [Chess Tips: How To Make a Plan](https://www.youtube.com/watch?v=u8MKyE9Qt8I) | GothamChess |
+| Endgame technique | under 1000 | [EASY CHESS ENDGAMES: King & Pawns](https://www.youtube.com/watch?v=mCsc24k-Q8M) | GothamChess |
+| Endgame technique | 1000–1400 | [EASY CHESS ENDGAMES: Rook & Pawn](https://www.youtube.com/watch?v=JMZJ9P2Hnq0) | GothamChess |
+| Endgame technique | 1400+ | [Play Chess Endgames Like Magnus Carlsen](https://www.youtube.com/watch?v=IvxhIozo_zo) | GothamChess |
+| Time management | any | [Time Management In Chess](https://www.youtube.com/watch?v=d_K8Xe3obMM) | GothamChess |
+| Board vision | any | [The SECRET To Stop Blundering Your Pieces In Chess](https://www.youtube.com/watch?v=7vt5Lt5VUH4) | Anna Cramling |
+| Psychological resilience | any | [How To Improve Your Chess Psychology](https://www.youtube.com/watch?v=mIZSNGPdxo8) | GothamChess |
+| Notation | any | [Learn Chess Notation - The Language of Chess! How to Read & Write Chess Moves! Basics for Beginners](https://www.youtube.com/watch?v=b6PR885Rgb8) | Chess Talk |
 
 ## By tactic
 
 | Tactic | Video | Channel |
 |---|---|---|
-| Fork | [The Fork \| Chess Tactics \| ChessKid](https://www.youtube.com/watch?v=mgAbXPBeVEI) | ChessKid |
-| Pin | [The Pin \| Chess Tactics \| ChessKid](https://www.youtube.com/watch?v=sjpKC9SMvKs) | ChessKid |
-| Skewer | [The Skewer \| Chess Tactics \| ChessKid](https://www.youtube.com/watch?v=2KlDixnZMhM) | ChessKid |
-| Discovered attack | [Creating multiple Threats with the Discovered Attack](https://www.youtube.com/watch?v=nMADfn1scbI) | Chessfactor |
-| Back-rank mate | [Incredible Back Rank Combinations](https://www.youtube.com/watch?v=spMQR31h0-0) | Chessfactor |
-| Hanging piece | [How to visualize and exploit Poorly Protected Pieces](https://www.youtube.com/watch?v=hKZTX8ccOyc) | Chessfactor |
+| Fork | [The Chess Tactics Guide For Beginners!  Learn the 3 most common chess tactics: forks, pins, skewers!](https://www.youtube.com/watch?v=MbMslp2WcI0) | Chess Vibes |
+| Pin | [The Chess Tactics Guide For Beginners!  Learn the 3 most common chess tactics: forks, pins, skewers!](https://www.youtube.com/watch?v=MbMslp2WcI0) | Chess Vibes |
+| Skewer | [Why The Skewer Chess Tactic Is More Important Than You Thought](https://www.youtube.com/watch?v=Vre4tVytoxA) | Chess Vibes |
+| Discovered attack | [Discovered Attack Chess Tactic - Concepts, Principles and Examples](https://www.youtube.com/watch?v=XTNplr3nwck) | Chess Vibes |
+| Back-rank mate | [6 Checkmate Patterns YOU MUST KNOW](https://www.youtube.com/watch?v=iBZLU1FXhcI) | GothamChess |
+| Hanging piece | [The SECRET To Stop Blundering Your Pieces In Chess](https://www.youtube.com/watch?v=7vt5Lt5VUH4) | Anna Cramling |
 
 ## Lichess themed puzzles (`https://lichess.org/training/<theme>`)
 
@@ -69,21 +69,25 @@ video: **time management**, **psychological resilience** (handling losses and ti
 **notation** (keeping a scoresheet). Also no video yet for tactics other than the six above, or for
 positional understanding between 1000 and 1400 specifically (it uses the any-rating video).
 
-## What the app shows, and how the list was checked (2026-11-15)
+## What the app shows, and how the list was chosen (2026-11-15)
 
 The app shows a short name for each video (the `short` field in `resources.js`)
 with the channel and running time; the full title above stays here and in the data.
 
-- **Empty slots filled:** time management, handling losses and tilt, and notation each
-  now have one video. Every slot has a video; nothing is left empty.
-- **Chessfactor:** 12 of the 18 original videos were from this one channel. Each was opened:
-  all are full 6–25 minute lessons by titled coaches (IMs and GMs), free, and listed in Lichess's
-  own curated video library. Their description only points to the channel's free website and a
-  donation link, so none is a promo or a paywalled teaser. The 10 that remain are kept where no clearly
-  better-known equivalent exists.
-- **Replaced:** fork, pin and skewer now use ChessKid's three short lessons by FM Mike Klein
-  (5–7 minutes each, 600,000+ views each), made for young players. The pin lesson by
-  ChessNetwork (37 minutes) and the Chessfactor fork and skewer lessons were dropped.
-- **Not checked by watching:** the videos were checked from their titles, descriptions, length,
-  channel and view counts, not watched end to end. A coach should skim the three new
-  ones (time management, losses, notation) once before sharing them.
+The owner asked for the videos people actually watch, so GothamChess is the main
+source and similar creators fill the gaps. Dry lecture-style videos were replaced.
+
+- **GothamChess (14 slots):** the three general band videos, opening knowledge (both),
+  tactical vision, positional understanding (both), endgames (all three bands), time
+  management, psychology and back-rank mate (his "6 Checkmate Patterns").
+- **Other creators (7 slots):** Anna Cramling for board vision and hanging pieces (a method for not
+  blundering pieces); Chess Vibes (Nelson Lopez) for fork, pin (one beginner lesson on forks,
+  pins and skewers), skewer and discovered attack; Chess Talk for notation, because GothamChess
+  has no notation lesson.
+- **Empty:** none. GothamChess has no dedicated fork, pin, skewer or discovered-attack lesson, which is
+  why Chess Vibes covers them.
+- **Removed:** every Chessfactor video, ChessKid's fork, pin and skewer, ChessNetwork's Lucena video,
+  BlitzStream's rook endgame tips and John Bartholomew's and Daniel Naroditsky's playlists.
+- **Not checked by watching:** each video was checked from its title, description and chapter list,
+  length, channel and view counts, not watched end to end. GothamChess videos are long (up to an hour for the
+  Chess Steps), and the tone is casual; a coach should skim any they plan to put on a projector.

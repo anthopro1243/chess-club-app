@@ -26,7 +26,7 @@ test('a priority with no tactic uses the category video and the mixed puzzles li
     reviews: REVIEWS,
     rating: 1500,
   });
-  assert.equal(plan.watch.channel, 'BlitzStream');
+  assert.equal(plan.watch.short, 'Endgames like Magnus Carlsen');
   assert.equal(plan.practise.url, LICHESS_MIXED.url);
 });
 
