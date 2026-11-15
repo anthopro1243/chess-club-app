@@ -32,7 +32,7 @@ test('a priority with no tactic uses the category video and the mixed puzzles li
 
 test('a category with no video of its own falls back to the general one for the band', () => {
   const plan = buildStudyPlan({
-    priority: { category: 'timeManagement', label: 'Time management', advice: 'x', trainingTheme: null },
+    priority: { category: 'aCategoryWithNoSlot', label: 'Something new', advice: 'x', trainingTheme: null },
     reviews: REVIEWS,
     rating: 1200,
   });

@@ -1,8 +1,11 @@
 import ExternalLink from '../../ui/ExternalLink.jsx';
 import { lichessForTheme, videoForTheme } from '../../data/resources.js';
 
-/** A video's title without YouTube's "| series | presenter | channel" tail. */
-export const shortTitle = (video) => String(video?.title ?? '').split(' | ')[0];
+/** A video's short name; older entries without one lose YouTube's "| series | presenter" tail. */
+export const shortTitle = (video) => video?.short || String(video?.title ?? '').split(' | ')[0];
+
+/** "Channel · 7 min", the muted line under a video's name. */
+export const videoMeta = (video) => [video?.channel, video?.minutes ? `${video.minutes} min` : null].filter(Boolean).join(' · ');
 
 /** The link to a video: "Title (Channel) on YouTube", opening in a new tab. */
 export function VideoLink({ video }) {

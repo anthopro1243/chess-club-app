@@ -160,6 +160,17 @@ later pass: real actions use `.btn`, destructive ones `.btn-danger`, and
 `.link-button` is left only on inline text links. A hash that names no page now
 shows a not-found page instead of the home page.
 
+The weekly plan and the theme list were finished last, to the same standard
+(before and after in `docs/screenshots/ui/before-final-*` and `after-final-*`):
+the plan is the thing to work on in large type, then one card each for Watch,
+Practise and Review (icon, short title, channel and minutes, a button-style link),
+with exactly one primary button (Review when something is due, otherwise Watch)
+and Play as a quiet line. Links are no longer the browser's default blue: a
+global `a` rule gives every plain link the accent colour. "Practise a theme" is
+grouped chips (Tactics, Checkmates, Phases of the game). The Club page shows
+skill scores as whole numbers, and the analysis progress note says it carries
+on while the app is open in a tab.
+
 Left as it was: the board, and the long forms inside dialogs, which only took
 the new buttons. The signed-in screens could only be checked as isolated
 components (no sign-in on a shared database), so they want a look by a person

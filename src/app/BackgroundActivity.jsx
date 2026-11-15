@@ -49,6 +49,7 @@ export default function BackgroundActivity() {
       key: 'backlog',
       text: `Analysing your recent games: ${backlog.done} of ${backlog.total}`,
       title: 'Your plan updates as each game is done, newest games first.',
+      note: 'This carries on while the app is open in a tab.',
     });
   }
   if (sync !== hiddenSync) {
@@ -72,7 +73,10 @@ export default function BackgroundActivity() {
       {lines.map((line) => (
         <div key={line.key} className="background-activity-line" title={line.title}>
           {line.busy && <span className="activity-dot" aria-hidden="true" />}
-          <span>{line.text}</span>
+          <span>
+            {line.text}
+            {line.note && <span className="background-activity-note">{line.note}</span>}
+          </span>
           {line.dismiss && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={line.dismiss} aria-label="Dismiss">
               ×

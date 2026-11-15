@@ -80,6 +80,26 @@ const PATHS = {
       <path d="m10 9 5 3-5 3V9Z" />
     </>
   ),
+  play: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m10 8.5 5 3.5-5 3.5v-7Z" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1" />
+    </>
+  ),
+  refresh: <path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4" />,
+  check: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.5 3 3 5-6" />
+    </>
+  ),
   file: <path d="M7 3h7l5 5v13H7V3ZM14 3v5h5M10 13h6M10 17h6" />,
   archive: (
     <>

@@ -293,7 +293,7 @@ export default function ClubPage() {
                     />
                   </span>
                   <span className="rubric-score mono">
-                    {score == null ? '—' : score.toFixed(1)}
+                    {score == null ? '—' : Math.round(score)}
                   </span>
                 </div>
               );
@@ -319,7 +319,7 @@ export default function ClubPage() {
                   <li key={area.category}>
                     <span className="priority-rank">{index + 1}</span>
                     <span className="priority-label">{area.label}</span>
-                    <span className="mono">{area.rubricAverage.toFixed(1)} / 10</span>
+                    <span className="mono">{Math.round(area.rubricAverage)} / 10</span>
                   </li>
                 ))}
               </ol>

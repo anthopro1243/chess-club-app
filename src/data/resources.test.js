@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BANDS, CATEGORY_VIDEOS, GENERAL_VIDEOS, THEME_VIDEOS, LICHESS_THEMES, MENU_THEMES,
+  BANDS, CATEGORY_VIDEOS, GENERAL_VIDEOS, THEME_VIDEOS, THEME_GROUPS, LICHESS_THEMES, MENU_THEMES,
   allLinks, bandForRating, generalVideo, lichessForTheme, videoForCategory,
 } from './resources.js';
 import { CATEGORY_KEYS } from '../analysis/scoring.js';
@@ -17,6 +17,20 @@ test('every video has a title, a channel and a YouTube address', () => {
     assert.ok(isYouTube(v.url), `YouTube address: ${v.url}`);
     if (v.minutes != null) assert.ok(v.minutes > 0);
   }
+});
+
+test('every video has a short name, shorter than its full title', () => {
+  for (const v of allLinks().videos) {
+    assert.ok(typeof v.short === 'string' && v.short.trim(), `short name: ${v.url}`);
+    assert.ok(v.short.length <= 50, `short enough: ${v.short}`);
+    assert.ok(!v.short.includes('|'), `no "|" in: ${v.short}`);
+  }
+});
+
+test('the theme chips cover every menu theme exactly once', () => {
+  const grouped = THEME_GROUPS.flatMap((g) => g.themes);
+  assert.deepEqual([...grouped].sort(), [...MENU_THEMES].sort());
+  assert.equal(new Set(grouped).size, grouped.length);
 });
 
 test('no address is used twice for different slots with different titles', () => {

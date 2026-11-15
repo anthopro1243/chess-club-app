@@ -296,7 +296,12 @@ Lichess themed-puzzle URLs. `src/analysis/studyPlan.js` turns a player's one
 priority (`playerHome.js`) into the five-row plan, `StudyPlan.jsx` draws it
 on the player's home and on Training, and `ui/ExternalLink.jsx` opens every
 outside link in a new tab with `rel="noopener noreferrer"` and says so to
-screen readers. An empty video slot falls back to the next one (category at
+screen readers. Each video has an optional `short` name that the UI shows instead of the full
+YouTube title, and `THEME_GROUPS` sets the headings the Training page's theme
+chips sit under. `node scripts/check-links.mjs` re-checks every outside link
+(it needs internet, so it is not part of `npm test`). Plain links get the
+accent colour from a global `a` rule in `02-base.css`; buttons and cards set
+their own. An empty video slot falls back to the next one (category at
 any rating, then the band's fundamentals video), so nothing renders broken.
 Games already saved with `mode: 'computer'` (from the removed Play page) still
 show in the archive and review as "vs Computer". An old `#/play` link lands on

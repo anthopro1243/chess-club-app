@@ -23,7 +23,7 @@
  * Every link here was fetched and confirmed on the date in `VERIFIED_ON`.
  */
 
-export const VERIFIED_ON = '2026-11-14';
+export const VERIFIED_ON = '2026-11-15';
 
 /*
  * Lichess themed puzzles: https://lichess.org/training/<theme>. The keys are
@@ -65,7 +65,12 @@ export const LICHESS_MIXED = Object.freeze({ label: 'Mixed puzzles', url: 'https
 /** One general Chess.com link (themed Chess.com puzzles are limited on free accounts). */
 export const CHESSCOM_PUZZLES = Object.freeze({ label: 'Chess.com puzzles', url: 'https://www.chess.com/puzzles' });
 
-const video = (title, channel, url, minutes) => ({ title, channel, url, ...(minutes ? { minutes } : {}) });
+/*
+ * `title` and `channel` are exactly what YouTube's oEmbed returned. `short`
+ * is the short name the app shows in place of the long title; `minutes` is
+ * the running time, rounded, when known (playlists have none).
+ */
+const video = (title, short, channel, url, minutes) => ({ title, short, channel, url, ...(minutes ? { minutes } : {}) });
 const yt = (id) => `https://www.youtube.com/watch?v=${id}`;
 const playlist = (id) => `https://www.youtube.com/playlist?list=${id}`;
 
@@ -78,14 +83,11 @@ export function bandForRating(rating) {
   return r < 1400 ? '1000-1400' : '1400+';
 }
 
-/*
- * The general fundamentals video for each band: the fallback for everything.
- * Titles and channels are exactly what YouTube's oEmbed returned.
- */
+/* The general fundamentals video for each band: the fallback for everything. */
 export const GENERAL_VIDEOS = Object.freeze({
-  under1000: video('Chess Fundamentals', 'John Bartholomew', playlist('PLl9uuRYQ-6MBwqkmwT42l1fI7Z0bYuwwO')),
-  '1000-1400': video('Climbing the Rating Ladder', 'John Bartholomew', playlist('PLl9uuRYQ-6MCBnhtCk_bTZsD8GxeWP6BV')),
-  '1400+': video('SpeedRun', 'Daniel Naroditsky', playlist('PLT1F2nOxLHOcmi_qi1BbY6axf5xLFEcit')),
+  under1000: video('Chess Fundamentals', 'Chess fundamentals', 'John Bartholomew', playlist('PLl9uuRYQ-6MBwqkmwT42l1fI7Z0bYuwwO')),
+  '1000-1400': video('Climbing the Rating Ladder', 'Climbing the rating ladder', 'John Bartholomew', playlist('PLl9uuRYQ-6MCBnhtCk_bTZsD8GxeWP6BV')),
+  '1400+': video('SpeedRun', 'SpeedRun (Naroditsky)', 'Daniel Naroditsky', playlist('PLT1F2nOxLHOcmi_qi1BbY6axf5xLFEcit')),
 });
 
 /*
@@ -95,40 +97,43 @@ export const GENERAL_VIDEOS = Object.freeze({
  */
 export const CATEGORY_VIDEOS = Object.freeze({
   openingKnowledge: {
-    under1000: video('Must-Know Opening Principles - Central Control | Chess Basics | Beginner Level | IM Alex Astaneh', 'Chessfactor', yt('gpsZAim-mYc')),
-    default: video('The Golden Opening and Endgame Rules | Chess Principles | Improver Level | IM Andrey Ostrovskiy', 'Chessfactor', yt('9ptbztQBxRA')),
+    under1000: video('Must-Know Opening Principles - Central Control | Chess Basics | Beginner Level | IM Alex Astaneh', 'Opening principles: central control', 'Chessfactor', yt('gpsZAim-mYc'), 22),
+    default: video('The Golden Opening and Endgame Rules | Chess Principles | Improver Level | IM Andrey Ostrovskiy', 'The golden opening and endgame rules', 'Chessfactor', yt('9ptbztQBxRA'), 25),
   },
   tacticalVision: {
-    default: video('Most common Chess Tactics every Player needs to know | Attack & Defense | IM Andrey Ostrovskiy', 'Chessfactor', yt('IKDkxv6PWf8')),
+    default: video('Most common Chess Tactics every Player needs to know | Attack & Defense | IM Andrey Ostrovskiy', 'The most common tactics', 'Chessfactor', yt('IKDkxv6PWf8'), 22),
   },
   positionalUnderstanding: {
-    '1400+': video('Understanding Pawn Levers - Strategic Planning | Chess Middlegame |Advanced Level |GM Alex Lenderman', 'Chessfactor', yt('oEO6LhFx0p8')),
-    default: video('Everything you need to know about Piece Mobilization | Beginner Level | IM Andrey Ostrovskiy', 'Chessfactor', yt('XPpwG8gGqco')),
+    '1400+': video('Understanding Pawn Levers - Strategic Planning | Chess Middlegame |Advanced Level |GM Alex Lenderman', 'Pawn levers and planning', 'Chessfactor', yt('oEO6LhFx0p8'), 24),
+    default: video('Everything you need to know about Piece Mobilization | Beginner Level | IM Andrey Ostrovskiy', 'Getting your pieces into play', 'Chessfactor', yt('XPpwG8gGqco'), 21),
   },
   endgameTechnique: {
-    under1000: video('Important Endgame Principles and Techniques for Beginners | Beginner Level | IM Alex Astaneh', 'Chessfactor', yt('PzmTEz2hlak')),
-    '1000-1400': video('Learn the Lucena Position (The Shield) - Beginner to Chess Master #19', 'ChessNetwork', yt('V1QXsV9SKlk')),
-    '1400+': video('My 10 tips to quickly improve your rook endgames', 'BlitzStream', yt('813QD5vW5-4')),
+    under1000: video('Important Endgame Principles and Techniques for Beginners | Beginner Level | IM Alex Astaneh', 'Endgame principles for beginners', 'Chessfactor', yt('PzmTEz2hlak'), 16),
+    '1000-1400': video('Learn the Lucena Position (The Shield) - Beginner to Chess Master #19', 'The Lucena position', 'ChessNetwork', yt('V1QXsV9SKlk')),
+    '1400+': video('My 10 tips to quickly improve your rook endgames', '10 tips for rook endgames', 'BlitzStream', yt('813QD5vW5-4')),
   },
-  // Not found yet: a good, school-suitable video on managing the clock. Falls back to the band's general video.
-  timeManagement: { default: null },
+  timeManagement: {
+    default: video('How To Manage Time In Your Chess Games (197)', 'Managing your time in a game', 'NM Robert Ramirez', yt('grF4uU7gRbY'), 8),
+  },
   boardVision: {
-    default: video('Useful Tips to avoid Blunders | How to Blunder Less | Beginner Level | IM Kostya Kavutskiy', 'Chessfactor', yt('AYy2A6HIcU0')),
+    default: video('Useful Tips to avoid Blunders | How to Blunder Less | Beginner Level | IM Kostya Kavutskiy', 'How to blunder less', 'Chessfactor', yt('AYy2A6HIcU0'), 18),
   },
-  // Not found yet: nothing suitable for a school club on handling losses and tilt.
-  psychologicalResilience: { default: null },
-  // Not found yet: a good short video on keeping a scoresheet.
-  notation: { default: null },
+  psychologicalResilience: {
+    default: video('How I Deal with Losing in Chess', 'How to deal with losing', 'GM Noel Studer', yt('JgQFSgzAyIE'), 12),
+  },
+  notation: {
+    default: video('How to Write Chess Moves - Notate a Game', 'How to write chess moves', 'Chess House', yt('itftX-QZ5Ms'), 15),
+  },
 });
 
 /** One video per tactic (Lichess theme names). */
 export const THEME_VIDEOS = Object.freeze({
-  fork: video('Incredible Fork Tactics for Beginners in Chess | Chess Tactics | IM Alex Astaneh', 'Chessfactor', yt('mbiR0tcdqBY')),
-  pin: video('The Power of the Pin - Beginner to Chess Master #14', 'ChessNetwork', yt('851pCMJv2Sg')),
-  skewer: video('The absolute and relative Skewer | Chess Tactics | IM Alex Astaneh', 'Chessfactor', yt('ZexQ1kow1MM')),
-  discoveredAttack: video('Creating multiple Threats with the Discovered Attack | Chess Tactics | IM Alex Astaneh', 'Chessfactor', yt('nMADfn1scbI')),
-  backRankMate: video('Incredible Back Rank Combinations | Chess Tactics | Improver Level | IM Kostya Kavutskiy', 'Chessfactor', yt('spMQR31h0-0')),
-  hangingPiece: video('How to visualize and exploit Poorly Protected Pieces | Beginner Level | IM Kostya Kavutskiy', 'Chessfactor', yt('hKZTX8ccOyc')),
+  fork: video('The Fork | Chess Tactics | ChessKid', 'The fork', 'ChessKid', yt('mgAbXPBeVEI'), 7),
+  pin: video('The Pin | Chess Tactics | ChessKid', 'The pin', 'ChessKid', yt('sjpKC9SMvKs'), 7),
+  skewer: video('The Skewer | Chess Tactics | ChessKid', 'The skewer', 'ChessKid', yt('2KlDixnZMhM'), 5),
+  discoveredAttack: video('Creating multiple Threats with the Discovered Attack | Chess Tactics | IM Alex Astaneh', 'The discovered attack', 'Chessfactor', yt('nMADfn1scbI'), 21),
+  backRankMate: video('Incredible Back Rank Combinations | Chess Tactics | Improver Level | IM Kostya Kavutskiy', 'Back-rank combinations', 'Chessfactor', yt('spMQR31h0-0'), 9),
+  hangingPiece: video('How to visualize and exploit Poorly Protected Pieces | Beginner Level | IM Kostya Kavutskiy', 'Spotting poorly protected pieces', 'Chessfactor', yt('hKZTX8ccOyc'), 19),
 });
 
 /** The video for a tactic, or null when there is none. */
@@ -156,6 +161,13 @@ export function lichessForTheme(theme) {
 
 /** The themes listed under "Practise a theme", in menu order. */
 export const MENU_THEMES = Object.freeze(Object.keys(LICHESS_THEMES));
+
+/** The headings the theme chips sit under on the Training page; every menu theme is in exactly one. */
+export const THEME_GROUPS = Object.freeze([
+  { title: 'Tactics', themes: ['fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'deflection', 'attraction', 'hangingPiece', 'trappedPiece', 'capturingDefender', 'quietMove', 'sacrifice'] },
+  { title: 'Checkmates', themes: ['mateIn1', 'mateIn2', 'mateIn3', 'backRankMate', 'smotheredMate'] },
+  { title: 'Phases of the game', themes: ['opening', 'middlegame', 'endgame', 'pawnEndgame', 'rookEndgame'] },
+]);
 
 export const THEME_LABELS = Object.freeze(
   Object.fromEntries(Object.entries(LICHESS_THEMES).map(([key, { label }]) => [key, label])),

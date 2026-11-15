@@ -10,58 +10,109 @@
   max-width: 320px;
 }
 
-/* The weekly plan: five rows, a short label and what to do. */
+/* The weekly plan: the thing to work on, then a card each for Watch,
+   Practise and Review, then one quiet line. */
 .study-plan {
   list-style: none;
-  margin: 12px 0 0;
+  margin: var(--space-3) 0 0;
   padding: 0;
   display: grid;
-  gap: 0;
+  gap: var(--space-3);
 }
 
-.study-plan > li {
-  display: grid;
-  grid-template-columns: 9.5rem minmax(0, 1fr);
-  gap: 4px 16px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-}
-
-.study-plan > li:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.plan-step {
-  font-size: 0.78rem;
+.plan-eyebrow {
+  display: block;
+  font-size: 0.74rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding-top: 2px;
 }
 
-.plan-body {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.plan-body p {
-  margin: 0;
-}
-
-.plan-body p + p {
-  margin-top: 4px;
+.plan-focus {
+  padding-bottom: var(--space-1);
 }
 
 .plan-main {
-  font-size: 1.15rem;
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.plan-line {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+
+.plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.plan-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.plan-title {
+  margin: 1px 0 0;
   font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.plan-meta {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.plan-action {
+  flex: none;
+}
+
+.plan-quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  padding: 0 var(--space-1);
+  color: var(--text-muted);
+}
+
+.plan-quiet p {
+  margin: 0;
 }
 
 @media (max-width: 520px) {
-  .study-plan > li {
-    grid-template-columns: minmax(0, 1fr);
+  .plan-action,
+  .plan-action .btn {
+    width: 100%;
+  }
+  .plan-action .btn {
+    white-space: normal;
+    min-height: 40px;
   }
 }
 
@@ -71,24 +122,61 @@
   font-weight: 600;
 }
 
+/* As a button, the link keeps the button's own layout and colours. */
+.ext-link.btn {
+  display: inline-flex;
+}
+
+.ext-link.btn .ext-link-icon {
+  margin-left: 0;
+  vertical-align: baseline;
+}
+
 .ext-link-icon {
   display: inline-block;
   vertical-align: -2px;
   margin-left: 4px;
 }
 
-.theme-links {
+/* "Practise a theme": small chips under a few headings, wrapping freely. */
+.panel h2 + .theme-group {
+  margin-top: var(--space-3);
+}
+
+.theme-group + .theme-group {
+  margin-top: var(--space-4);
+}
+
+.theme-group h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.theme-chips {
   list-style: none;
-  margin: 12px 0;
+  margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-  gap: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.theme-chips .btn {
+  border-radius: 999px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.theme-chips .btn:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
 .theme-more {
-  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-5) 0 0;
 }
+
 
 .club-weakness-links {
   margin-top: 2px;

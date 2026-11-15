@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import EndgameTrainer from './EndgameTrainer.jsx';
 import MistakesReview from './MistakesReview.jsx';
 import StudyPlan from './StudyPlan.jsx';
-import { LichessLink } from './ResourceLinks.jsx';
 import ExternalLink from '../../ui/ExternalLink.jsx';
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import { useDuePuzzles, useReviewSummary } from './ownPuzzleStore.js';
@@ -11,7 +10,7 @@ import { useAccount } from '../account/accountStore.js';
 import { usePlayerHome } from '../club/usePlayerHome.js';
 import { parseTrainingLink, traineeIdFor } from './trainingLink.js';
 import { buildStudyPlan } from '../../analysis/studyPlan.js';
-import { LICHESS_THEMES, LICHESS_MIXED, CHESSCOM_PUZZLES, MENU_THEMES } from '../../data/resources.js';
+import { LICHESS_THEMES, LICHESS_MIXED, CHESSCOM_PUZZLES, MENU_THEMES, THEME_GROUPS } from '../../data/resources.js';
 import { useRoute } from '../../app/useRoute.js';
 
 const TRAINEE_KEY = 'cc-trainee';
@@ -184,20 +183,30 @@ export default function TrainingPage() {
       </section>
 
       <section className="panel" aria-labelledby="themes-heading">
-        <h2 id="themes-heading">Practise a theme</h2>
-        <p className="muted small">Free themed puzzles on Lichess. They open in a new tab.</p>
-        <ul className="theme-links">
-          {MENU_THEMES.map((key) => (
-            <li key={key}>
-              <LichessLink label={`${LICHESS_THEMES[key].label} puzzles`} url={LICHESS_THEMES[key].url} />
-            </li>
-          ))}
-        </ul>
-        <p className="muted small theme-more">
-          <ExternalLink href={LICHESS_MIXED.url}>Mixed puzzles on Lichess</ExternalLink>
-          {' · '}
-          <ExternalLink href={CHESSCOM_PUZZLES.url}>Puzzles on Chess.com</ExternalLink>
-        </p>
+        <h2 id="themes-heading">Practise a theme on Lichess — free, opens in a new tab</h2>
+        {THEME_GROUPS.map((group) => (
+          <div className="theme-group" key={group.title}>
+            <h3>{group.title}</h3>
+            <ul className="theme-chips">
+              {group.themes.map((key) => (
+                <li key={key}>
+                  <ExternalLink href={LICHESS_THEMES[key].url} className="btn btn-sm">
+                    {LICHESS_THEMES[key].label}
+                    <span className="sr-only"> puzzles on Lichess</span>
+                  </ExternalLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <div className="theme-more">
+          <ExternalLink href={LICHESS_MIXED.url} className="btn">
+            Mixed puzzles on Lichess
+          </ExternalLink>
+          <ExternalLink href={CHESSCOM_PUZZLES.url} className="btn">
+            Puzzles on Chess.com
+          </ExternalLink>
+        </div>
       </section>
     </div>
   );

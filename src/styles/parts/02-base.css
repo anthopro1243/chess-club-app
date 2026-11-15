@@ -48,6 +48,16 @@ h3 {
   margin-top: 20px;
 }
 
+/* Links take the accent colour; buttons and cards set their own. */
+a {
+  color: var(--accent-ink);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
 p {
   margin: 8px 0;
 }

@@ -43,3 +43,9 @@
 @media (prefers-reduced-motion: reduce) {
   .activity-dot { animation: none; }
 }
+
+.background-activity-note {
+  display: block;
+  font-size: var(--text-sm);
+  opacity: 0.8;
+}
