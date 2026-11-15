@@ -70,7 +70,8 @@ export default function GamesPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const route = useRoute();
   const openId = route.id === 'games' ? route.params.game || null : null;
-  const [logging, setLogging] = useState(false);
+  // The Club page's "Log a game" button arrives as #/games?log=1.
+  const [logging, setLogging] = useState(() => route.params.log === '1');
   const [importing, setImporting] = useState(false);
   const [entering, setEntering] = useState(false);
   const [toast, showToast] = useToast(2000);
@@ -196,17 +197,17 @@ export default function GamesPage() {
             title="No games yet"
             actions={
               <>
-                <Link to="play" className="btn btn-primary">
-                  Play a game
-                </Link>
+                <button type="button" className="btn btn-primary" onClick={() => setLogging(true)}>
+                  Log a game
+                </button>
                 <button type="button" className="btn" onClick={() => setImporting(true)}>
                   Import PGN
                 </button>
               </>
             }
           >
-            Games finished on the Play page show up here. You can also log a result, import PGN, or type
-            in a paper scoresheet.
+            Games from linked Chess.com and Lichess accounts show up here by themselves. Games played over
+            the board come in when you log a result, type in a paper scoresheet, or import a PGN.
           </EmptyState>
         ) : filtered.length === 0 ? (
           <EmptyState

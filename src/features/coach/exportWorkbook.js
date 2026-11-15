@@ -15,6 +15,7 @@
 
 import { RUBRIC_CATEGORIES } from '../roster/roster.js';
 import { GAME_MODE_LABEL } from '../games/gamesStore.js';
+import { mistakesSolvedCount } from '../roster/playerRows.js';
 
 const date = (iso) => (iso ? String(iso).slice(0, 10) : '');
 const round = (n) => (typeof n === 'number' ? Math.round(n) : '');
@@ -31,7 +32,7 @@ function playerMasterSheet(players, coachNotes) {
     'Rating Deviation': round(p.clubRating?.rd),
     'Rated Events': p.clubRating?.count ?? 0,
     Provisional: (p.clubRating?.count ?? 0) < 10 ? 'Yes' : 'No',
-    'Puzzles Solved': p.puzzleStats?.solvedIds?.length ?? 0,
+    'Mistakes Solved': mistakesSolvedCount(p),
     'Last Practiced': date(p.puzzleStats?.lastPlayed),
     USCF: p.ratings?.uscf ?? '',
     'Chess.com Username': p.connections?.chesscom?.username ?? '',
@@ -128,7 +129,7 @@ function clubSummarySheet(players, games) {
     { Metric: 'Players with a rated result', Value: rated.length },
     { Metric: 'Average club rating (rated players)', Value: avg(rated, (p) => p.clubRating.rating) },
     { Metric: 'Competitive track', Value: players.filter((p) => p.commitment === 'Competitive').length },
-    { Metric: 'Total puzzles solved', Value: players.reduce((s, p) => s + (p.puzzleStats?.solvedIds?.length || 0), 0) },
+    { Metric: 'Total mistakes solved', Value: players.reduce((s, p) => s + mistakesSolvedCount(p), 0) },
     { Metric: 'Games archived', Value: games.length },
     { Metric: 'Club games (person vs person)', Value: games.filter((g) => g.mode === 'human').length },
     { Metric: 'Games vs computer', Value: games.filter((g) => g.mode === 'computer').length },

@@ -39,7 +39,8 @@ test('clubWeaknesses: themes summed across active members inside the window', ()
   const r = clubWeaknesses({ analyses, games, activeIds: active, now: NOW, knownThemes: new Set(['fork']) });
   assert.deepEqual(r.topMotifs.map((m) => [m.motif, m.count, m.players]), [['fork', 4, 2], ['hangingPiece', 4, 2]]);
   assert.equal(r.topMotifs[0].drill, '#/training?theme=fork');
-  assert.equal(r.topMotifs[1].drill, null, 'no drill link for a theme the puzzle set does not have');
+  assert.equal(r.topMotifs[0].theme, 'fork');
+  assert.equal(r.topMotifs[1].drill, null, 'no drill link for a theme Lichess has no page for here');
 });
 
 test('clubWeaknesses: retired members, old games and unknown motifs do NOT count', () => {

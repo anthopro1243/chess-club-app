@@ -126,7 +126,7 @@ export default function ReportCard({ playerId, onClose }) {
           <h3>Activity (last {activity.days} days)</h3>
           <dl className="rc-list">
             <div><dt>Games</dt><dd className="mono">{activity.games}</dd></div>
-            <div><dt>Puzzles solved</dt><dd className="mono">{activity.puzzlesSolved} of {activity.puzzles}</dd></div>
+            <div><dt>Mistakes and endgames solved</dt><dd className="mono">{activity.puzzlesSolved} of {activity.puzzles}</dd></div>
             <div>
               <dt>Last active</dt>
               <dd>{activity.lastActiveAt ? formatDate(activity.lastActiveAt.slice(0, 10), { withWeekday: false }) : '—'}</dd>

@@ -7,8 +7,8 @@
  * rated, and files the games in the club archive.
  *
  * Two decisions live here rather than in the roster, for the same reason the
- * Play and Training pages decide what a Stockfish opponent or a puzzle is
- * worth: whoever produces a result owns the judgement about it, and the
+ * endgame trainer decides what a Stockfish opponent was worth:
+ * whoever produces a result owns the judgement about it, and the
  * roster only does the arithmetic.
  */
 

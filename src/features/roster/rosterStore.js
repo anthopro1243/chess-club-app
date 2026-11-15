@@ -16,8 +16,8 @@
  * as they land.
  *
  * Club ratings (see glicko2.js) live on each player row as `clubRating` —
- * updated here, not on the pages that trigger a result, so Play and
- * Training don't need to know the rating math.
+ * updated here, not on the pages that trigger a result, so they
+ * don't need to know the rating math.
  */
 
 import { useEffect, useState } from 'react';
@@ -662,9 +662,8 @@ function mergePlatformRatings(existing, platform, ratings) {
  * in a single write.
  *
  * Each game must arrive carrying the opponent rating already converted to
- * the club's scale (see externalSync.js) — the same division of labour the
- * Play and Training pages use, where the caller decides what the opponent
- * was worth and this module only does the maths.
+ * the club's scale (see externalSync.js) — the caller decides what the
+ * opponent was worth and this module only does the maths.
  *
  * Returns which games were actually new, so the caller knows what to
  * archive and what to report.

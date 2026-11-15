@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { toRowPatch, applyRealtimeChange, applyPuzzleOutcome, fromRow } from './playerRows.js';
+import { toRowPatch, applyRealtimeChange, applyPuzzleOutcome, fromRow, mistakesSolvedCount } from './playerRows.js';
 
 const row = (id, extra = {}) => ({ player_id: id, name: `Player ${id}`, ...extra });
 
@@ -47,4 +47,11 @@ test('applyPuzzleOutcome: solved adds the id once, rating moves only when rated'
   assert.equal(stats.rating.count, 1);
   assert.ok(stats.rating.rating < 1500);
   assert.deepEqual(stats.solvedIds, ['a']);
+});
+
+test('mistakesSolvedCount counts only own-game positions, not retired library puzzle ids', () => {
+  assert.equal(mistakesSolvedCount({ puzzleStats: { solvedIds: ['00abc', 'own:12', 'own:r8/8/8 w - -'] } }), 2);
+  assert.equal(mistakesSolvedCount({ puzzleStats: { solvedIds: [] } }), 0);
+  assert.equal(mistakesSolvedCount({}), 0);
+  assert.equal(mistakesSolvedCount(null), 0);
 });

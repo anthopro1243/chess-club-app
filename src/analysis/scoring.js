@@ -757,7 +757,7 @@ const CATEGORY_ADVICE = {
   },
   psychologicalResilience: {
     theme: null,
-    text: 'Once you fall behind, your play drops off a lot. Practice playing on from bad positions against the engine. Make it messy and hard for them instead of giving up.',
+    text: 'Once you fall behind, your play drops off a lot. Practice playing on from bad positions instead of giving up. Make it messy and hard for them.',
   },
   notation: {
     theme: null,

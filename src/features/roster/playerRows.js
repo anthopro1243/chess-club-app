@@ -122,13 +122,22 @@ export function applyRealtimeChange(players, payload) {
 }
 
 /**
+ * How many of the player's own mistakes they have solved in review. The
+ * puzzle stats also hold ids from the retired puzzle library; those are not
+ * counted, so the number means one thing.
+ */
+export function mistakesSolvedCount(player) {
+  return (player?.puzzleStats?.solvedIds || []).filter((id) => String(id).startsWith('own:')).length;
+}
+
+/**
  * Apply one puzzle outcome to puzzle stats in a single write. Puzzle stats
  * are `puzzle_stats` on the row:
  *   solvedIds  puzzles solved at least once
  *   attempts   rated or unrated tries that were written here
  *   lastPlayed
  *   rating     a Glicko-2 puzzle rating, kept apart from the club rating
- *              (puzzleRating.js decides when an outcome may move it)
+ *              (only the retired puzzle library ever moved it)
  *
  * `rated` is null for "don't touch the rating", or
  * { opponentRating, opponentRd, score }.

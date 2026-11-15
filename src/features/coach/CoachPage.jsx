@@ -10,6 +10,7 @@ import ClientErrorsPanel from './ClientErrorsPanel.jsx';
 import { isCloud } from '../../services/backend.js';
 import ClubWeaknessesPanel from '../analysis/ClubWeaknessesPanel.jsx';
 import ReviewQueuePanel from '../training/ReviewQueuePanel.jsx';
+import { mistakesSolvedCount } from '../roster/playerRows.js';
 import { useAnalysisQueue } from '../analysis/useAnalysisQueue.js';
 import { useAssessments } from './assessmentStore.js';
 import { useSkillScores } from '../analysis/analysisStore.js';
@@ -219,7 +220,7 @@ export default function CoachPage() {
                   <th scope="col">Rating</th>
                   <th scope="col" className="hide-narrow">Trend</th>
                   <th scope="col" className="hide-narrow">Results</th>
-                  <th scope="col" className="hide-narrow">Puzzles</th>
+                  <th scope="col" className="hide-narrow">Mistakes solved</th>
                   <th scope="col" className="hide-narrow">Last assessed</th>
                   <th scope="col" />
                 </tr>
@@ -257,7 +258,7 @@ export default function CoachPage() {
                         )}
                       </td>
                       <td className="mono hide-narrow">{p.clubRating?.count ?? 0}</td>
-                      <td className="mono hide-narrow">{p.puzzleStats?.solvedIds?.length ?? 0}</td>
+                      <td className="mono hide-narrow">{mistakesSolvedCount(p)}</td>
                       <td className="mono hide-narrow">
                         {last ? String(last.at).slice(0, 10) : '—'}
                         {last?.source === 'engine' && (

@@ -176,7 +176,7 @@ function SideReport({ row, game, staff }) {
               params={{ theme: puzzleThemeFor(summary.priority.trainingTheme) }}
               className="button primary"
             >
-              Practice {summary.priority.trainingTheme.toLowerCase()} puzzles
+              Watch and practise {summary.priority.trainingTheme.toLowerCase()}
             </Link>
           )}
         </div>

@@ -186,7 +186,7 @@ export function createEngine({ transport } = {}) {
     } finally {
       listeners.delete(collect);
       signal?.removeEventListener('abort', onAbort);
-      // Leave MultiPV at 1 or the Play page's opponent gets slower and weaker.
+      // Leave MultiPV at 1 or the engine opponent gets slower and weaker.
       send('setoption name MultiPV value 1');
     }
 

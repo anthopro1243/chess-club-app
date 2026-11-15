@@ -1,8 +1,8 @@
 /*
  * gamesStore.js — the club's game archive.
  *
- * Every finished game on the Play page lands here: who played, the result,
- * the full PGN, and whether it was a club game or one against Stockfish.
+ * Every game lands here: who played, the result, the full PGN, and whether
+ * it was a club game, an imported one, or (older ones) one against Stockfish.
  * Same pattern as rosterStore — local by default, backed by the shared
  * `games` table once Supabase is configured and someone is signed in.
  *
@@ -18,7 +18,10 @@ import { coalesce } from '../../services/coalesce.js';
 
 const store = createStore('cc-games-v1', []);
 
-/** Where a game came from. 'human' and 'computer' are played in the app; the other two are imported. */
+/**
+ * Where a game came from. 'human' (logged by hand or from a scoresheet) and 'computer' (played
+ * on the old Play page, since removed) are club-recorded; the other two are imported.
+ */
 export const GAME_MODE_LABEL = {
   human: 'Club',
   computer: 'vs Computer',
@@ -82,7 +85,7 @@ function toRow(game) {
     mode: game.mode,
     computer_elo: game.computerElo,
     pgn: game.pgn,
-    // Sent only when set, so the Play page, sync and PGN import write exactly
+    // Sent only when set, so sync, the log form and PGN import write exactly
     // the columns they always did, whether or not 0022 has been applied.
     ...(game.event ? { event: game.event } : {}),
     ...(game.round ? { round: game.round } : {}),

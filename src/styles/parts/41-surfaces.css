@@ -384,12 +384,6 @@ a.person:hover .person-name,
   color: var(--text);
 }
 
-/* Play: the board gives up width on a short screen so both clocks stay in
-   view under the page header (two clock rows and the header are ~250px). */
-.play-layout > .board-column {
-  max-width: min(620px, max(320px, calc(100dvh - 250px)));
-}
-
 /* The roster list sits beside the record: long names wrap so the table
    fits its panel without scrolling sideways. */
 .roster-list td:first-child {

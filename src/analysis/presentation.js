@@ -185,12 +185,9 @@ export function suggestedRubric(scores) {
 }
 
 /*
- * improvementPlan() names themes for humans ("Back Rank Mate"); puzzles.json
- * tags them the Lichess way ("backRankMate"). The spec says these already
- * match. They do not — and the failure is silent: an unmapped name filters the
- * Training page down to zero puzzles and the player sees an empty screen
- * instead of the drill they were just told to do. The test alongside this
- * checks every value here against the shipped puzzle data.
+ * improvementPlan() names themes for humans ("Back Rank Mate"); Lichess
+ * names them its own way ("backRankMate"), and so does src/data/resources.js.
+ * The test alongside this checks every value here has a Lichess link there.
  */
 export const PUZZLE_THEME_BY_TRAINING_THEME = Object.freeze({
   Fork: 'fork',
@@ -208,9 +205,9 @@ export const PUZZLE_THEME_BY_TRAINING_THEME = Object.freeze({
 });
 
 /**
- * The puzzle theme to pre-filter Training to, or null when the plan names
- * something the puzzle set cannot serve. Null means "send them to the
- * unfiltered page", never "send them to an empty one".
+ * The Lichess theme key for a plan theme, or null when the plan names
+ * something Lichess has no theme for. Null means "send them to mixed
+ * puzzles", never "send them to an empty page".
  */
 export function puzzleThemeFor(trainingTheme) {
   if (!trainingTheme) return null;

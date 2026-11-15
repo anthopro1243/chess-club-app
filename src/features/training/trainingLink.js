@@ -1,18 +1,18 @@
 /*
- * trainingLink.js — the Training page's deep link, #/training?theme=fork&difficulty=easy
- * (or ?puzzles=id1,id2, or ?mode=mistakes for the player's own positions to
- * review). The improvement plan on a player's home page links straight to the
- * drill it recommends this way.
+ * trainingLink.js — the Training page's deep link: #/training?theme=fork
+ * focuses the plan on that tactic's video and Lichess link, and
+ * ?mode=mistakes / ?mode=endgames open those sections. The player's home
+ * page and the Coach page link here.
  *
- * Anything not in the library is dropped rather than trusted: a stale or
- * hand-edited link should land on a working page, not on an empty pool.
+ * Anything unknown is dropped rather than trusted: a stale or hand-edited
+ * link (the old ?puzzles=… and ?difficulty=… ones included) should land on a
+ * working page. The theme list is the Lichess themes in src/data/resources.js.
  */
 
-export const DIFFICULTY_KEYS = new Set(['beginner', 'easy', 'intermediate', 'hard', 'expert']);
 export const MODE_KEYS = new Set(['mistakes', 'endgames']);
 
-export function parseTrainingLink(hash, { themes = [], puzzleIds = [] } = {}) {
-  const out = { theme: '', difficulty: '', puzzleIds: [], mode: '' };
+export function parseTrainingLink(hash, { themes = [] } = {}) {
+  const out = { theme: '', mode: '' };
   const query = String(hash || '').split('?')[1];
   if (!query) return out;
   const params = new URLSearchParams(query);
@@ -20,15 +20,8 @@ export function parseTrainingLink(hash, { themes = [], puzzleIds = [] } = {}) {
   const theme = params.get('theme');
   if (theme && themes.includes(theme)) out.theme = theme;
 
-  const difficulty = params.get('difficulty');
-  if (difficulty && DIFFICULTY_KEYS.has(difficulty)) out.difficulty = difficulty;
-
   const mode = params.get('mode');
   if (mode && MODE_KEYS.has(mode)) out.mode = mode;
-
-  const known = new Set(puzzleIds);
-  const wanted = (params.get('puzzles') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  out.puzzleIds = [...new Set(wanted.filter((pid) => known.has(pid)))];
   return out;
 }
 

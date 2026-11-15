@@ -15,8 +15,7 @@
 
 export const ROUTES = [
   { id: 'home', label: 'Club', title: 'Club', icon: 'home', group: 'club', summary: 'The leaderboard and how the club is doing.' },
-  { id: 'play', label: 'Play', title: 'Play', icon: 'play', group: 'play', summary: 'A game against a clubmate or the computer.' },
-  { id: 'training', label: 'Training', title: 'Training', icon: 'training', group: 'play', summary: 'Puzzles picked for what you need to work on.' },
+  { id: 'training', label: 'Training', title: 'Training', icon: 'training', group: 'improve', summary: 'Your weekly plan: a video, themed puzzles and your own mistakes.' },
   { id: 'games', label: 'Games', title: 'Games', icon: 'games', group: 'records', summary: 'Every game the club has played, newest first.' },
   { id: 'my-games', label: 'My games', title: 'My games', icon: 'my-games', group: 'records', summary: 'Your own games, with the analysis for each.' },
   { id: 'roster', label: 'Roster', title: 'Roster', icon: 'roster', group: 'club', summary: 'Everyone in the club and their record.' },
@@ -29,13 +28,13 @@ export const ROUTES = [
  */
 export const NAV_GROUPS = [
   { id: 'club', label: 'Club' },
-  { id: 'play', label: 'Play and train' },
+  { id: 'improve', label: 'Improve' },
   { id: 'records', label: 'Game records' },
   { id: 'coach', label: 'Coaching' },
 ];
 
-/** The phone's bottom bar: the pages people use most. The rest sit under "More". */
-const TAB_IDS = ['home', 'play', 'training', 'games'];
+/** The phone's bottom bar: the pages people use most. The rest (Roster, Coach) sit under "More". */
+const TAB_IDS = ['home', 'training', 'my-games', 'games'];
 
 export const SITE_NAME = 'Chess Club';
 
@@ -66,7 +65,7 @@ export function tabRoutes(account = {}) {
 
 /**
  * What counts as "a different view" for focus and scroll: the page, plus the
- * one game a Games link opens. Other parameters (a puzzle theme, a selected
+ * one game a Games link opens. Other parameters (a training theme, a selected
  * player) change what a page shows without leaving it.
  */
 export function viewKey({ id, params = {} } = {}) {

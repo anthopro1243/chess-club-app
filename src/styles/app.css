@@ -27,7 +27,6 @@
 @import './parts/08-panels.css';
 @import './parts/09-tooltip.css';
 @import './parts/10-board.css';
-@import './parts/11-player-bars.css';
 @import './parts/12-side-panel.css';
 @import './parts/13-promotion.css';
 @import './parts/14-dashboard.css';
@@ -37,7 +36,7 @@
 @import './parts/18-games.css';
 @import './parts/19-coach.css';
 @import './parts/20-forms.css';
-@import './parts/21-play-opponent.css';
+@import './parts/21-games-filters.css';
 @import './parts/22-roster-forms.css';
 @import './parts/23-trainee-select.css';
 @import './parts/24-responsive.css';

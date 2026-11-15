@@ -1,18 +1,5 @@
 /* ---------- board ------------------------------------------------------- */
 
-.play-layout,
-.training-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 22px;
-  align-items: start;
-}
-
-.board-column {
-  min-width: 0;
-  max-width: 620px;
-}
-
 .board-wrapper {
   position: relative;
   width: 100%;

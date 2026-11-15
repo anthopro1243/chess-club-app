@@ -48,8 +48,7 @@ feature's store (Training reads the roster), but nothing under `analysis/`,
 | Folder | What lives there |
 |---|---|
 | `club/` | `ClubPage` (leaderboard, club averages, weakest areas) and `PlayerHome` (a member's own home) |
-| `play/` | `PlayPage`, the engine opponent hook, clocks, time controls, `PlayerBar`, pure game helpers |
-| `training/` | `TrainingPage`, 402 Lichess puzzles, the puzzle rating, puzzle targeting, endgame drills, the review queue |
+| `training/` | `TrainingPage` (the weekly plan, "Your mistakes", endgames, theme links), `StudyPlan`, `MistakesReview`, endgame drills, the review queue store |
 | `games/` | The archive (`GamesPage`, `MyGamesPage`), logging a board game, PGN and scoresheet import, position editor |
 | `analysis/` | The analysis queue and runner, game review, report card, club weaknesses |
 | `roster/` | `RosterPage` (+ `RosterList`, `PlayerEditForm`, `PlayerDetails`), the roster store, imports, graduation archive |
@@ -60,7 +59,7 @@ feature's store (Training reads the roster), but nothing under `analysis/`,
 
 ## Routing
 
-`src/app/routes.js` holds `ROUTES` (`home`, `play`, `training`, `games`,
+`src/app/routes.js` holds `ROUTES` (`home`, `training`, `games`,
 `my-games`, `roster`, `coach`), page titles, who can open what, and
 `href(to, params)` for building links like `#/training?theme=fork`.
 `useRoute()` in `src/app/useRoute.js` reads the hash through
@@ -87,10 +86,10 @@ opens the roster with that player selected. Link to a player with
 ## Shell and page chrome
 
 `App.jsx` draws the shell. Above 940px that is a sidebar: the brand, a search
-button, the menu in groups (`navGroups()` in `routes.js`: Club, Play and
-train, Game records, Coaching), then the theme switch and the account. At
+button, the menu in groups (`navGroups()` in `routes.js`: Club, Improve,
+Game records, Coaching), then the theme switch and the account. At
 940px and below it is a top bar and a bottom tab bar (`tabRoutes()` in
-`routes.js`: four tabs and a "More" sheet, which is a `Modal`). Each route in
+`routes.js`: Club, Training, My games, Games and a "More" sheet, which is a `Modal`). Each route in
 `ROUTES` has an `icon`, a `group` and a one-line `summary`.
 
 Every page gets a visible header from `ui/PageHeader.jsx`: the `<h1>` (which
@@ -158,18 +157,19 @@ reports errors needs both calls.
 
 ### Where ratings happen
 
-Two separate ratings, both Glicko-2:
+One rating, Glicko-2:
 
 - **Club rating** (`player.rating`): games only. `recordGameResult` updates
   both players at once through the `record_club_game_ratings` RPC
   (migration 0026); `recordRatingResult` handles one side (a game against
   Stockfish, with `COMPUTER_OPPONENT_RD = 40`); `recordExternalResults`
   takes a batch of online games, with double-count protection.
-- **Puzzle rating** (`player.puzzleStats.rating`): puzzles only, via
-  `recordPuzzleResult`. Only the first outcome of a visit counts, solved
-  puzzles never re-rate, and positions from the player's own games are never
-  rated (`training/puzzleRating.js`). Puzzle targeting uses it once a player
-  has five results.
+
+The old puzzle rating (`player.puzzleStats.rating`) is no longer updated: it
+only ever moved on the retired puzzle library. The column and the stored
+values stay as they were. `puzzleStats.solvedIds` now gains `own:<id>`
+entries as a player solves their own mistakes, and the Coach and Club tables
+show that count as "Mistakes solved" (`mistakesSolvedCount`).
 
 Pages never compute a rating; they decide what an opponent was worth and hand
 that over.
@@ -238,3 +238,17 @@ Live at https://chess-club-app-seven.vercel.app
   is a display convention, not prose, and should be left alone.
 - **On Windows, Node may not be on PATH** in some shells. See
   `docs/WINDOWS_SETUP.md`.
+
+## Diagnose, then link out
+
+`src/data/resources.js` is the one place that names outside resources: one
+YouTube video per coaching category (by rating band) and per tactic, and the
+Lichess themed-puzzle URLs. `src/analysis/studyPlan.js` turns a player's one
+priority (`playerHome.js`) into the five-row plan, `StudyPlan.jsx` draws it
+on the player's home and on Training, and `ui/ExternalLink.jsx` opens every
+outside link in a new tab with `rel="noopener noreferrer"` and says so to
+screen readers. An empty video slot falls back to the next one (category at
+any rating, then the band's fundamentals video), so nothing renders broken.
+Games already saved with `mode: 'computer'` (from the removed Play page) still
+show in the archive and review as "vs Computer". An old `#/play` link lands on
+the not-found page.

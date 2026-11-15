@@ -64,7 +64,7 @@ test('navGroups: every visible page once, and no Coaching group for a member', (
 
 test('tabRoutes: four tabs, the rest under More, nothing lost or repeated', () => {
   const { tabs, more } = tabRoutes({ isCoach: true });
-  assert.deepEqual(tabs.map((r) => r.id), ['home', 'play', 'training', 'games']);
+  assert.deepEqual(tabs.map((r) => r.id), ['home', 'training', 'my-games', 'games']);
   assert.equal(tabs.length + more.length, ROUTES.length);
   assert.ok(!tabRoutes({ isCoach: false }).more.some((r) => r.id === 'coach'));
 });

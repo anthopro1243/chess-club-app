@@ -174,20 +174,11 @@ test('suggestions never carry a coach score with them', () => {
 
 /* ── the loop: plan -> Training filter ───────────────────────────────────── */
 
-test('every training theme maps onto a theme the shipped puzzles actually use', async () => {
-  // Checked against the real data rather than a hand-written list, so this
-  // fails if the puzzle set is ever re-imported with different tags.
-  const { readFileSync } = await import('node:fs');
+test('every training theme maps onto a theme with a Lichess puzzle link', async () => {
   const { PUZZLE_THEME_BY_TRAINING_THEME } = await import('./presentation.js');
-  const puzzles = JSON.parse(readFileSync(new URL('../features/training/puzzles.json', import.meta.url)));
-  const available = new Set(puzzles.flatMap((p) => p.themes));
-
+  const { LICHESS_THEMES } = await import('../data/resources.js');
   for (const [label, key] of Object.entries(PUZZLE_THEME_BY_TRAINING_THEME)) {
-    assert.ok(available.has(key), `"${label}" maps to "${key}", which no puzzle carries`);
-    assert.ok(
-      puzzles.some((p) => p.themes.includes(key)),
-      `"${key}" would filter the Training page to zero puzzles`,
-    );
+    assert.ok(key in LICHESS_THEMES, `"${label}" maps to "${key}", which has no Lichess link`);
   }
 });
 

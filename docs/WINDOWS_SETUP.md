@@ -176,29 +176,22 @@ The Chess Club page loads and you can see the dashboard.
 
 ---
 
-## Step 8 — Play a game
+## Step 8 — Look at the Training page
 
-1. Click **Play** in the top nav.
-2. Click a white pawn, then click one of the highlighted squares. Or drag it.
-3. Play a few moves for both sides.
-4. Click **Copy PGN**.
+1. Click **Training** in the left menu.
+2. You should see **Your plan this week** (a video link and a Lichess puzzles
+   link), then **Your mistakes**, **Endgames** and a list of Lichess themes.
 
 ### Check 8
 
-Moves appear in the list on the right in chess notation (`e4`, `Nf3`, …), and
-**Copy PGN** puts the game on your clipboard — paste it into Notepad to see it.
+The page loads with no error banner. Links to YouTube and Lichess open in a
+new tab. (The app does not host games or puzzles itself; to put a game in,
+use **Games → Log a game**, **Enter a scoresheet** or **Import PGN**.)
 
-That PGN is the exact format `coach_report.py` reads, so a game played here can
-go straight into the analyzer.
-
-**Try the computer opponent:** in the **Opponent** panel, switch to "Play vs
-computer" and pick an Elo. That's the real Stockfish engine — the first move
-it makes may take an extra second while the browser loads the engine file
-(a few MB), after which it's instant.
-
-**Try the puzzle trainer:** click **Training** in the top nav. Solve a
-puzzle's forced line move by move; picking a name under **Trainee** saves
-your results to that player's row on the Roster page.
+**Try the endgame trainer:** click **Play an endgame** and play the position
+out against the engine. That's the real Stockfish engine — the first reply
+may take an extra second while the browser loads the engine file (a few MB),
+after which it's instant.
 
 ---
 

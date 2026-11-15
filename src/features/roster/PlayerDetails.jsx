@@ -1,6 +1,7 @@
 import InfoTooltip from '../../ui/InfoTooltip.jsx';
 import { RUBRIC_CATEGORIES } from './roster.js';
 import { gradeSection } from './privacy.js';
+import { mistakesSolvedCount } from './playerRows.js';
 
 const ONLINE_RATINGS = [
   ['rapid', 'Rapid'],
@@ -9,7 +10,7 @@ const ONLINE_RATINGS = [
   ['puzzles', 'Puzzles'],
 ];
 
-/** One player's record, read-only: facts, rubric, goals, notes, puzzles, online accounts. */
+/** One player's record, read-only: facts, rubric, goals, notes, mistakes reviewed, online accounts. */
 export default function PlayerDetails({ selected, account, access, coachNotes, privateFields, suggestions }) {
   return (
     <>
@@ -116,10 +117,10 @@ export default function PlayerDetails({ selected, account, access, coachNotes, p
         </>
       )}
 
-      <h3>Puzzle training</h3>
+      <h3>Reviewing mistakes</h3>
       <p>
-        {selected.puzzleStats?.solvedIds?.length || 0} puzzle
-        {selected.puzzleStats?.solvedIds?.length === 1 ? '' : 's'} solved
+        {mistakesSolvedCount(selected)} of their own mistake
+        {mistakesSolvedCount(selected) === 1 ? '' : 's'} solved
         {selected.puzzleStats?.lastPlayed
           ? ` · last practiced ${new Date(selected.puzzleStats.lastPlayed).toLocaleDateString()}`
           : ''}

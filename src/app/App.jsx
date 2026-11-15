@@ -29,7 +29,6 @@ import { shouldAskWhoAreYou } from '../features/account/accountLinking.js';
 // Everything but the Club page loads when first opened (lazyPage.js).
 const PAGES = {
   home: ClubPage,
-  play: lazyPage(() => import('../features/play/PlayPage.jsx')),
   training: lazyPage(() => import('../features/training/TrainingPage.jsx')),
   games: lazyPage(() => import('../features/games/GamesPage.jsx')),
   'my-games': lazyPage(() => import('../features/games/MyGamesPage.jsx')),

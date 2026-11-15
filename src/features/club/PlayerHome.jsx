@@ -1,10 +1,8 @@
-import { useMemo, useState } from 'react';
-import { usePlayers } from '../roster/rosterStore.js';
-import { useAnalyses, useSkillScores } from '../analysis/analysisStore.js';
-import { useGames, GAME_MODE_LABEL } from '../games/gamesStore.js';
-import { useOwnPuzzlesFor } from '../training/ownPuzzleStore.js';
-import { buildPlayerHome } from '../../analysis/playerHome.js';
+import { useState } from 'react';
+import { GAME_MODE_LABEL } from '../games/gamesStore.js';
+import { usePlayerHome } from './usePlayerHome.js';
 import ReviewQueuePanel from '../training/ReviewQueuePanel.jsx';
+import StudyPlan from '../training/StudyPlan.jsx';
 import ConnectionsModal from '../account/ConnectionsModal.jsx';
 import { memberCategoryLines, NOT_MEASURABLE } from '../../analysis/presentation.js';
 import './player-home.css';
@@ -18,22 +16,11 @@ import './player-home.css';
  * only lays it out. It never reads a raw score, so it cannot show a
  * low-confidence one by accident.
  *
+ * The top of the page is the weekly plan (studyPlan.js): the one thing to
+ * work on, a video, a Lichess link, the mistakes to review and a long game.
  */
 export default function PlayerHome({ playerId, viewer, preview = false }) {
-  const players = usePlayers();
-  const skillRows = useSkillScores();
-  const analyses = useAnalyses();
-  const games = useGames();
-  const ownPuzzles = useOwnPuzzlesFor(playerId);
-  // Fixed for the visit: "due now" should not shift under the player while
-  // they read the page, and a fresh value every render would defeat useMemo.
-  const [now] = useState(() => Date.now());
-
-  const player = players.find((p) => p.playerId === playerId) ?? null;
-  const home = useMemo(
-    () => buildPlayerHome({ player, viewer, skillRows, analyses, games, ownPuzzles, now }),
-    [player, viewer, skillRows, analyses, games, ownPuzzles, now],
-  );
+  const home = usePlayerHome(playerId, viewer);
 
   if (!home.available) return null;
 
@@ -64,16 +51,12 @@ export default function PlayerHome({ playerId, viewer, preview = false }) {
       {home.isNewMember ? (
         <>
           <NewMember firstName={firstName} canConnect={!preview} />
+          <PlanCard plan={home.plan} />
         </>
       ) : (
         <div className="ph-grid">
-          <Priority
-            priority={home.priority}
-            analysedCount={home.analysedCount}
-            isNextStep={home.nextStep.reason === 'priority'}
-          />
+          <PlanCard plan={home.plan} />
           <Trend trend={home.trend} categories={home.categories} analysedCount={home.analysedCount} />
-          <Reviews reviews={home.reviews} />
           <ReviewQueuePanel playerId={playerId} compact />
           <RecentGames games={home.recentGames} total={home.gamesCount} />
         </div>
@@ -96,43 +79,27 @@ function NewMember({ firstName, canConnect }) {
         Welcome, {firstName}! You don&rsquo;t have any games here yet.
       </p>
       <p className="muted">
-        Link your Chess.com or Lichess account and your games come in by themselves, or play a game
-        here. Once a few are analyzed, this page shows what to work on and your mistakes to review.
+        Link your Chess.com or Lichess account and your games come in by themselves. Games played over
+        the board come in when you log them. Once a few are analyzed, this page names the one thing to
+        work on.
       </p>
-      <div className="ph-actions">
-        {canConnect && (
+      {canConnect && (
+        <div className="ph-actions">
           <button type="button" className="ph-action" onClick={() => setConnecting(true)}>
             Link Chess.com or Lichess
           </button>
-        )}
-        <a className="ph-action" href="#/training">Try some puzzles</a>
-      </div>
+        </div>
+      )}
       {connecting && <ConnectionsModal onClose={() => setConnecting(false)} />}
     </div>
   );
 }
 
-function Priority({ priority, analysedCount, isNextStep }) {
+function PlanCard({ plan }) {
   return (
-    <div className="ph-card ph-priority">
-      <h3>Work on this next</h3>
-      {priority ? (
-        <>
-          <p className="ph-priority-label">{priority.label}</p>
-          {priority.advice && <p className="muted">{priority.advice}</p>}
-          {priority.action && (
-            <a className={`ph-action ${isNextStep ? 'primary' : ''}`} href={priority.action.href}>
-              {priority.action.label}
-            </a>
-          )}
-        </>
-      ) : (
-        <p className="muted">
-          {analysedCount
-            ? 'Not enough games yet. Check back after a few more are analyzed.'
-            : 'Shows up once your games are analyzed.'}
-        </p>
-      )}
+    <div className="ph-card ph-plan">
+      <h3 id="ph-plan-heading">Your week</h3>
+      <StudyPlan plan={plan} labelledBy="ph-plan-heading" />
     </div>
   );
 }
@@ -180,29 +147,6 @@ function Trend({ trend, categories, analysedCount }) {
 }
 
 const trendClass = (n) => (n == null ? 'none' : n > 0 ? 'up' : n < 0 ? 'down' : 'steady');
-
-function Reviews({ reviews }) {
-  return (
-    <div className="ph-card ph-reviews">
-      <h3>Positions to review</h3>
-      <p className="ph-count">
-        <span className="mono">{reviews.due}</span>{' '}
-        {reviews.due === 1 ? 'position' : 'positions'} from your own games
-      </p>
-      {reviews.due > 0 ? (
-        <>
-          <a className="ph-action" href={reviews.href}>Review them</a>
-        </>
-      ) : (
-        <p className="muted small">
-          {reviews.active
-            ? `Nothing due today. ${reviews.active} more will come back later.`
-            : 'Positions you get wrong in your games show up here.'}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function RecentGames({ games, total }) {
   return (

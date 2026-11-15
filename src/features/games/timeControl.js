@@ -3,7 +3,7 @@
  *
  * Two spellings reach the archive, and they use different units:
  *
- *   - PGN TimeControl tags (Chess.com, Lichess, the Play page) are in
+ *   - PGN TimeControl tags (Chess.com, Lichess) are in
  *     SECONDS: "600", "600+5", "1/259200" for a daily game, "40/5400:1800+30"
  *     for a multi-period control.
  *   - US Chess notation, which a coach copies off a tournament flyer, is in
@@ -131,9 +131,8 @@ export function formatUsChess(tc) {
 }
 
 /*
- * The Play page writes delay into the PGN tag as "+N" (chessClock.js,
- * pgnTimeControlTag), so the scoresheet does the same: one convention per
- * archive. The US Chess spelling in the column keeps the difference.
+ * Delay goes into the PGN tag as "+N" (as the old Play page wrote it), so
+ * the scoresheet does the same: one convention per archive. The US Chess spelling in the column keeps the difference.
  */
 export function toPgnTimeControlTag(tc) {
   if (!tc) return '-';

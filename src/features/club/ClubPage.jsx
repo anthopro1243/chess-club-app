@@ -10,6 +10,7 @@ import { clubProfile, weakestCategories } from '../../analysis/skillModel.js';
 import { CATEGORY_KEYS } from '../../analysis/scoring.js';
 import { usePlatformRatings, useRatingOverrides } from '../ratings/ratingStore.js';
 import { rankForLeaderboard } from '../../analysis/ratings.js';
+import { mistakesSolvedCount } from '../roster/playerRows.js';
 import Link from '../../ui/Link.jsx';
 import Icon from '../../ui/Icon.jsx';
 import Avatar from '../../ui/Avatar.jsx';
@@ -18,9 +19,9 @@ import { PageActions, usePageMeta } from '../../ui/PageHeader.jsx';
 
 // What people come to the home page to do, as large targets.
 const QUICK_ACTIONS = [
-  { to: 'play', icon: 'play', title: 'Play a game', text: 'A clubmate or the computer.' },
-  { to: 'training', icon: 'training', title: 'Train', text: 'Puzzles for what you miss.' },
-  { to: 'games', icon: 'games', title: 'Games', text: 'Review one or log a result.' },
+  { to: 'my-games', icon: 'my-games', title: 'My games', text: 'Your games, with the analysis.' },
+  { to: 'training', icon: 'training', title: 'Train', text: 'Your plan, mistakes and puzzles.' },
+  { to: 'games', icon: 'games', title: 'Games', text: 'Review one or import a PGN.' },
   { to: 'roster', icon: 'roster', title: 'Roster', text: 'Everyone in the club.' },
 ];
 
@@ -118,6 +119,14 @@ export default function ClubPage() {
   return (
     <div className="dashboard">
 
+      {/* Over-the-board games come in only by hand, so "Log a game" is always at the top. */}
+      <PageActions>
+        <Link to="games" params={{ log: '1' }} className="btn btn-primary">
+          <Icon name="plus" size={16} />
+          Log a game
+        </Link>
+      </PageActions>
+
       {/* Local mode has no sign-in, so the coach picks whose page to look at. */}
       {canPreview && players.length > 0 && (
         <PageActions>
@@ -138,11 +147,11 @@ export default function ClubPage() {
       {hasOwnHome && <PlayerHome playerId={me.playerId} viewer={myViewer} />}
       {previewing && <PlayerHome playerId={previewId} viewer={previewViewer} preview />}
 
-      {/* A member with their own page above already has "Play a game" there. */}
+      {/* A member with their own page above already has their plan there. */}
       {!hasOwnHome && !previewing && (
         <nav className="action-grid" aria-label="Start here">
           {QUICK_ACTIONS.map((action) => (
-            <Link key={action.to} to={action.to} className="action-card">
+            <Link key={action.title} to={action.to} params={action.params} className="action-card">
               <span className="action-card-icon">
                 <Icon name={action.icon} size={22} />
               </span>
@@ -203,7 +212,7 @@ export default function ClubPage() {
                   <th scope="col">Rank</th>
                   <th scope="col">Name</th>
                   <th scope="col">Rating</th>
-                  <th scope="col" className="hide-narrow">Puzzles solved</th>
+                  <th scope="col" className="hide-narrow">Mistakes solved</th>
                   <th scope="col" className="hide-narrow">Track</th>
                 </tr>
               </thead>
@@ -225,7 +234,7 @@ export default function ClubPage() {
                         {entry.resolved.rating}
                         <span className="hint-text"> {entry.resolved.label}</span>
                       </td>
-                      <td className="mono hide-narrow">{player.puzzleStats?.solvedIds?.length || 0}</td>
+                      <td className="mono hide-narrow">{mistakesSolvedCount(player)}</td>
                       <td className="hide-narrow">
                         <span className={`track ${player.commitment.toLowerCase()}`}>
                           {player.commitment}

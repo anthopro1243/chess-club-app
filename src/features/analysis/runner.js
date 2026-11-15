@@ -2,7 +2,7 @@
  * runner.js — drives analysis in the browser.
  *
  * Its own engine instance, deliberately: createEngine() spawns a fresh Web
- * Worker, so analysis never contends with the Play page's opponent. Two engine
+ * Worker, so analysis never contends with the endgame trainer's opponent. Two engine
  * instances is fine; one engine serving two consumers is a bug factory.
  *
  * The queue is drained lazily while the app is open, so nobody watches a
